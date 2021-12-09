@@ -1,0 +1,1 @@
+void setupOta(void *pvParameters);
