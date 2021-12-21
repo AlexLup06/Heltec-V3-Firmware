@@ -1,17 +1,23 @@
-#include <Arduino.h>
+#include <mesh/loranode.h>
 
-class LoraNode
+#define MESH_FREQUENCY 869400000
+
+void LoraNode::initLora()
 {
-public:
-    int spreadfactor;
-    long frequency;
-    int8_t power;
+    SPI.begin(SCK, MISO, MOSI, SS);
 
-    LoraNode(long frequency1, int spreadfactor1)
+    LoRa.setPins(SS, RST_LoRa, DIO0);
+    if (!LoRa.begin(MESH_FREQUENCY, false))
     {
-        spreadfactor = spreadfactor1;
-        frequency = frequency1;
+        Serial.println("LoRa init failed. Check your connections.");
+        while (true)
+            ;
     }
+    // Default:
+    LoRa.setTxPower(15, RF_PACONFIG_PASELECT_RFO);
+    LoRa.setSignalBandwidth(250E3);
+    LoRa.setSpreadingFactor(8);
 
-    void send();
-};
+    // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
+    LoRa.setSyncWord(0x12);
+}

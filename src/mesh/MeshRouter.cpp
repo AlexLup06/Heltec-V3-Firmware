@@ -2,26 +2,25 @@
 #include <WiFi.h>
 #include <mesh/MeshRouter.h>
 #include <lib/LoRa.h>
-
 /**
  * Incoming Packets are Processed here
  **/
 
 void MeshRouter::initNode()
 {
-    // 255 = keine Zugewiesene ID
-    NodeID = 255;
-
     // Read MAC Adress
     esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
+
+    // 255 = keine Zugewiesene ID
+    NodeID = macAdress[5];
 
     routingTable = nullptr;
 
     // Announce Local NodeID to the Network to
-    MeshRouter::announceNodeId();
+    MeshRouter::announceNodeId(1);
 }
 
-void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[])
+void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int16_t rssi)
 {
     // Malloc pointer array, when not allocated yet
     if (routingTable == nullptr)
@@ -54,8 +53,7 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[])
     memcpy(routingTable[foundIndex]->deviceMac, deviceMac, 6);
     routingTable[foundIndex]->nodeId = nodeId;
     routingTable[foundIndex]->hop = hop;
-
-    MeshRouter::debugPrintRoutingTable();
+    routingTable[foundIndex]->rssi = rssi;
 }
 
 uint8_t MeshRouter::findNextFreeNodeId(uint8_t currentLeastKnownFreeNodeId, uint8_t deviceMac[6])
@@ -92,7 +90,54 @@ void MeshRouter::debugPrintRoutingTable()
     Serial.println("---------------------");
 }
 
-void MeshRouter::OnReceivePacket(uint8_t *rawPaket)
+/**
+ * Main Loop
+ * 
+ */
+void MeshRouter::handle()
+{
+    switch (OPERATING_MODE)
+    {
+    case OPERATING_MODE_INIT:
+        LoRa.receive();
+        OPERATING_MODE = OPERATING_MODE_RECEIVE;
+        break;
+    case OPERATING_MODE_SEND:
+        // ToDo: Process Paket Queue
+
+        break;
+    case OPERATING_MODE_RECEIVE:
+        if (receiveState == RECEIVE_STATE_PAKET_READY)
+        {
+            uint8_t *receiveBuffer = (uint8_t *)malloc(readyPaketSize);
+
+            LoRa.readBytes(receiveBuffer, 255);
+
+            int16_t rssi = LoRa.packetRssi();
+            OnReceivePacket(receiveBuffer, rssi);
+            receiveState = RECEIVE_STATE_IDLE;
+
+            LoRa.receive();
+        }
+
+        if (PAKET_QUEUE_SIZE > 0 && blockSendUntil < millis())
+        {
+            ProcessQueue();
+        }
+
+        break;
+    case OPERATING_MODE_UPDATE_IDLE:
+        break;
+    }
+}
+
+void MeshRouter::OnReceiveIR(int size)
+{
+    receiveState = RECEIVE_STATE_PAKET_READY;
+    readyPaketSize = size;
+}
+
+void MeshRouter::OnReceivePacket(uint8_t *rawPaket, int16_t rssi)
 {
     // First byte always MessageType
     uint8_t messageType = rawPaket[0];
@@ -108,12 +153,15 @@ void MeshRouter::OnReceivePacket(uint8_t *rawPaket)
         break;
     case MESSAGE_TYPE_NODE_ANNOUNCE:
         NodeIdAnnounce_t *paket = (NodeIdAnnounce_t *)rawPaket;
-        MeshRouter::OnNodeIdAnnouncePaket(paket);
+        MeshRouter::OnNodeIdAnnouncePaket(paket, rssi);
         break;
     }
+
+    // Paket Processed - Free Ram
+    free(rawPaket);
 }
 
-void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket)
+void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi)
 {
     char macHexStr[18] = {0};
     sprintf(macHexStr, "%02X:%02X:%02X:%02X:%02X:%02X", paket->deviceMac[0], paket->deviceMac[1], paket->deviceMac[2], paket->deviceMac[3], paket->deviceMac[4], paket->deviceMac[5]);
@@ -121,35 +169,62 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket)
 
     if (NodeID != paket->nodeId)
     {
-        MeshRouter::UpdateRoute(paket->nodeId, paket->lastHop, paket->deviceMac);
+        MeshRouter::UpdateRoute(paket->nodeId, paket->lastHop, paket->deviceMac, rssi);
+
+        if (paket->respond == 1)
+        {
+            // Unknown node! Delay and send own Pakage
+            delay(NodeID * 15);
+            MeshRouter::announceNodeId(0);
+        }
     }
     else
     {
         // ToDo: Route Dispute
     }
-
-    //uint8_t freeNodeID = MeshRouter::findNextFreeNodeId();
 }
 
 /**
  * Announces the current Node ID to the Network
  */
-void MeshRouter::announceNodeId()
+void MeshRouter::announceNodeId(uint8_t respond)
 {
     // Create Paket
     NodeIdAnnounce_t *paket = (NodeIdAnnounce_t *)malloc(sizeof(NodeIdAnnounce_t));
 
     paket->messageType = MESSAGE_TYPE_NODE_ANNOUNCE;
-    paket->nodeId = macAdress[5]; // Pick last byte of WiFi Mac adress as starting NodeID
+    paket->nodeId = NodeID;
+    paket->lastHop = NodeID;
+    paket->respond = respond;
     memcpy(paket->deviceMac, macAdress, 6);
 
     // Send
     MeshRouter::SendRaw((uint8_t *)paket, sizeof(NodeIdAnnounce_t));
+
+    free(paket);
 }
 
+/**
+ * Directly sends Paket with Hardware
+ * 
+ * @param rawPaket 
+ * @param size 
+ */
 void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size)
 {
     LoRa.beginPacket();
     LoRa.write((uint8_t *)rawPaket, size);
     LoRa.endPacket();
+    LoRa.receive();
+}
+
+void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size)
+{
+    PAKET_QUEUE[PAKET_QUEUE_SIZE].paketPointer = rawPaket;
+    PAKET_QUEUE[PAKET_QUEUE_SIZE].paketSize = size;
+    PAKET_QUEUE_SIZE++;
+}
+
+void MeshRouter::ProcessQueue()
+{
 }

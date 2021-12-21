@@ -215,13 +215,13 @@ int LoRaClass::parsePacket(int size)
     // put in standby mode
     idle();
   }
-  else if (readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_SINGLE))
+  else if (readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS))
   {
     // not currently in RX mode
     // reset FIFO address
     writeRegister(REG_FIFO_ADDR_PTR, 0);
     // put in single RX mode
-    writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_SINGLE);
+    writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
   }
   return packetLength;
 }
