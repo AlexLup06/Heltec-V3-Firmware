@@ -16,7 +16,7 @@ void LoraNode::initLora()
     // Default:
     LoRa.setTxPower(15, RF_PACONFIG_PASELECT_RFO);
     LoRa.setSignalBandwidth(250E3);
-    LoRa.setSpreadingFactor(8);
+    LoRa.setSpreadingFactor(10);
 
     // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
     LoRa.setSyncWord(0x12);

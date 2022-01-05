@@ -1,18 +1,6 @@
 #include "LoRa.h"
 
-// registers
-#define REG_FIFO 0x00
-#define REG_OP_MODE 0x01
-#define REG_FRF_MSB 0x06
-#define REG_FRF_MID 0x07
-#define REG_FRF_LSB 0x08
-#define REG_PA_CONFIG 0x09
-#define REG_LR_OCP 0X0b
-#define REG_LNA 0x0c
-#define REG_FIFO_ADDR_PTR 0x0d
-#define REG_FIFO_TX_BASE_ADDR 0x0e
-#define REG_FIFO_RX_BASE_ADDR 0x0f
-#define REG_FIFO_RX_CURRENT_ADDR 0x10
+
 #define REG_IRQ_FLAGS 0x12
 #define REG_RX_NB_BYTES 0x13
 #define REG_PKT_RSSI_VALUE 0x1a
@@ -215,13 +203,13 @@ int LoRaClass::parsePacket(int size)
     // put in standby mode
     idle();
   }
-  else if (readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS))
+  else if (readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_SINGLE))
   {
     // not currently in RX mode
     // reset FIFO address
     writeRegister(REG_FIFO_ADDR_PTR, 0);
     // put in single RX mode
-    writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
+    writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_SINGLE);
   }
   return packetLength;
 }
@@ -624,14 +612,11 @@ void LoRaClass::handleDio0Rise()
     _packetIndex = 0;
     // read packet length
     int packetLength = _implicitHeaderMode ? readRegister(REG_PAYLOAD_LENGTH) : readRegister(REG_RX_NB_BYTES);
-    // set FIFO address to current RX address
-    writeRegister(REG_FIFO_ADDR_PTR, readRegister(REG_FIFO_RX_CURRENT_ADDR));
+
     if (_onReceive)
     {
       _onReceive(packetLength);
     }
-    // reset FIFO address
-    writeRegister(REG_FIFO_ADDR_PTR, 0);
   }
 }
 

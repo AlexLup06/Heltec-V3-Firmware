@@ -128,6 +128,7 @@ public:
     void UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[6], int16_t rssi);
     void handle();
     void OnReceiveIR(int size);
+    void _debugDumpSRAM();
 
     uint8_t findNextFreeNodeId(uint8_t nodeId, uint8_t deviceMac[6]);
 

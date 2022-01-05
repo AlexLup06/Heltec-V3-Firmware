@@ -8,6 +8,22 @@
 #define LORA_DEFAULT_RESET_PIN 14
 #define LORA_DEFAULT_DIO0_PIN 26
 
+#define REG_FIFO_TX_BASE_ADDR 0x0e
+#define REG_FIFO_RX_BASE_ADDR 0x0f
+#define REG_FIFO_RX_CURRENT_ADDR 0x10
+#define REG_FIFO_ADDR_PTR 0x0d
+
+// registers
+#define REG_FIFO 0x00
+#define REG_OP_MODE 0x01
+#define REG_FRF_MSB 0x06
+#define REG_FRF_MID 0x07
+#define REG_FRF_LSB 0x08
+#define REG_PA_CONFIG 0x09
+#define REG_LR_OCP 0X0b
+#define REG_LNA 0x0c
+
+
 #define PA_OUTPUT_PA_BOOST_PIN 1
 #define PA_OUTPUT_RFO_PIN 0
 
@@ -92,6 +108,7 @@ public:
 
   void dumpRegisters(Stream &out);
   void writeRegister(uint8_t address, uint8_t value);
+  uint8_t readRegister(uint8_t address);
 
 private:
   void explicitHeaderMode();
@@ -99,7 +116,7 @@ private:
 
   void handleDio0Rise();
 
-  uint8_t readRegister(uint8_t address);
+
 
   uint8_t singleTransfer(uint8_t address, uint8_t value);
 

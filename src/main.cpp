@@ -3,46 +3,21 @@
 #include <lib/LoRa.h>
 #include <mesh/MeshRouter.h>
 #include <ota/devota.h>
-#include <mesh/LoraNode.h>
+#include <mesh/loranode.h>
 #include <mesh/loradisplay.h>
 
 MeshRouter meshRouter;
 LoraNode loraNode;
 LoraDisplay loraDisplay;
-
 TaskHandle_t otaTask;
 
-int received = 0;
-int sent = 0;
 bool sendNext = false;
-bool drawNext = false;
-String lastMessage = "";
-int lastRssi = 0;
-unsigned long lastSendTime = 0;
-bool autosend = false;
-
 unsigned long lastScreenDraw = 0;
 
-long recSize = 0;
-long sendSize = 0;
-void onReceive(int packetSize);
-void onTxDone();
-void LoRa_txMode();
 void sendStuff();
-void LoRa_rxMode();
-void LoRa_sendMessage(String message);
-void tx();
-void printScreen();
-void onTimer();
-void drawCentreString(const char *buf, int x, int y);
 static double_t UPDATE_STATE = -1;
 
-long startTime = 0;
-long endTime = 0;
-long lastRec = 0;
-
 hw_timer_t *timer = NULL;
-uint8_t recBuf[255];
 
 void receiveInterrupt(int size)
 {
@@ -65,7 +40,6 @@ void setup()
       0);
 
   // Setup Serial
-  lastSendTime = millis();
   Serial.begin(115200);
 
   while (!Serial)
@@ -103,10 +77,7 @@ void setup()
 void sendStuff()
 {
   //drawNext = true;
-  sendSize = 0;
-  recSize = 0;
   sendNext = true;
-  startTime = millis();
 }
 
 void checkForSendPacket()
