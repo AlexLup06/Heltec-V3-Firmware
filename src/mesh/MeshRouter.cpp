@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <WiFi.h>
 #include <mesh/MeshRouter.h>
 #include <lib/LoRa.h>
 
@@ -13,11 +12,10 @@ void MeshRouter::initNode() {
 
     // 255 = keine Zugewiesene ID
     NodeID = macAdress[5];
-
     routingTable = nullptr;
 
     // Announce Local NodeID to the Network to
-    // MeshRouter::announceNodeId(1);
+    MeshRouter::announceNodeId(1);
 }
 
 void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int16_t rssi) {
@@ -27,7 +25,9 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
         totalRoutes = 0;
     }
 
+#ifdef DEBUG_LORA_SERIAL
     Serial.println("nodeId: " + String(nodeId));
+#endif
     // Suche Node in vorhandenem RoutingTable
     uint8_t foundIndex = 255;
     for (int i = 0; i < totalRoutes; i++) {
@@ -127,31 +127,33 @@ void MeshRouter::handle() {
             break;
         case OPERATING_MODE_RECEIVE:
             if (receiveState == RECEIVE_STATE_PAKET_READY) {
+                // We need to set the Module to idle, to prevent the module from overwriting the SRAM with a new Paket and to be able to modify the Modem SRAM Pointer
+                LoRa.idle();
+
                 auto *receiveBuffer = (uint8_t *) malloc(readyPaketSize);
+                int16_t rssi = LoRa.packetRssi();
 
                 // set FIFO address to current RX address
                 LoRa.writeRegister(REG_FIFO_ADDR_PTR, LoRa.readRegister(REG_FIFO_RX_CURRENT_ADDR));
 
-                for (int i = 0; i < readyPaketSize; i++) {
-                    receiveBuffer[i] = LoRa.readRegister(REG_FIFO);
-                }
+                // We only need the Paket Type at this point
+                receiveBuffer[0] = LoRa.readRegister(REG_FIFO);
 
-                int16_t rssi = LoRa.packetRssi();
-                OnReceivePacket(receiveBuffer, rssi);
+                OnReceivePacket(receiveBuffer[0], receiveBuffer, readyPaketSize, rssi);
+
                 receiveState = RECEIVE_STATE_IDLE;
 
-                // We need to set the Module to idle, to modifying the Modem SRAM Pointer
-                LoRa.idle();
+                // Set Modem SRAM Pointer to 0x00
                 LoRa.writeRegister(REG_FIFO_RX_CURRENT_ADDR, 0);
-
                 LoRa.receive();
             }
 
-            if (PAKET_QUEUE_SIZE > 0 && blockSendUntil < millis()) {
-                ProcessQueue();
-            }
+
+            ProcessQueue();
+
 
             break;
+
         case OPERATING_MODE_UPDATE_IDLE:
             break;
     }
@@ -162,44 +164,91 @@ void MeshRouter::OnReceiveIR(int size) {
     readyPaketSize = size;
 }
 
-void MeshRouter::OnReceivePacket(uint8_t *rawPaket, int16_t rssi) {
-    // First byte always MessageType
-    uint8_t messageType = rawPaket[0];
+/**
+ * Reads the Rest of the Paket into the given receive Buffer
+ *
+ * @param receiveBuffer
+ * @param size
+ */
+void MeshRouter::readPaketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_t end) {
+    for (int i = start; i < end; i++) {
+        receiveBuffer[i] = LoRa.readRegister(REG_FIFO);
+    }
+}
 
+void MeshRouter::writePaketToSRAM(uint8_t *paket, uint8_t start, uint8_t end) {
+    LoRa.writeRegister(REG_FIFO_ADDR_PTR, start);
+    for (int i = start; i < end; i++) {
+        LoRa.writeRegister(REG_FIFO, paket[i]);
+    }
+}
+
+void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int16_t rssi) {
+#ifdef DEBUG_LORA_SERIAL
     Serial.println("MessageType: " + String(messageType));
+#endif
     switch (messageType) {
         case MESSAGE_TYPE_UNICAST_DATA_PAKET:
-            // ToDo
+            MeshRouter::OnUnicastPaket((UnicastMeshPaket_t *) rawPaket, paketSize, rssi);
             break;
-        case MESSAGE_TYPE_FLOOD_BROADCAST:
-            // ToDo
+        case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
+            readPaketFromSRAM(rawPaket, 1, paketSize);
+            MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket);
+            break;
+        case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
+            readPaketFromSRAM(rawPaket, 1, paketSize);
+            MeshRouter::OnFloodFragmentPaket((FloodBroadcastFragmentPaket_t *) rawPaket);
             break;
         case MESSAGE_TYPE_NODE_ANNOUNCE:
-            auto *paket = (NodeIdAnnounce_t *) rawPaket;
-            MeshRouter::OnNodeIdAnnouncePaket(paket, rssi);
+            readPaketFromSRAM(rawPaket, 1, paketSize);
+            MeshRouter::OnNodeIdAnnouncePaket((NodeIdAnnounce_t *) rawPaket, rssi);
             break;
     }
 
     // Paket Processed - Free Ram
-    //free(rawPaket);
+    free(rawPaket);
 }
 
 void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi) {
+#ifdef DEBUG_LORA_SERIAL
     char macHexStr[18];
     sprintf(macHexStr, "%02X:%02X:%02X:%02X:%02X:%02X", paket->deviceMac[0], paket->deviceMac[1], paket->deviceMac[2],
             paket->deviceMac[3], paket->deviceMac[4], paket->deviceMac[5]);
     Serial.println("NodeIDDiscorveryFrom: " + String(macHexStr));
-
+#endif
     if (NodeID != paket->nodeId) {
         MeshRouter::UpdateRoute(paket->nodeId, paket->lastHop, paket->deviceMac, rssi);
 
         if (paket->respond == 1) {
-            // Unknown node! Delay and send own Pakage
-            delay(NodeID * 15);
+            // Unknown node! Block Sending for a time window, to allow other Nodes to respond.
+            MeshRouter::SenderWait(NodeID * 15);
             MeshRouter::announceNodeId(0);
         }
     } else {
         // ToDo: Route Dispute
+    }
+}
+
+void MeshRouter::OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int16_t rssi) {
+    // Read lastHop, nextHop and dest from SRAM
+    readPaketFromSRAM((uint8_t *) paket, 1, 4);
+    if (paket->nextHop == NodeID) {
+        if (paket->dest == NodeID) {
+            // We are the destination, read whole paket from Lora Module
+            readPaketFromSRAM((uint8_t *) paket, 2, size);
+        } else {
+            // We are just a hop on the Route
+            // Adjust data in SRAM and resend
+            paket->nextHop = findNextHopForDestination(paket->dest);
+            paket->lastHop = NodeID;
+
+            writePaketToSRAM((uint8_t *) paket, 1, 3);
+
+            LoRa.writeRegister(REG_FIFO_ADDR_PTR, 0);
+            LoRa.writeRegister(REG_PAYLOAD_LENGTH, size);
+
+            LoRa.endPacket();
+        }
     }
 }
 
@@ -219,16 +268,15 @@ void MeshRouter::announceNodeId(uint8_t respond) {
     char macHexStr[18] = {0};
     sprintf(macHexStr, "%02X:%02X:%02X:%02X:%02X:%02X", paket->deviceMac[0], paket->deviceMac[1], paket->deviceMac[2],
             paket->deviceMac[3], paket->deviceMac[4], paket->deviceMac[5]);
+#ifdef DEBUG_LORA_SERIAL
     Serial.println("SendNodeDiscovery: " + String(macHexStr));
+#endif
 
-    // Send
-    MeshRouter::SendRaw((uint8_t *) paket, sizeof(NodeIdAnnounce_t));
-
-    free(paket);
+    QueuePaket((uint8_t *) paket, sizeof(NodeIdAnnounce_t));
 }
 
 /**
- * Directly sends Paket with Hardware
+ * Directly sends Paket with Hardware, you should never use this directly, because this will not wait for the Receive window of other Devices
  * 
  * @param rawPaket 
  * @param size 
@@ -241,11 +289,155 @@ void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size) {
     LoRa.receive();
 }
 
+/**
+ * Delays the Next paket in the Queue for a specific time
+ * @param delay
+ */
+void MeshRouter::SenderWait(unsigned long waitTime) {
+    MeshRouter::blockSendUntil = millis() + waitTime;
+}
+
 void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size) {
-    PAKET_QUEUE[PAKET_QUEUE_SIZE].paketPointer = rawPaket;
-    PAKET_QUEUE[PAKET_QUEUE_SIZE].paketSize = size;
-    PAKET_QUEUE_SIZE++;
+    QueuedPaket_t paket;
+    paket.paketPointer = rawPaket;
+    paket.paketSize = size;
+    sendQueue.add(paket);
 }
 
 void MeshRouter::ProcessQueue() {
+    if (sendQueue.size() == 0 || blockSendUntil > millis()) {
+        return;
+    }
+    QueuedPaket_t paketQueueEntry = sendQueue.shift();
+    MeshRouter::SendRaw(paketQueueEntry.paketPointer,
+                        paketQueueEntry.paketSize);
+    free(paketQueueEntry.paketPointer);
 }
+
+uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
+    if (routingTable == nullptr) {
+        return 0;
+    }
+
+    // Suche Node in vorhandenem RoutingTable
+    for (int i = 0; i < totalRoutes; i++) {
+        if (routingTable[i]->nodeId == dest) {
+            return routingTable[i]->hop;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Diese Methode wird aufgerufen, wenn ein vollständiges Serielles Paket über die USB Schnittstelle eingegangen ist.
+ * @param serialPaket
+ */
+void MeshRouter::ProcessSerialPaket(SerialPaket_t *serialPaket) {
+    // Announce Transmission with Header Paket
+    auto *headerPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
+
+    headerPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
+    headerPaket->lastHop = NodeID;
+    headerPaket->id = 0;
+    headerPaket->source = NodeID;
+    headerPaket->size = serialPaket->size;
+
+    QueuePaket((uint8_t *) headerPaket, sizeof(FloodBroadcastHeaderPaket_t));
+
+    uint8_t fragment = 0;
+
+    // Send Payload as Fragments
+    for (int i = 0; i < serialPaket->size;) {
+        auto *fragPaket = (FloodBroadcastFragmentPaket_t *) malloc(sizeof(FloodBroadcastFragmentPaket_t));
+        fragPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT;
+        fragPaket->id = headerPaket->id;
+        fragPaket->fragment = fragment++;
+
+        memcpy(&fragPaket->payload, serialPaket->payload + i, sizeof(fragPaket->payload));
+        i += sizeof(fragPaket->payload);
+
+        QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t));
+    }
+
+    // Free Serial Data and Buffer
+    free(serialPaket->payload);
+    free(serialPaket);
+}
+
+void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket) {
+    auto *receivedFragmentedPaket = (ReceivedFragmentedPaket_t *) malloc(sizeof(ReceivedFragmentedPaket_t));
+    receivedFragmentedPaket->id = paket->id;
+    receivedFragmentedPaket->size = paket->size;
+    receivedFragmentedPaket->lastHop = paket->lastHop;
+    receivedFragmentedPaket->source = paket->source;
+    receivedFragmentedPaket->lastFragment = 0;
+    receivedFragmentedPaket->received = 0;
+    receivedFragmentedPaket->corrupted = false;
+
+    *debugString = "FH: " + String(receivedFragmentedPaket->size);
+    receivedFragmentedPaket->payload = (uint8_t *) malloc(paket->size);
+    receivedPakets.add(receivedFragmentedPaket);
+}
+
+void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
+    ReceivedFragmentedPaket_t *receivedFragmentedPaket = getLocalFragmentPaketBuffer(paket->id);
+    if (receivedFragmentedPaket == nullptr) {
+        *debugString = "Fragment: NULLPTR";
+        return;
+    }
+
+    *debugString = "Fragment: " + String(paket->fragment);
+
+    // Check for lost Fragments
+    if (paket->fragment - receivedFragmentedPaket->lastFragment > 1) {
+        // We lost a Paket! Doesn't matter, fill out bytes and continue
+
+        uint8_t lostFragments = paket->fragment - receivedFragmentedPaket->lastFragment - 1;
+
+        receivedFragmentedPaket->received += (sizeof paket->payload) * lostFragments;
+
+        receivedFragmentedPaket->lastFragment += lostFragments;
+        receivedFragmentedPaket->corrupted = true;
+
+#ifdef DEBUG_LORA_SERIAL
+        Serial.println("FragLost!");
+#endif
+    }
+#ifdef DEBUG_LORA_SERIAL
+    Serial.println("OnFragment: Frag: " + String(paket->fragment) + " " + String(receivedFragmentedPaket->received) + "/" + String(receivedFragmentedPaket->size));
+#endif
+    uint16_t bytesLeft = receivedFragmentedPaket->size - receivedFragmentedPaket->received > (sizeof paket->payload)
+                        ? (sizeof paket->payload) : receivedFragmentedPaket->size - receivedFragmentedPaket->received;
+    // Copy paket data to buffer
+    memcpy(receivedFragmentedPaket->payload + receivedFragmentedPaket->received, paket->payload, bytesLeft);
+    receivedFragmentedPaket->received += bytesLeft;
+
+    if (receivedFragmentedPaket->received == receivedFragmentedPaket->size) {
+        // End of Transmission
+        OnPaketForHost(receivedFragmentedPaket);
+    }
+}
+
+ReceivedFragmentedPaket_t *MeshRouter::getLocalFragmentPaketBuffer(uint8_t transmissionid) {
+    for (int i = 0; i < receivedPakets.size(); i++) {
+        if (receivedPakets.get(i)->id == transmissionid) {
+            return receivedPakets.get(i);
+        }
+    }
+    return nullptr;
+}
+
+void MeshRouter::OnPaketForHost(ReceivedFragmentedPaket_t *paket) {
+    auto serialPaket = (SerialPaket_t *) malloc(sizeof(SerialPaket_t));
+    serialPaket->size = paket->size;
+    serialPaket->payload = paket->payload;
+
+    free(paket);
+
+    Serial.write((uint8_t *) serialPaket, 5);
+    Serial.write(serialPaket->payload, serialPaket->size);
+
+    free(serialPaket->payload);
+    free(serialPaket);
+}
+

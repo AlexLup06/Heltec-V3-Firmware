@@ -15,9 +15,15 @@
 class LoraDisplay
 {
 private:
-    void drawInfoFooter(uint8_t nodeID, double_t update);
+    void drawInfoFooter(uint8_t nodeID);
+    void drawSerialFooter();
+    void drawUpdateFooter(double_t update);
+
+    uint8_t screenIndex = 1;
 
 public:
+    String lastSerialChar;
+    void nextScreen();
     void initDisplay();
     void drawCentreString(const char *buf, int x, int y);
 

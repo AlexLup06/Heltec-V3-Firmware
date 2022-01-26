@@ -16,29 +16,24 @@ const char *password = "aberwirhabeneinpasswort";
 
 static double_t *updateState;
 
-void update_progress(int cur, int total)
-{
-    *updateState = (double_t)cur * 100.0 / (double_t)total;
+void update_progress(int cur, int total) {
+    *updateState = (double_t) cur * 100.0 / (double_t) total;
 }
 
-void setupOta(void *pvParameters)
-{
-    updateState = (double_t *)pvParameters;
+void setupOta(void *pvParameters) {
+    updateState = (double_t *) pvParameters;
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
-    while (WiFi.waitForConnectResult() != WL_CONNECTED)
-    {
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     }
 
     IPAddress updateServer(192, 168, 0, 200);
-    for (;;)
-    {
+    for (;;) {
         WiFiClient client;
 
-        if (client.connect(updateServer, 80))
-        {
+        if (client.connect(updateServer, 80)) {
 
             // Make a HTTP request:
             client.println("GET /esp32/revision.txt HTTP/1.0");
@@ -51,19 +46,14 @@ void setupOta(void *pvParameters)
 
         char buf[64];
         int bufIndex = 0;
-        while (client.available() && bufIndex < 64)
-        {
+        while (client.available() && bufIndex < 64) {
             char curChar = client.read();
-            if (curChar == '\n')
-            {
+            if (curChar == '\n') {
                 bufIndex = 0;
-                for (int i = 0; i < sizeof(buf); i++)
-                {
+                for (int i = 0; i < sizeof(buf); i++) {
                     buf[i] = 0;
                 }
-            }
-            else
-            {
+            } else {
                 buf[bufIndex++] = curChar;
             }
         }
@@ -73,9 +63,10 @@ void setupOta(void *pvParameters)
         int remoteVersion = response.toInt();
         bool isNewVersionAvailable = remoteVersion > BUILD_REVISION;
 
-        if (isNewVersionAvailable)
-        {
+        if (isNewVersionAvailable) {
+#ifdef DEBUG_LORA_SERIAL
             Serial.println("New Version Available: " + String(isNewVersionAvailable) + " current: " + String(BUILD_REVISION) + " remote: " + String(remoteVersion));
+#endif
             httpUpdate.onProgress(update_progress);
             httpUpdate.update(client, "192.168.0.200", 80, "/esp32/firmware.bin");
         }

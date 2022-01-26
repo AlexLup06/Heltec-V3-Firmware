@@ -13,6 +13,9 @@
 #define REG_FIFO_RX_CURRENT_ADDR 0x10
 #define REG_FIFO_ADDR_PTR 0x0d
 
+#define REG_PAYLOAD_LENGTH 0x22
+
+
 // registers
 #define REG_FIFO 0x00
 #define REG_OP_MODE 0x01
