@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
 #include <lib/LoRa.h>
+#include "config.h"
 
 /**
  * Incoming Packets are Processed here
@@ -18,7 +19,7 @@ void MeshRouter::initNode() {
     MeshRouter::announceNodeId(1);
 }
 
-void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int16_t rssi) {
+void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int rssi) {
     // Malloc pointer array, when not allocated yet
     if (routingTable == nullptr) {
         routingTable = (RoutingTable_t **) malloc(sizeof(RoutingTable_t *) * 255);
@@ -50,6 +51,34 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
     routingTable[foundIndex]->hop = hop;
     routingTable[foundIndex]->rssi = rssi;
 }
+
+
+void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
+    if (routingTable == nullptr) {
+        return;
+    }
+
+    for (int i = 0; i < totalRoutes; i++) {
+        if (routingTable[i]->nodeId == nodeId) {
+            routingTable[i]->rssi = rssi;
+            return;
+        }
+    }
+}
+
+void MeshRouter::UpdateHOP(uint8_t nodeId, uint8_t hop) {
+    if (routingTable == nullptr) {
+        return;
+    }
+    for (int i = 0; i < totalRoutes; i++) {
+        if (routingTable[i]->nodeId == nodeId) {
+            routingTable[i]->hop = hop;
+            return;
+        }
+    }
+
+}
+
 
 uint8_t MeshRouter::findNextFreeNodeId(uint8_t currentLeastKnownFreeNodeId, uint8_t deviceMac[6]) {
     int nextFreeNodeId = currentLeastKnownFreeNodeId;
@@ -131,7 +160,7 @@ void MeshRouter::handle() {
                 LoRa.idle();
 
                 auto *receiveBuffer = (uint8_t *) malloc(readyPaketSize);
-                int16_t rssi = LoRa.packetRssi();
+                int rssi = LoRa.packetRssi();
 
                 // set FIFO address to current RX address
                 LoRa.writeRegister(REG_FIFO_ADDR_PTR, LoRa.readRegister(REG_FIFO_RX_CURRENT_ADDR));
@@ -147,7 +176,6 @@ void MeshRouter::handle() {
                 LoRa.writeRegister(REG_FIFO_RX_CURRENT_ADDR, 0);
                 LoRa.receive();
             }
-
 
             ProcessQueue();
 
@@ -183,7 +211,7 @@ void MeshRouter::writePaketToSRAM(uint8_t *paket, uint8_t start, uint8_t end) {
     }
 }
 
-void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int16_t rssi) {
+void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi) {
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("MessageType: " + String(messageType));
 #endif
@@ -193,7 +221,7 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
             readPaketFromSRAM(rawPaket, 1, paketSize);
-            MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket);
+            MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket, rssi);
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
             readPaketFromSRAM(rawPaket, 1, paketSize);
@@ -209,7 +237,7 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
     free(rawPaket);
 }
 
-void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi) {
+void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 #ifdef DEBUG_LORA_SERIAL
     char macHexStr[18];
     sprintf(macHexStr, "%02X:%02X:%02X:%02X:%02X:%02X", paket->deviceMac[0], paket->deviceMac[1], paket->deviceMac[2],
@@ -221,7 +249,7 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi) {
 
         if (paket->respond == 1) {
             // Unknown node! Block Sending for a time window, to allow other Nodes to respond.
-            MeshRouter::SenderWait(NodeID * 15);
+            MeshRouter::SenderWait(NodeID * 10);
             MeshRouter::announceNodeId(0);
         }
     } else {
@@ -229,7 +257,7 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi) {
     }
 }
 
-void MeshRouter::OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int16_t rssi) {
+void MeshRouter::OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int rssi) {
     // Read lastHop, nextHop and dest from SRAM
     readPaketFromSRAM((uint8_t *) paket, 1, 4);
     if (paket->nextHop == NodeID) {
@@ -282,9 +310,12 @@ void MeshRouter::announceNodeId(uint8_t respond) {
  * @param size 
  */
 void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size) {
+    unsigned long time = millis();
     LoRa.beginPacket();
     LoRa.write(rawPaket, size);
     LoRa.endPacket();
+    packetTime = millis() - time;
+    measurePaketTime(size, packetTime);
 
     LoRa.receive();
 }
@@ -294,7 +325,9 @@ void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size) {
  * @param delay
  */
 void MeshRouter::SenderWait(unsigned long waitTime) {
-    MeshRouter::blockSendUntil = millis() + waitTime;
+    if (blockSendUntil < millis() + waitTime) {
+        blockSendUntil = millis() + waitTime;
+    }
 }
 
 void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size) {
@@ -302,6 +335,9 @@ void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size) {
     paket.paketPointer = rawPaket;
     paket.paketSize = size;
     sendQueue.add(paket);
+    if (displayQueueLength != nullptr) {
+        *displayQueueLength = sendQueue.size();
+    }
 }
 
 void MeshRouter::ProcessQueue() {
@@ -309,9 +345,19 @@ void MeshRouter::ProcessQueue() {
         return;
     }
     QueuedPaket_t paketQueueEntry = sendQueue.shift();
+
     MeshRouter::SendRaw(paketQueueEntry.paketPointer,
                         paketQueueEntry.paketSize);
+
+    // Wait for Nodes to Receive and Retransmit Paket
+    SenderWait(20 + predictPacketSendTime(paketQueueEntry.paketSize));
+
     free(paketQueueEntry.paketPointer);
+
+    // Update Queue on Display
+    if (displayQueueLength != nullptr) {
+        *displayQueueLength = sendQueue.size();
+    }
 }
 
 uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
@@ -332,112 +378,223 @@ uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
  * Diese Methode wird aufgerufen, wenn ein vollständiges Serielles Paket über die USB Schnittstelle eingegangen ist.
  * @param serialPaket
  */
-void MeshRouter::ProcessSerialPaket(SerialPaket_t *serialPaket) {
+uint16_t ID_COUNTER = 0;
+
+void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket) {
     // Announce Transmission with Header Paket
-    auto *headerPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
+    auto *headerLoraPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
+    headerLoraPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
+    headerLoraPaket->lastHop = NodeID;
+    headerLoraPaket->id = ID_COUNTER++;
+    headerLoraPaket->source = NodeID;
+    headerLoraPaket->size = serialPayloadFloodPaket->size;
 
-    headerPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
-    headerPaket->lastHop = NodeID;
-    headerPaket->id = 0;
-    headerPaket->source = NodeID;
-    headerPaket->size = serialPaket->size;
+    // Very simple Content Checksum
+    uint8_t checksum = 0;
+    for (uint16_t i = 0; i < serialPayloadFloodPaket->size; i++) {
+        checksum += serialPayloadFloodPaket->payload[i];
+    }
+    headerLoraPaket->checksum = checksum;
 
-    QueuePaket((uint8_t *) headerPaket, sizeof(FloodBroadcastHeaderPaket_t));
+    QueuePaket((uint8_t *) headerLoraPaket, sizeof(FloodBroadcastHeaderPaket_t));
 
     uint8_t fragment = 0;
 
     // Send Payload as Fragments
-    for (int i = 0; i < serialPaket->size;) {
+    for (uint16_t i = 0; i < serialPayloadFloodPaket->size;) {
         auto *fragPaket = (FloodBroadcastFragmentPaket_t *) malloc(sizeof(FloodBroadcastFragmentPaket_t));
         fragPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT;
-        fragPaket->id = headerPaket->id;
+        fragPaket->id = headerLoraPaket->id;
         fragPaket->fragment = fragment++;
 
-        memcpy(&fragPaket->payload, serialPaket->payload + i, sizeof(fragPaket->payload));
-        i += sizeof(fragPaket->payload);
-
+        uint16_t bytesToCopy =
+                sizeof(fragPaket->payload) > serialPayloadFloodPaket->size - i ? serialPayloadFloodPaket->size - i
+                                                                               : sizeof(fragPaket->payload);
+        memcpy(&fragPaket->payload, serialPayloadFloodPaket->payload + i, bytesToCopy);
+        i += bytesToCopy;
         QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t));
     }
 
     // Free Serial Data and Buffer
-    free(serialPaket->payload);
-    free(serialPaket);
+    // free(serialPayloadFloodPaket->payload);
+    // free(serialPayloadFloodPaket);
 }
 
-void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket) {
-    auto *receivedFragmentedPaket = (ReceivedFragmentedPaket_t *) malloc(sizeof(ReceivedFragmentedPaket_t));
-    receivedFragmentedPaket->id = paket->id;
-    receivedFragmentedPaket->size = paket->size;
-    receivedFragmentedPaket->lastHop = paket->lastHop;
-    receivedFragmentedPaket->source = paket->source;
-    receivedFragmentedPaket->lastFragment = 0;
-    receivedFragmentedPaket->received = 0;
-    receivedFragmentedPaket->corrupted = false;
+/**
+ * Wird aufgerufen, wenn der Header einer anstehenden Übertragung empfangen wird.
+ * @param paket
+ */
+void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi) {
+    auto *incompletePaket = (FragmentedPaket_t *) malloc(sizeof(FragmentedPaket_t));
+    incompletePaket->id = paket->id;
+    incompletePaket->size = paket->size;
+    incompletePaket->lastHop = paket->lastHop;
+    incompletePaket->source = paket->source;
+    incompletePaket->lastFragment = 0;
+    incompletePaket->received = 0;
+    incompletePaket->corrupted = false;
+    incompletePaket->checksum = paket->checksum;
 
-    *debugString = "FH: " + String(receivedFragmentedPaket->size);
-    receivedFragmentedPaket->payload = (uint8_t *) malloc(paket->size);
-    receivedPakets.add(receivedFragmentedPaket);
+    MeshRouter::UpdateRSSI(paket->lastHop, rssi);
+    MeshRouter::UpdateHOP(paket->source, paket->lastHop);
+
+    int nextFragLength = paket->size > 255 ? 255 : paket->size;
+    SenderWait(2 * predictPacketSendTime(nextFragLength));
+
+    *debugString = "FH: " + String(incompletePaket->size) + " ID: " + String(incompletePaket->id);
+    incompletePaket->payload = (uint8_t *) malloc(paket->size);
+    incompletePaketList.add(incompletePaket);
 }
 
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
-    ReceivedFragmentedPaket_t *receivedFragmentedPaket = getLocalFragmentPaketBuffer(paket->id);
-    if (receivedFragmentedPaket == nullptr) {
-        *debugString = "Fragment: NULLPTR";
+    FragmentedPaket_t *incompletePaket = getIncompletePaketById(paket->id);
+    if (incompletePaket == nullptr) {
+        *debugString = "Fragment: ERR";
         return;
     }
 
-    *debugString = "Fragment: " + String(paket->fragment);
+    // Igore! We are receiving a repeated Paket!
+    if (paket->fragment <= incompletePaket->lastFragment && paket->fragment > 0) {
+        return;
+    }
 
     // Check for lost Fragments
-    if (paket->fragment - receivedFragmentedPaket->lastFragment > 1) {
+    if (paket->fragment - incompletePaket->lastFragment > 1) {
         // We lost a Paket! Doesn't matter, fill out bytes and continue
 
-        uint8_t lostFragments = paket->fragment - receivedFragmentedPaket->lastFragment - 1;
+        *debugString = "LOSS: " + String(paket->fragment);
+        uint8_t lostFragments = paket->fragment - incompletePaket->lastFragment - 1;
 
-        receivedFragmentedPaket->received += (sizeof paket->payload) * lostFragments;
+        incompletePaket->received += (sizeof paket->payload) * lostFragments;
 
-        receivedFragmentedPaket->lastFragment += lostFragments;
-        receivedFragmentedPaket->corrupted = true;
-
-#ifdef DEBUG_LORA_SERIAL
-        Serial.println("FragLost!");
-#endif
+        incompletePaket->lastFragment += lostFragments;
+        incompletePaket->corrupted = true;
     }
-#ifdef DEBUG_LORA_SERIAL
-    Serial.println("OnFragment: Frag: " + String(paket->fragment) + " " + String(receivedFragmentedPaket->received) + "/" + String(receivedFragmentedPaket->size));
-#endif
-    uint16_t bytesLeft = receivedFragmentedPaket->size - receivedFragmentedPaket->received > (sizeof paket->payload)
-                        ? (sizeof paket->payload) : receivedFragmentedPaket->size - receivedFragmentedPaket->received;
-    // Copy paket data to buffer
-    memcpy(receivedFragmentedPaket->payload + receivedFragmentedPaket->received, paket->payload, bytesLeft);
-    receivedFragmentedPaket->received += bytesLeft;
 
-    if (receivedFragmentedPaket->received == receivedFragmentedPaket->size) {
+    uint16_t bytesLeft = incompletePaket->size - incompletePaket->received > (sizeof paket->payload)
+                         ? (sizeof paket->payload) : incompletePaket->size - incompletePaket->received;
+
+    // Delay Transmission of Pakets
+    SenderWait(10 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
+
+    // Copy paket data to buffer
+    memcpy(incompletePaket->payload + incompletePaket->received, paket->payload, bytesLeft);
+    incompletePaket->received += bytesLeft;
+
+    // Set last Received fragment
+    incompletePaket->lastFragment = paket->fragment;
+
+    *debugString = "F" + String(paket->fragment) + "R" + String(incompletePaket->received) + "S" +
+                   String(incompletePaket->size) + "L" + String(bytesLeft);
+
+    if (incompletePaket->received == incompletePaket->size) {
         // End of Transmission
-        OnPaketForHost(receivedFragmentedPaket);
+
+        // Very simple Content Checksum
+        uint8_t checksum = 0;
+        for (uint16_t i = 0; i < incompletePaket->size; i++) {
+            checksum += incompletePaket->payload[i]; // Intentional Overflow, Allowed and strictly defined in c standard for unsigned values
+        }
+
+        if (checksum != incompletePaket->checksum) {
+            *debugString = "Invalid CS!" + String(checksum);
+        } else if (incompletePaket->corrupted) {
+            *debugString = "Paket Lost!";
+        } else {
+            *debugString = "Success: " + String(checksum);
+        }
+        OnPaketForHost(incompletePaket);
+
+        // Wait 2 max paket frames
+        SenderWait(2 * predictPacketSendTime(255));
     }
 }
 
-ReceivedFragmentedPaket_t *MeshRouter::getLocalFragmentPaketBuffer(uint8_t transmissionid) {
-    for (int i = 0; i < receivedPakets.size(); i++) {
-        if (receivedPakets.get(i)->id == transmissionid) {
-            return receivedPakets.get(i);
+
+FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint8_t transmissionid) {
+    for (int i = 0; i < incompletePaketList.size(); i++) {
+        if (incompletePaketList.get(i)->id == transmissionid) {
+            return incompletePaketList.get(i);
         }
     }
     return nullptr;
 }
 
-void MeshRouter::OnPaketForHost(ReceivedFragmentedPaket_t *paket) {
-    auto serialPaket = (SerialPaket_t *) malloc(sizeof(SerialPaket_t));
-    serialPaket->size = paket->size;
-    serialPaket->payload = paket->payload;
+void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
+    auto payloadBuffer = (uint8_t *) malloc(sizeof(FragmentedPaket_t) + paket->size);
+    memcpy(payloadBuffer, paket, sizeof(FragmentedPaket_t));
+    memcpy(payloadBuffer + sizeof(FragmentedPaket_t), paket->payload, paket->size);
 
+    auto serialPaketHeader = (SerialPaketHeader_t *) malloc(sizeof(SerialPaketHeader_t));
+    serialPaketHeader->serialPaketType = SERIAL_PAKET_TYPE_FLOOD_PAKET;
+    serialPaketHeader->size = sizeof(FragmentedPaket_t) + paket->size;
+
+    Serial.write((uint8_t *) serialPaketHeader, 3);
+    Serial.write(payloadBuffer, serialPaketHeader->size);
+
+    *debugString = "HOST SEND: " + String(paket->size);
+
+    free(paket->payload);
     free(paket);
+    free(serialPaketHeader);
+    free(payloadBuffer);
+}
 
-    Serial.write((uint8_t *) serialPaket, 5);
-    Serial.write(serialPaket->payload, serialPaket->size);
+// Calculates the AirTime of a paket, based on its Payload size.
+// Calculation is based of the LoRa Chip Datasheet.
+// SX1276-7-8-9 Datasheet-> https://semtech--c.na98.content.force.com/sfc/dist/version/download/?oid=00DE0000000JelG&ids=0682R000006TQEPQA4&d=%2Fa%2F2R0000001Rbr%2F6EfVZUorrpoKFfvaF_Fkpgp5kzjiNyiAbqcpqh9qSjE&operationContext=DELIVERY&asPdf=true&viewId=05H2R000002POsoUAG&dpt=
+double MeshRouter::getSendTimeByPaketSizeInMS(int PL) {
+    double R_s = 1.0 * LORA_BANDWIDTH / pow(2, LORA_SPREADINGFACTOR);
+    double T_s = 1.0 / R_s;
 
-    free(serialPaket->payload);
-    free(serialPaket);
+    double T_preamble = (LORA_PREAMBLE_LENGTH + 4.25) * T_s;
+
+    int CR = 1; // 1 corresponding to 4/5, 4 to 4/8, see Datasheet page 31
+    int CRC = 1;
+
+    int n_payload =
+            8 +
+            max((int) ceil((8.0 * PL - 4 * LORA_SPREADINGFACTOR + 28 + 16 * CRC) / 4 * (LORA_SPREADINGFACTOR)) *
+                (CR + 4),
+                0);
+
+    double t_payload = n_payload * T_s;
+    double t_packet = t_payload + T_preamble;
+
+    return t_packet;
+}
+
+unsigned long timeMap[256];
+uint8_t totalTimeMapEntries = 0;
+
+void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
+    if (timeMap[size] > 0) {
+        return;
+    }
+
+    timeMap[size] = time;
+    totalTimeMapEntries++;
+
+    if (totalTimeMapEntries > 1) {
+        uint8_t size_1 = 0;
+        unsigned long time_1 = 0;
+        for (int i = 0; i < 256; i++) {
+            //1. value
+            if (timeMap[i] > 0 && size_1 == 0) {
+                size_1 = i;
+                time_1 = timeMap[i];
+            } else if (timeMap[i] > 0 && size_1 > 0) {
+                // 2. value
+                uint8_t sizeDiff = i - size_1;
+                unsigned long timeDiff = timeMap[i] - time_1;
+                timePerByte = 1.0 * timeDiff / sizeDiff;
+                sendOverhead = timeMap[i] - 1.0 * i * timePerByte;
+            }
+        }
+    }
+}
+
+unsigned long MeshRouter::predictPacketSendTime(uint8_t size) {
+    return (unsigned long) (1.0 * timePerByte * size + sendOverhead);
 }
 

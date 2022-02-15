@@ -20,26 +20,9 @@ void LoraDisplay::initDisplay() {
     display.display();
 }
 
-void LoraDisplay::drawCentreString(const char *buf, int x, int y) {
-    int16_t x1, y1;
-    uint16_t w, h;
-    display.getTextBounds(buf, x, y, &x1, &y1, &w, &h); //calc width of new string
-    display.setCursor(x - w / 2, y);
-    display.print(buf);
-}
-
 /**
  * Draws the Display based on the current Application state
  */
-
-void LoraDisplay::render() {
-}
-
-void LoraDisplay::drawSplashScreen() {
-    display.clearDisplay();
-    display.drawBitmap(24, 0, whale, 80, 62, WHITE);
-    display.display();
-}
 
 void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID,
                                           double_t update) {
@@ -96,10 +79,10 @@ void LoraDisplay::drawSerialFooter() {
     display.setCursor(0, DISPLAY_HEIGHT - 8);
     display.println(lastSerialChar);
 
-    display.setCursor(90, DISPLAY_HEIGHT - 18);
-    display.println("Code");
-    display.setCursor(90, DISPLAY_HEIGHT - 8);
-    display.println(String((uint8_t) lastSerialChar.charAt(lastSerialChar.length() - 1)));
+    display.setCursor(95, DISPLAY_HEIGHT - 18);
+    display.println("Queue");
+    display.setCursor(95, DISPLAY_HEIGHT - 8);
+    display.println(String(queueLength));
 };
 
 void LoraDisplay::drawUpdateFooter(double_t update) {
@@ -130,10 +113,6 @@ void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
     display.setCursor(90, DISPLAY_HEIGHT - 8);
     display.println(String(ESP.getFreeHeap()));
 
-}
-
-Adafruit_SSD1306 *LoraDisplay::getDisplay() {
-    return &display;
 }
 
 void LoraDisplay::nextScreen() {

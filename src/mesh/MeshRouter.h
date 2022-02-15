@@ -49,9 +49,11 @@ typedef struct {
     uint8_t lastHop;
     uint8_t source;
     uint16_t size;
+    uint8_t checksum;
 } FloodBroadcastHeaderPaket_t;
 #pragma pack()
 
+#pragma pack(1)
 typedef struct {
     uint16_t id;
     uint16_t size;
@@ -60,8 +62,10 @@ typedef struct {
     uint8_t source;
     uint8_t lastHop;
     bool corrupted = false;
+    uint8_t checksum;
     uint8_t *payload;
-} ReceivedFragmentedPaket_t;
+} FragmentedPaket_t;
+#pragma pack()
 /**
      * 
     * 
@@ -112,7 +116,7 @@ typedef struct {
     uint8_t deviceMac[6];
     uint8_t nodeId;
     uint8_t hop;
-    uint8_t rssi;
+    int rssi;
 } RoutingTable_t;
 
 typedef struct {
@@ -120,14 +124,22 @@ typedef struct {
     uint8_t paketSize;
 } QueuedPaket_t;
 
+#define SERIAL_PAKET_TYPE_FLOOD_PAKET 1
+
 #pragma pack(1)
 typedef struct {
-    uint16_t size;
-    uint8_t priority;
     uint8_t messageType;
-    uint8_t target;
+    uint16_t size;
+    uint8_t source;
     uint8_t *payload;
-} SerialPaket_t;
+} SerialPayloadFloodPaket_t;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+    uint8_t serialPaketType;
+    uint16_t size;
+} SerialPaketHeader_t;
 #pragma pack()
 
 class MeshRouter {
@@ -139,21 +151,23 @@ public:
     uint8_t OPERATING_MODE = 0;
 
     String *debugString;
+    int *displayQueueLength;
     uint8_t receiveState = RECEIVE_STATE_IDLE;
     int readyPaketSize = 0;
+
     unsigned long blockSendUntil = 0;
 
     LinkedList<QueuedPaket_t> sendQueue;
 
-    void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int16_t rssi);
+    void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi);
 
-    void OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket);
+    void OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi);
 
     void OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket);
 
-    ReceivedFragmentedPaket_t *getLocalFragmentPaketBuffer(uint8_t transmissionid);
+    FragmentedPaket_t *getIncompletePaketById(uint8_t transmissionid);
 
-    void ProcessSerialPaket(SerialPaket_t *serialPaket);
+    void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
 
     void initNode();
 
@@ -163,7 +177,9 @@ public:
 
     void ProcessQueue();
 
-    void UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[6], int16_t rssi);
+    void UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[6], int rssi);
+    void UpdateRSSI(uint8_t nodeId, int rssi);
+    void UpdateHOP(uint8_t nodeId, uint8_t hop);
 
     void handle();
 
@@ -171,9 +187,9 @@ public:
 
     void _debugDumpSRAM();
 
-    void OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int16_t rssi);
+    void OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi);
 
-    void OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int16_t rssi);
+    void OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int rssi);
 
     uint8_t findNextFreeNodeId(uint8_t nodeId, uint8_t deviceMac[6]);
 
@@ -181,10 +197,19 @@ public:
 
     void debugPrintRoutingTable();
 
-    void OnPaketForHost(ReceivedFragmentedPaket_t *paket);
+    void OnPaketForHost(FragmentedPaket_t *paket);
+
+    void measurePaketTime(uint8_t size, unsigned long time);
 
 private:
-    LinkedList<ReceivedFragmentedPaket_t *> receivedPakets;
+    LinkedList<FragmentedPaket_t *> incompletePaketList;
+    unsigned long packetTime = 0;
+
+    // Measured Value for Sending Data
+    double timePerByte = 0;
+    double sendOverhead = 0;
+
+    double getSendTimeByPaketSizeInMS(int size);
 
     void readPaketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_t size);
 
@@ -192,7 +217,7 @@ private:
 
     uint8_t findNextHopForDestination(uint8_t dest);
 
+    unsigned long predictPacketSendTime(uint8_t size);
+
     void SenderWait(unsigned long delay);
-
-
 };

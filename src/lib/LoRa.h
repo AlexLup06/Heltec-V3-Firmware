@@ -80,6 +80,7 @@ public:
   virtual void flush();
 
   void onReceive(void (*callback)(int));
+  void setOnTxDoneCallback(void (*callback)());
 
   void receive(int size = 0);
   void idle();

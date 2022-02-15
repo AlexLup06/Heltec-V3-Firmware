@@ -15,3 +15,7 @@ _deps
 .vscode/launch.json
 .vscode/ipch
 revision.txt
+/cmake-build-heltec_wifi_lora_32_v2/
+/cmake-build-debug/
+/.vscode/
+/.idea/

@@ -5,6 +5,7 @@
 #include "HostHandler.h"
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
+#include "config.h"
 
 // Toggle Serial Debug
 // #define DEBUG_LORA_SERIAL
@@ -30,13 +31,10 @@ void receiveInterrupt(int size) {
     meshRouter.OnReceiveIR(size);
 }
 
-void setup() {
-    hostSerialHandlerParams.ready = false;
-    hostSerialHandlerParams.serialPaket = nullptr;
-
-    /**
-    * Start OTA Handler on Core 0
-    **/
+/**
+* Start OTA Handler on Core 0
+**/
+void activateOTA() {
     xTaskCreatePinnedToCore(
             setupOta,
             "setupOta",
@@ -45,6 +43,12 @@ void setup() {
             0,
             &otaTask,
             0);
+}
+
+void setup() {
+#ifdef USE_OTA_UPDATE_CHECKING
+    activateOTA();
+#endif
 
     // Setup Serial
     Serial.begin(115200);
@@ -60,8 +64,8 @@ void setup() {
     Serial.println(F("SSD1306 Starting..."));
     Serial.println("Board MAC: " + String(macHexStr));
     Serial.println("Build Revision: " + String(BUILD_REVISION));
-
 #endif
+
     attachInterrupt(0, onButtonPress, RISING);
 
     // Init Lora Hardware
@@ -87,12 +91,13 @@ void setup() {
 
     LoRa.onReceive(receiveInterrupt);
 
-
     hostSerialHandlerParams.debugString = &loraDisplay.lastSerialChar;
     meshRouter.debugString = &loraDisplay.lastSerialChar;
+    meshRouter.displayQueueLength = &loraDisplay.queueLength;
+
     /**
-* Start Host Serial Handler on Core 0
-**/
+     * Start Host Serial Handler on Core 0
+    **/
     xTaskCreatePinnedToCore(
             hostHandler,
             "hostHandler",
@@ -112,7 +117,7 @@ void loop() {
     // Handle Route Loop
     meshRouter.handle();
 
-    if (lastScreenDraw + 5 < millis()) {
+    if (lastScreenDraw + OLED_SCREEN_UPDATE_INTERVAL_MS < millis()) {
         lastScreenDraw = millis();
         loraDisplay.printRoutingTableScreen(meshRouter.routingTable, meshRouter.totalRoutes, meshRouter.NodeID,
                                             UPDATE_STATE);
@@ -128,8 +133,8 @@ void loop() {
 
     if (hostSerialHandlerParams.ready) {
         // Paket from Serial is ready
-        *hostSerialHandlerParams.debugString = "PROCESSED";
-        meshRouter.ProcessSerialPaket(hostSerialHandlerParams.serialPaket);
+        // *hostSerialHandlerParams.debugString = "PROCESSED";
+        meshRouter.ProcessFloodSerialPaket(hostSerialHandlerParams.serialFloodPaketHeader);
         hostSerialHandlerParams.ready = false;
     }
     yield();

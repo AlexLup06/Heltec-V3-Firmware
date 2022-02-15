@@ -9,7 +9,7 @@
 #include "mesh/MeshRouter.h"
 
 typedef struct {
-    SerialPaket_t *serialPaket = nullptr;
+    SerialPayloadFloodPaket_t *serialFloodPaketHeader = nullptr;
     bool ready = false;
     String *debugString;
 } HostSerialHandlerParams_t;

@@ -1,22 +1,23 @@
 #include <mesh/loranode.h>
-
-#define MESH_FREQUENCY 869400000
+#include "config.h"
 
 void LoraNode::initLora()
 {
     SPI.begin(SCK, MISO, MOSI, SS);
 
     LoRa.setPins(SS, RST_LoRa, DIO0);
-    if (!LoRa.begin(MESH_FREQUENCY, false))
+    if (!LoRa.begin(LORA_FREQUENCY, false))
     {
         Serial.println("LoRa init failed. Check your connections.");
         while (true)
             ;
     }
     // Default:
-    LoRa.setTxPower(18, RF_PACONFIG_PASELECT_PABOOST);
-    LoRa.setSignalBandwidth(500E3);
-    LoRa.setSpreadingFactor(7);
+    LoRa.setTxPower(15, RF_PACONFIG_PASELECT_PABOOST);
+    LoRa.setSignalBandwidth(LORA_BANDWIDTH);
+    LoRa.setSpreadingFactor(LORA_SPREADINGFACTOR);
+    LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
+
 
     // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
     LoRa.setSyncWord(0x12);

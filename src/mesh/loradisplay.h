@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <assets/whale.h>
 #include <mesh/MeshRouter.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -23,12 +22,8 @@ private:
 
 public:
     String lastSerialChar;
+    int queueLength;
     void nextScreen();
     void initDisplay();
-    void drawCentreString(const char *buf, int x, int y);
-
-    void drawSplashScreen();
-    void render();
     void printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID, double_t update);
-    Adafruit_SSD1306 *getDisplay();
 };
