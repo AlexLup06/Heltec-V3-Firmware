@@ -80,7 +80,7 @@ public:
   virtual void flush();
 
   void onReceive(void (*callback)(int));
-  void setOnTxDoneCallback(void (*callback)());
+  void onCad(void (*callback)());
 
   void receive(int size = 0);
   void idle();
@@ -135,6 +135,7 @@ private:
   int _packetIndex;
   int _implicitHeaderMode;
   void (*_onReceive)(int);
+  void (*_onCad)();
 };
 
 extern LoRaClass LoRa;

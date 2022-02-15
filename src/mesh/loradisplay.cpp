@@ -65,6 +65,9 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
             case 1:
                 drawSerialFooter();
                 break;
+            case 2:
+                drawWaitStatusFooter();
+                break;
         }
     }
 
@@ -78,6 +81,20 @@ void LoraDisplay::drawSerialFooter() {
     display.println("SC");
     display.setCursor(0, DISPLAY_HEIGHT - 8);
     display.println(lastSerialChar);
+
+    display.setCursor(95, DISPLAY_HEIGHT - 18);
+    display.println("Queue");
+    display.setCursor(95, DISPLAY_HEIGHT - 8);
+    display.println(String(queueLength));
+};
+
+void LoraDisplay::drawWaitStatusFooter() {
+    display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
+    display.setCursor(0, DISPLAY_HEIGHT - 18);
+    display.println("WaitTime");
+    display.setCursor(0, DISPLAY_HEIGHT - 8);
+    unsigned long timeLeftWait = *waitTime < millis() ? 0 : *waitTime - millis();
+    display.println(String(timeLeftWait));
 
     display.setCursor(95, DISPLAY_HEIGHT - 18);
     display.println("Queue");
@@ -117,7 +134,7 @@ void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
 
 void LoraDisplay::nextScreen() {
     screenIndex++;
-    if (screenIndex > 1) {
+    if (screenIndex > 2) {
         screenIndex = 0;
     }
 

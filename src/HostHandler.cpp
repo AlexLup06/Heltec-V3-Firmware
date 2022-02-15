@@ -17,9 +17,10 @@ uint16_t serialIndex = 0;
 
 HostSerialHandlerParams_t *hostHandlerParams;
 
-SerialPaketHeader_t *serialPaketHeader;
+SerialPaketHeader_t *serialPaketHeader = nullptr;
 uint8_t *receiveBuffer;
 
+long lastDataReceived = millis();
 void onPacketReceived() {
     // Paket komplett empfangen
 
@@ -43,7 +44,23 @@ void onPacketReceived() {
 
 void readAvailableSerialData() {
     int availableBytes = Serial.available();
+    if(millis() - lastDataReceived > 500){
+        if(serialStatus == SERIAL_REC_PAYLOAD){
+            serialIndex = 0;
+            free(receiveBuffer);
+        }
+
+        // Reset Serial State
+        serialStatus = SERIAL_REC_HEADER;
+
+        // Read rest of buffer
+        auto dummyReadBuffer = (uint8_t * ) malloc(availableBytes);
+        Serial.read(dummyReadBuffer, availableBytes);
+        lastDataReceived = millis();
+    }
+
     if (availableBytes) {
+        lastDataReceived = millis();
         if (serialStatus == SERIAL_REC_HEADER && availableBytes >= 3) {
             // Speicher für den Header alokieren und mit ersten 3 Bytes aus dem Serial füllen
             serialPaketHeader = (SerialPaketHeader_t *) malloc(3);

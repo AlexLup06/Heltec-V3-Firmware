@@ -31,6 +31,10 @@ void receiveInterrupt(int size) {
     meshRouter.OnReceiveIR(size);
 }
 
+void cadInterrupt() {
+    meshRouter.cad = true;
+}
+
 /**
 * Start OTA Handler on Core 0
 **/
@@ -90,10 +94,12 @@ void setup() {
                                         UPDATE_STATE);
 
     LoRa.onReceive(receiveInterrupt);
+    LoRa.onCad(cadInterrupt);
 
     hostSerialHandlerParams.debugString = &loraDisplay.lastSerialChar;
     meshRouter.debugString = &loraDisplay.lastSerialChar;
     meshRouter.displayQueueLength = &loraDisplay.queueLength;
+    loraDisplay.waitTime = &meshRouter.blockSendUntil;
 
     /**
      * Start Host Serial Handler on Core 0

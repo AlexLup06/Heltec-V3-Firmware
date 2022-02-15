@@ -17,11 +17,14 @@ private:
     void drawInfoFooter(uint8_t nodeID);
     void drawSerialFooter();
     void drawUpdateFooter(double_t update);
+    void drawWaitStatusFooter();
+
 
     uint8_t screenIndex = 1;
 
 public:
     String lastSerialChar;
+    unsigned long *waitTime;
     int queueLength;
     void nextScreen();
     void initDisplay();

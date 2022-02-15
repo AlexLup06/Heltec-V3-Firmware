@@ -32,6 +32,10 @@
 //#define RFO                      0x70
 // IRQ masks
 #define IRQ_TX_DONE_MASK 0x08
+
+// Eingehende LoRa Nachricht: siehe Datasheet Seite 90. Bit 0 Mask: 00000001 -> 0x01
+#define IRQ_CAD_DETECTED 0x01
+
 #define IRQ_PAYLOAD_CRC_ERROR_MASK 0x20
 #define IRQ_RX_DONE_MASK 0x40
 
@@ -62,7 +66,8 @@ LoRaClass::LoRaClass() : _spiSettings(8E6, MSBFIRST, SPI_MODE0),
                          _frequency(0),
                          _packetIndex(0),
                          _implicitHeaderMode(0),
-                         _onReceive(NULL) {
+                         _onReceive(NULL),
+                         _onCad(NULL){
     // overide Stream timeout value
     setTimeout(0);
 }
@@ -105,7 +110,7 @@ int LoRaClass::begin(long frequency, bool PABOOST) {
     setSpreadingFactor(11);
     // put in standby mode
     setSignalBandwidth(125E3);
-    //setCodingRate4(5);
+    setCodingRate4(5);
     setSyncWord(0x34);
     disableCrc();
     crc();
@@ -274,6 +279,10 @@ void LoRaClass::onReceive(void (*callback)(int)) {
     } else {
         detachInterrupt(digitalPinToInterrupt(_dio0));
     }
+}
+
+void LoRaClass::onCad(void (*callback)()) {
+    _onCad = callback;
 }
 
 void LoRaClass::receive(int size) {
@@ -492,6 +501,10 @@ void LoRaClass::handleDio0Rise() {
     int irqFlags = readRegister(REG_IRQ_FLAGS);
     // clear IRQ's
     writeRegister(REG_IRQ_FLAGS, irqFlags);
+
+    if((irqFlags & IRQ_CAD_DETECTED) != 0){
+        _onCad();
+    }
 
     if ((irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0) {
         // received a packet

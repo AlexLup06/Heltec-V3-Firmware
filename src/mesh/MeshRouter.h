@@ -150,6 +150,10 @@ public:
     uint8_t totalRoutes = 0;
     uint8_t OPERATING_MODE = 0;
 
+    // Cad Detected
+    // Modem hat den Anfang eines LoRa Signals empfangen
+    bool cad = false;
+
     String *debugString;
     int *displayQueueLength;
     uint8_t receiveState = RECEIVE_STATE_IDLE;
@@ -165,7 +169,9 @@ public:
 
     void OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket);
 
-    FragmentedPaket_t *getIncompletePaketById(uint8_t transmissionid);
+    void retransmitPaket(uint8_t *overrideBuffer, uint8_t overrideSize, uint8_t totalSize);
+
+    FragmentedPaket_t *getIncompletePaketById(uint16_t transmissionid);
 
     void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
 
@@ -178,7 +184,9 @@ public:
     void ProcessQueue();
 
     void UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[6], int rssi);
+
     void UpdateRSSI(uint8_t nodeId, int rssi);
+
     void UpdateHOP(uint8_t nodeId, uint8_t hop);
 
     void handle();
