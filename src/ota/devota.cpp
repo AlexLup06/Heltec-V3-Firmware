@@ -1,6 +1,4 @@
 #include <WiFi.h>
-//#include "HTTPUpdate.h
-#include "ArduinoOTA.h"
 #include <ArduinoHttpClient.h>
 #include <Update.h>
 
@@ -41,6 +39,7 @@ void setupOta(void *pvParameters)
 
         if (client.responseStatusCode() != 200)
         {
+            client.stop();
             continue;
         }
 
@@ -70,9 +69,8 @@ void setupOta(void *pvParameters)
 
         if (isNewVersionAvailable)
         {
-#ifdef DEBUG_LORA_SERIAL
+
             Serial.println("New Version Available: " + String(isNewVersionAvailable) + " current: " + String(BUILD_REVISION) + " remote: " + String(remoteVersion));
-#endif
 
             HttpClient firmwareClient(wifiClient, "192.168.0.200", 80);
             firmwareClient.get("/esp32/firmware.bin");
@@ -113,9 +111,6 @@ void setupOta(void *pvParameters)
             firmwareClient.stop();
 
             ESP.restart();
-
-            //httpUpdate.onProgress(update_progress);
-            //httpUpdate.update(client, "192.168.0.200", 80, "/esp32/firmware.bin");
         }
 
         delay(3000);

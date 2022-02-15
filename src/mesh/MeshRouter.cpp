@@ -52,7 +52,6 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
     routingTable[foundIndex]->rssi = rssi;
 }
 
-
 void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
     if (routingTable == nullptr) {
         return;
@@ -76,9 +75,7 @@ void MeshRouter::UpdateHOP(uint8_t nodeId, uint8_t hop) {
             return;
         }
     }
-
 }
-
 
 uint8_t MeshRouter::findNextFreeNodeId(uint8_t currentLeastKnownFreeNodeId, uint8_t deviceMac[6]) {
     int nextFreeNodeId = currentLeastKnownFreeNodeId;
@@ -178,7 +175,6 @@ void MeshRouter::handle() {
             }
 
             ProcessQueue();
-
 
             break;
 
@@ -472,7 +468,8 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
     }
 
     uint16_t bytesLeft = incompletePaket->size - incompletePaket->received > (sizeof paket->payload)
-                         ? (sizeof paket->payload) : incompletePaket->size - incompletePaket->received;
+                         ? (sizeof paket->payload)
+                         : incompletePaket->size - incompletePaket->received;
 
     // Delay Transmission of Pakets
     SenderWait(10 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
@@ -509,7 +506,6 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
         SenderWait(2 * predictPacketSendTime(255));
     }
 }
-
 
 FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint8_t transmissionid) {
     for (int i = 0; i < incompletePaketList.size(); i++) {
@@ -597,4 +593,3 @@ void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
 unsigned long MeshRouter::predictPacketSendTime(uint8_t size) {
     return (unsigned long) (1.0 * timePerByte * size + sendOverhead);
 }
-
