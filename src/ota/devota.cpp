@@ -104,11 +104,14 @@ void setupOta(void *pvParameters)
             }
 
             Update.onProgress(update_progress);
-            Update.write(firmwareClient);
+            Update.writeStream(firmwareClient);
             Update.end();
 
             update_progress(length, length);
             firmwareClient.stop();
+
+            // Turn off LED
+            digitalWrite(LED, 0);
 
             ESP.restart();
         }
