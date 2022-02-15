@@ -1,8 +1,8 @@
-#include <Arduino.h>
 #include <WiFi.h>
-#include <ota/devota.h>
-#include <WiFiUdp.h>
-#include <HTTPUpdate.h>
+//#include "HTTPUpdate.h
+#include "ArduinoOTA.h"
+#include <ArduinoHttpClient.h>
+#include <Update.h>
 
 /**
  * Over-The-Air Update für Entwicklungszwecke.
@@ -16,44 +16,49 @@ const char *password = "aberwirhabeneinpasswort";
 
 static double_t *updateState;
 
-void update_progress(int cur, int total) {
-    *updateState = (double_t) cur * 100.0 / (double_t) total;
+void update_progress(int cur, int total)
+{
+    *updateState = (double_t)cur * 100.0 / (double_t)total;
 }
 
-void setupOta(void *pvParameters) {
-    updateState = (double_t *) pvParameters;
+void setupOta(void *pvParameters)
+{
+    updateState = (double_t *)pvParameters;
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
-    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    while (WiFi.waitForConnectResult() != WL_CONNECTED)
+    {
     }
 
-    IPAddress updateServer(192, 168, 0, 200);
-    for (;;) {
-        WiFiClient client;
+    for (;;)
+    {
+        WiFiClient wifiClient;
+        HttpClient client(wifiClient, "192.168.0.200", 80);
 
-        if (client.connect(updateServer, 80)) {
+        client.get("/esp32/revision.txt");
 
-            // Make a HTTP request:
-            client.println("GET /esp32/revision.txt HTTP/1.0");
-            client.println("User-Agent: " + WiFi.macAddress());
-            client.println("Referer: r" + String(BUILD_REVISION));
-            client.println();
+        if (client.responseStatusCode() != 200)
+        {
+            continue;
         }
-        // Wait for Response
-        delay(500);
 
         char buf[64];
         int bufIndex = 0;
-        while (client.available() && bufIndex < 64) {
+        while (client.available() && bufIndex < 64)
+        {
             char curChar = client.read();
-            if (curChar == '\n') {
+            if (curChar == '\n')
+            {
                 bufIndex = 0;
-                for (int i = 0; i < sizeof(buf); i++) {
+                for (int i = 0; i < sizeof(buf); i++)
+                {
                     buf[i] = 0;
                 }
-            } else {
+            }
+            else
+            {
                 buf[bufIndex++] = curChar;
             }
         }
@@ -63,12 +68,54 @@ void setupOta(void *pvParameters) {
         int remoteVersion = response.toInt();
         bool isNewVersionAvailable = remoteVersion > BUILD_REVISION;
 
-        if (isNewVersionAvailable) {
+        if (isNewVersionAvailable)
+        {
 #ifdef DEBUG_LORA_SERIAL
             Serial.println("New Version Available: " + String(isNewVersionAvailable) + " current: " + String(BUILD_REVISION) + " remote: " + String(remoteVersion));
 #endif
-            httpUpdate.onProgress(update_progress);
-            httpUpdate.update(client, "192.168.0.200", 80, "/esp32/firmware.bin");
+
+            HttpClient firmwareClient(wifiClient, "192.168.0.200", 80);
+            firmwareClient.get("/esp32/firmware.bin");
+
+            if (firmwareClient.responseStatusCode() != 200)
+            {
+                firmwareClient.stop();
+                continue;
+            }
+            long length = firmwareClient.contentLength();
+            int sketchFreeSpace = ESP.getFreeSketchSpace();
+
+            if (length > sketchFreeSpace)
+            {
+                firmwareClient.stop();
+                continue;
+            }
+
+            // Magic byte check
+            if (firmwareClient.peek() != 0xE9)
+            {
+                firmwareClient.stop();
+                continue;
+            }
+
+            update_progress(0, length);
+            if (!Update.begin(length, U_FLASH, LED, 0))
+            {
+                firmwareClient.stop();
+                continue;
+            }
+
+            Update.onProgress(update_progress);
+            Update.write(firmwareClient);
+            Update.end();
+
+            update_progress(length, length);
+            firmwareClient.stop();
+
+            ESP.restart();
+
+            //httpUpdate.onProgress(update_progress);
+            //httpUpdate.update(client, "192.168.0.200", 80, "/esp32/firmware.bin");
         }
 
         delay(3000);
