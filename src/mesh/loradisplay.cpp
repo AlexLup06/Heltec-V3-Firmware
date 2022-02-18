@@ -121,9 +121,10 @@ void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
     display.println(String(nodeID));
 
     display.setCursor(40, DISPLAY_HEIGHT - 18);
-    display.println("Rev");
+    display.println("T_H");
     display.setCursor(40, DISPLAY_HEIGHT - 8);
-    display.println(String(BUILD_REVISION % 100000));
+    //display.println(String(BUILD_REVISION % 100000));
+    display.println(String(xPortGetFreeHeapSize()));
 
     display.setCursor(90, DISPLAY_HEIGHT - 18);
     display.println("Heap");

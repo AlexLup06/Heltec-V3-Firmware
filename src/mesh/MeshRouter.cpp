@@ -453,8 +453,8 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     incompletePaketList.add(incompletePaket);
 
     // Redirect to next Node
-    paket->lastHop = NodeID;
-    retransmitPaket((uint8_t *)paket, 4, sizeof (FloodBroadcastHeaderPaket_t));
+    //paket->lastHop = NodeID;
+    //retransmitPaket((uint8_t *)paket, 4, sizeof (FloodBroadcastHeaderPaket_t));
 }
 
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
@@ -512,16 +512,20 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
 
         if (checksum != incompletePaket->checksum) {
             *debugString = "Invalid CS!" + String(checksum);
+            incompletePaket->corrupted = true;
         } else if (incompletePaket->corrupted) {
             *debugString = "Paket Lost!";
         } else {
             *debugString = "Success: " + String(checksum);
         }
-        OnPaketForHost(incompletePaket);
+
+        if(!incompletePaket->corrupted){
+            OnPaketForHost(incompletePaket);
+        }
 
         // Wait
-        SenderWait(400 + 2 * predictPacketSendTime(255));
-        retransmitPaket((uint8_t *)paket, 0, sizeof (FloodBroadcastFragmentPaket_t));
+        //SenderWait(400 + 2 * predictPacketSendTime(255));
+        //retransmitPaket((uint8_t *)paket, 0, sizeof (FloodBroadcastFragmentPaket_t));
     }
 }
 
@@ -548,10 +552,10 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
 
     *debugString = "HOST SEND: " + String(paket->size);
 
-    free(paket->payload);
-    free(paket);
-    free(serialPaketHeader);
-    free(payloadBuffer);
+    //free(paket->payload);
+    //free(paket);
+    //free(serialPaketHeader);
+    //free(payloadBuffer);
 }
 
 // Calculates the AirTime of a paket, based on its Payload size.

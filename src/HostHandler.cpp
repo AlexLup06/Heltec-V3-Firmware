@@ -20,31 +20,38 @@ HostSerialHandlerParams_t *hostHandlerParams;
 SerialPaketHeader_t *serialPaketHeader = nullptr;
 uint8_t *receiveBuffer;
 
-long lastDataReceived = millis();
+unsigned long lastDataReceived = millis();
 void onPacketReceived() {
     // Paket komplett empfangen
 
     switch (serialPaketHeader->serialPaketType) {
         case SERIAL_PAKET_TYPE_FLOOD_PAKET:
             auto floodPaket = (SerialPayloadFloodPaket_t *) malloc(sizeof(SerialPayloadFloodPaket_t));
-            floodPaket->messageType = serialPaketHeader->serialPaketType;
-            floodPaket->size = serialPaketHeader->size - 1; // Zusätzliches Header Field
-            floodPaket->source = receiveBuffer[0];
-            receiveBuffer++;
-            floodPaket->payload = receiveBuffer;
-
+            memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
+            
+            floodPaket->payload = (uint8_t *) malloc(floodPaket->size);
+            memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
+        
             hostHandlerParams->serialFloodPaketHeader = floodPaket;
             hostHandlerParams->ready = true;
             serialStatus = SERIAL_WAIT_PROCESS;
 
+            unsigned long checksum = 0;
+            for (int k = 0; k < 10; k++)
+            {
+                checksum += floodPaket->payload[k];
+            }
+
+            *hostHandlerParams->debugString = "CS: " + String(checksum) + " S: " + String(floodPaket->size);
             free(serialPaketHeader);
+            free(receiveBuffer);
             break;
     }
 }
 
 void readAvailableSerialData() {
-    int availableBytes = Serial.available();
-    if(millis() - lastDataReceived > 500){
+    uint16_t availableBytes = Serial.available();
+    if(millis() - lastDataReceived > 500 && !SERIAL_WAIT_PROCESS){
         if(serialStatus == SERIAL_REC_PAYLOAD){
             serialIndex = 0;
             free(receiveBuffer);
@@ -61,10 +68,10 @@ void readAvailableSerialData() {
 
     if (availableBytes) {
         lastDataReceived = millis();
-        if (serialStatus == SERIAL_REC_HEADER && availableBytes >= 3) {
+        if (serialStatus == SERIAL_REC_HEADER && availableBytes >= sizeof(SerialPaketHeader_t)) {
             // Speicher für den Header alokieren und mit ersten 3 Bytes aus dem Serial füllen
-            serialPaketHeader = (SerialPaketHeader_t *) malloc(3);
-            Serial.read((uint8_t *) serialPaketHeader, 3);
+            serialPaketHeader = (SerialPaketHeader_t *) malloc(sizeof(SerialPaketHeader_t));
+            Serial.read((uint8_t *) serialPaketHeader,sizeof(SerialPaketHeader_t));
 
             // Debug
             *hostHandlerParams->debugString = String("H.S:") + String(serialPaketHeader->size);
@@ -79,10 +86,9 @@ void readAvailableSerialData() {
         // Buffer mit Daten aus dem Serial Port füllen.
         if (serialStatus == SERIAL_REC_PAYLOAD && availableBytes) {
             // Wenn mehr Daten als verfügbar Bereit stehen, dann nur bis Paket-Ende einlesen. Ansonsten verfügbare Bytes lesen.
-            int bytesToRead =
+            uint16_t bytesToRead =
                     availableBytes + serialIndex > serialPaketHeader->size ?
-                    serialPaketHeader->size - serialIndex
-                                                                           : availableBytes;
+                    serialPaketHeader->size - serialIndex : availableBytes;
             // serialIndex ist der aktuelle Index im Empfangs-Puffer.
             // Dieser wird um die empfangenen Bytes erhöht.
             serialIndex += Serial.read(receiveBuffer + serialIndex, bytesToRead);

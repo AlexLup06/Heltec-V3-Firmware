@@ -9,8 +9,8 @@
  * Wenn die Version neuer als die installierte ist, wird die Firmware heruntergeladen und in den speicher geschrieben.
  * Danach wird das Board zurückgesetzt.
  */
-const char *ssid = "WirHabenKeinWlan";
-const char *password = "aberwirhabeneinpasswort";
+const char *ssid = "OTAFirmware";
+const char *password = "otafirmwareesp32";
 
 static double_t *updateState;
 
@@ -33,7 +33,8 @@ void setupOta(void *pvParameters)
     for (;;)
     {
         WiFiClient wifiClient;
-        HttpClient client(wifiClient, "192.168.0.200", 80);
+        HttpClient client(wifiClient, "192.168.1.1", 80);
+
 
         client.get("/esp32/revision.txt");
 
@@ -70,9 +71,9 @@ void setupOta(void *pvParameters)
         if (isNewVersionAvailable)
         {
 
-            Serial.println("New Version Available: " + String(isNewVersionAvailable) + " current: " + String(BUILD_REVISION) + " remote: " + String(remoteVersion));
+            //Serial.println("New Version Available: " + String(isNewVersionAvailable) + " current: " + String(BUILD_REVISION) + " remote: " + String(remoteVersion));
 
-            HttpClient firmwareClient(wifiClient, "192.168.0.200", 80);
+            HttpClient firmwareClient(wifiClient, "192.168.1.1", 80);
             firmwareClient.get("/esp32/firmware.bin");
 
             if (firmwareClient.responseStatusCode() != 200)
