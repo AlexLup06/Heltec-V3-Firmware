@@ -117,6 +117,7 @@ typedef struct {
     uint8_t nodeId;
     uint8_t hop;
     int rssi;
+    unsigned long lastSeen = 0;
 } RoutingTable_t;
 
 typedef struct {
@@ -212,6 +213,7 @@ public:
 private:
     LinkedList<FragmentedPaket_t *> incompletePaketList;
     unsigned long packetTime = 0;
+    unsigned long lastAnounceTime = millis();
 
     // Measured Value for Sending Data
     double timePerByte = 0;

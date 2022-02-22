@@ -1,11 +1,16 @@
+#include "config.h"
+
 #include <lib/LoRa.h>
-#include <ota/devota.h>
 #include <mesh/loranode.h>
 #include <mesh/loradisplay.h>
 #include "HostHandler.h"
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
-#include "config.h"
+
+
+#ifdef USE_OTA_UPDATE_CHECKING
+#include <ota/devota.h>
+#endif
 
 // Toggle Serial Debug
 // #define DEBUG_LORA_SERIAL
@@ -35,6 +40,7 @@ void cadInterrupt() {
     meshRouter.cad = true;
 }
 
+#ifdef USE_OTA_UPDATE_CHECKING
 /**
 * Start OTA Handler on Core 0
 **/
@@ -48,6 +54,8 @@ void activateOTA() {
             &otaTask,
             0);
 }
+#endif
+
 
 void setup() {
 #ifdef USE_OTA_UPDATE_CHECKING

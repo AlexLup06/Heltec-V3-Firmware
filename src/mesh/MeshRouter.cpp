@@ -50,6 +50,7 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
     routingTable[foundIndex]->nodeId = nodeId;
     routingTable[foundIndex]->hop = hop;
     routingTable[foundIndex]->rssi = rssi;
+    routingTable[foundIndex]->lastSeen = millis();
 }
 
 void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
@@ -182,6 +183,10 @@ void MeshRouter::handle() {
 
             ProcessQueue();
 
+            if(millis() - lastAnounceTime > 15000){
+                MeshRouter::announceNodeId(1);
+            }
+
             break;
 
         case OPERATING_MODE_UPDATE_IDLE:
@@ -288,6 +293,7 @@ void MeshRouter::OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int rss
 void MeshRouter::announceNodeId(uint8_t respond) {
     // Create Paket
     auto *paket = (NodeIdAnnounce_t *) malloc(sizeof(NodeIdAnnounce_t));
+    lastAnounceTime = millis();
 
     paket->messageType = MESSAGE_TYPE_NODE_ANNOUNCE;
     paket->nodeId = NodeID;
@@ -352,7 +358,7 @@ void MeshRouter::ProcessQueue() {
                         paketQueueEntry.paketSize);
 
     // Wait for Nodes to Receive and Retransmit Paket
-    SenderWait(200 + predictPacketSendTime(paketQueueEntry.paketSize));
+    // SenderWait(200 + predictPacketSendTime(paketQueueEntry.paketSize));
 
     free(paketQueueEntry.paketPointer);
 

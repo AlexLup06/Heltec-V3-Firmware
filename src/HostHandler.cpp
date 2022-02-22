@@ -14,7 +14,6 @@
 
 uint8_t serialStatus = SERIAL_REC_HEADER;
 uint16_t serialIndex = 0;
-
 HostSerialHandlerParams_t *hostHandlerParams;
 
 SerialPaketHeader_t *serialPaketHeader = nullptr;
@@ -42,7 +41,16 @@ void onPacketReceived() {
                 checksum += floodPaket->payload[k];
             }
 
-            *hostHandlerParams->debugString = "CS: " + String(checksum) + " S: " + String(floodPaket->size);
+            *hostHandlerParams->debugString = "CS:" + String(checksum) + " S:" + String(floodPaket->size);
+            /**
+            String bytesAsHex = "";
+            for (int k = 0; k < 32; k++)
+            {
+                bytesAsHex.concat(String(unsigned(floodPaket->payload[k])) + " ");
+            }
+            *hostHandlerParams->debugString = bytesAsHex;
+            */
+
             free(serialPaketHeader);
             free(receiveBuffer);
             break;
@@ -51,6 +59,7 @@ void onPacketReceived() {
 
 void readAvailableSerialData() {
     uint16_t availableBytes = Serial.available();
+    // Rest State when Period of no incoming Data
     if(millis() - lastDataReceived > 500 && !SERIAL_WAIT_PROCESS){
         if(serialStatus == SERIAL_REC_PAYLOAD){
             serialIndex = 0;
@@ -71,7 +80,7 @@ void readAvailableSerialData() {
         if (serialStatus == SERIAL_REC_HEADER && availableBytes >= sizeof(SerialPaketHeader_t)) {
             // Speicher für den Header alokieren und mit ersten 3 Bytes aus dem Serial füllen
             serialPaketHeader = (SerialPaketHeader_t *) malloc(sizeof(SerialPaketHeader_t));
-            Serial.read((uint8_t *) serialPaketHeader,sizeof(SerialPaketHeader_t));
+            Serial.read((uint8_t *) serialPaketHeader, sizeof(SerialPaketHeader_t));
 
             // Debug
             *hostHandlerParams->debugString = String("H.S:") + String(serialPaketHeader->size);
@@ -94,9 +103,9 @@ void readAvailableSerialData() {
             serialIndex += Serial.read(receiveBuffer + serialIndex, bytesToRead);
 
             // Fortschritt des aktuellen Pakets im Display anzeigen
-            *hostHandlerParams->debugString =
-                    String(serialIndex) + "/" + String(serialPaketHeader->size) + " " +
-                    String(availableBytes);
+            //*hostHandlerParams->debugString =
+            //        String(serialIndex) + "/" + String(serialPaketHeader->size) + " " +
+            //        String(availableBytes);
 
 
             if (serialIndex >= serialPaketHeader->size) {

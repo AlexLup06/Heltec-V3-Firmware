@@ -32,7 +32,7 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
     display.setCursor(28, 0);
     display.print("Hop");
     display.setCursor(56, 0);
-    display.print("Mac");
+    display.print("Seen");
     display.setCursor(103, 0);
     display.println("RSSI");
     display.drawFastHLine(0, 8, DISPLAY_WIDTH, WHITE);
@@ -47,7 +47,7 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
         display.setCursor(28, 10 + 8 * i);
         display.print(String(routingTable[i]->hop));
         display.setCursor(56, 10 + 8 * i);
-        display.println(String(macHexStr));
+        display.println(String(((millis() - routingTable[i]->lastSeen) / 10) /100.0));
         display.setCursor(103, 10 + 8 * i);
         display.println(String(routingTable[i]->rssi));
     }
