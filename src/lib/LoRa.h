@@ -69,6 +69,7 @@ public:
   int packetRssi();
   float packetSnr();
 
+  bool DIO_RISE = false;
   // from Print
   virtual size_t write(uint8_t byte);
   virtual size_t write(const uint8_t *buffer, size_t size);
@@ -113,12 +114,11 @@ public:
   void dumpRegisters(Stream &out);
   void writeRegister(uint8_t address, uint8_t value);
   uint8_t readRegister(uint8_t address);
+  void handleDio0Rise();
 
 private:
   void explicitHeaderMode();
   void implicitHeaderMode();
-
-  void handleDio0Rise();
 
 
 

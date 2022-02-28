@@ -44,7 +44,7 @@ void setupOta(void *pvParameters)
             continue;
         }
 
-        char buf[64];
+        char buf[2048];
         int bufIndex = 0;
         while (client.available() && bufIndex < 64)
         {

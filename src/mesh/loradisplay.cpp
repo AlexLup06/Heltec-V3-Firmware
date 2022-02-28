@@ -26,6 +26,8 @@ void LoraDisplay::initDisplay() {
 
 void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID,
                                           double_t update) {
+
+
     display.clearDisplay();
     display.setCursor(0, 0);
     display.print("Id");
@@ -47,7 +49,7 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
         display.setCursor(28, 10 + 8 * i);
         display.print(String(routingTable[i]->hop));
         display.setCursor(56, 10 + 8 * i);
-        display.println(String(((millis() - routingTable[i]->lastSeen) / 10) /100.0));
+        display.println(String((millis() - routingTable[i]->lastSeen) / 1000.0, 1));
         display.setCursor(103, 10 + 8 * i);
         display.println(String(routingTable[i]->rssi));
     }
@@ -71,8 +73,9 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
         }
     }
 
-
+    noInterrupts();
     display.display();
+    interrupts();
 }
 
 void LoraDisplay::drawSerialFooter() {
@@ -99,12 +102,17 @@ void LoraDisplay::drawWaitStatusFooter() {
     display.setCursor(30, DISPLAY_HEIGHT - 18);
     display.println("B");
     display.setCursor(30, DISPLAY_HEIGHT - 8);
-    display.println(String(*receivedBytes));
+    display.println(String(*receivedBytes / 1000) + "KB");
 
     display.setCursor(60, DISPLAY_HEIGHT - 18);
     display.println("T");
     display.setCursor(60, DISPLAY_HEIGHT - 8);
-    display.println(String((millis() / 10) /100.0));
+    if(millis() < 900000){
+        display.println(String((millis()) / 1000.0, 1));
+    }else{
+        display.println("900.0");
+    }
+
 
     display.setCursor(95, DISPLAY_HEIGHT - 18);
     display.println("Queue");
@@ -144,6 +152,7 @@ void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
 }
 
 void LoraDisplay::nextScreen() {
+
     screenIndex++;
     if (screenIndex > 2) {
         screenIndex = 0;

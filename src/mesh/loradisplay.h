@@ -26,7 +26,8 @@ public:
     String lastSerialChar;
     unsigned long *waitTime;
     int queueLength;
-    unsigned long *receivedBytes;
+    unsigned int *receivedBytes;
+
     void nextScreen();
     void initDisplay();
     void printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID, double_t update);

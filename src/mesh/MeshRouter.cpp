@@ -17,6 +17,10 @@ void MeshRouter::initNode() {
 
     // Announce Local NodeID to the Network to
     MeshRouter::announceNodeId(1);
+
+    for (int i = 0; i < 255; i++) {
+        NODE_ID_COUNTERS[i] = 0;
+    }
 }
 
 void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int rssi) {
@@ -61,6 +65,7 @@ void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
     for (int i = 0; i < totalRoutes; i++) {
         if (routingTable[i]->nodeId == nodeId) {
             routingTable[i]->rssi = rssi;
+            routingTable[i]->lastSeen = millis();
             return;
         }
     }
@@ -145,15 +150,22 @@ void MeshRouter::_debugDumpSRAM() {
 void MeshRouter::handle() {
     // Modem hat preable Empfangen
     if (cad) {
-        SenderWait(50 + predictPacketSendTime(255));
+        SenderWait(0);
+        preambleAdd = 350 + predictPacketSendTime(255);
         cad = false;
     }
 
-    if(sendQueue.size() < 3){
+#ifdef TEST_MODE
+    if (sendQueue.size() < 3 && millis() < 900000) {
         uint16_t size = 1000;
-        auto dummyPayload = (uint8_t * ) malloc(size);
+        auto dummyPayload = (uint8_t *) malloc(size);
+        memset(dummyPayload, (uint8_t) 'M', size);
         CreateBroadcastPacket(dummyPayload, NodeID, size, ID_COUNTER++);
+
+        free(dummyPayload);
     }
+#endif
+
 
 
     switch (OPERATING_MODE) {
@@ -190,9 +202,9 @@ void MeshRouter::handle() {
 
             ProcessQueue();
 
-           // if (millis() - lastAnounceTime > 15000) {
-                //MeshRouter::announceNodeId(1);
-           // }
+            // if (millis() - lastAnounceTime > 15000) {
+            //MeshRouter::announceNodeId(1);
+            // }
 
             break;
 
@@ -231,12 +243,16 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
 #endif
     readPaketFromSRAM(rawPaket, 1, paketSize);
 
+    // remove preamble wait value
+    preambleAdd = 0;
     switch (messageType) {
         case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
             MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket, rssi);
+            SenderWait(random(0, 150));
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
             MeshRouter::OnFloodFragmentPaket((FloodBroadcastFragmentPaket_t *) rawPaket);
+            SenderWait(random(0, 150));
             break;
         case MESSAGE_TYPE_NODE_ANNOUNCE:
             MeshRouter::OnNodeIdAnnouncePaket((NodeIdAnnounce_t *) rawPaket, rssi);
@@ -247,6 +263,7 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
         default:
             break;
     }
+
 
     // Paket Processed - Free Ram
     free(rawPaket);
@@ -267,7 +284,7 @@ void MeshRouter::OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi) {
             SenderWait(predictPacketSendTime(paket->totalTransmissionSize) + fragments * 15);
         } else {
             // Just dont Send until next Fragment arrives
-            SenderWait(predictPacketSendTime(251) + 100);
+            SenderWait(predictPacketSendTime(255) + 50);
         }
     }
 }
@@ -285,19 +302,22 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 
         if (paket->respond == 1) {
             // Unknown node! Block Sending for a time window, to allow other Nodes to respond.
-            MeshRouter::SenderWait(NodeID * 10);
+            MeshRouter::SenderWait(random(0, 900));
             MeshRouter::announceNodeId(0);
         }
     } else {
         // ToDo: Route Dispute
     }
 
-    if(paket->nodeId != NodeID){
+    // Jode just started, reset NodeID Counter
+    NODE_ID_COUNTERS[paket->nodeId] = 0;
+
+    if (paket->nodeId != NodeID) {
         auto *repeatedPacked = (NodeIdAnnounce_t *) malloc(sizeof(NodeIdAnnounce_t));
         memcpy(repeatedPacked, paket, sizeof(NodeIdAnnounce_t));
         repeatedPacked->lastHop = NodeID;
         repeatedPacked->respond = 0;
-        QueuePaket((uint8_t * )repeatedPacked, sizeof(NodeIdAnnounce_t));
+        QueuePaket((uint8_t *) repeatedPacked, sizeof(NodeIdAnnounce_t));
     }
 
 }
@@ -365,12 +385,12 @@ void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size, long waitTimeAfter)
 }
 
 void MeshRouter::ProcessQueue() {
-    if (sendQueue.size() == 0 || blockSendUntil > millis()) {
+    if (sendQueue.size() == 0 || blockSendUntil + preambleAdd > millis()) {
         return;
     }
     QueuedPaket_t paketQueueEntry = sendQueue.shift();
 
-    if(paketQueueEntry.paketPointer == nullptr){
+    if (paketQueueEntry.paketPointer == nullptr) {
         return;
     }
 
@@ -405,7 +425,7 @@ uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
     return 0;
 }
 
-void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id){
+void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id) {
     // Announce Transmission with Header Paket
     auto *headerLoraPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
     headerLoraPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
@@ -434,14 +454,15 @@ void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_
 
         uint16_t bytesToCopy =
                 sizeof(fragPaket->payload) > size - i ? size - i
-                                                                               : sizeof(fragPaket->payload);
+                                                      : sizeof(fragPaket->payload);
         memcpy(&fragPaket->payload, payload + i, bytesToCopy);
         i += bytesToCopy;
 
-        if(i == size){
+        if (i == size) {
             long fullWaitTime = predictPacketSendTime(255);
-            QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),150 + random(fullWaitTime, fullWaitTime * 2) );
-        }else{
+            QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),
+                       200 + random(fullWaitTime, fullWaitTime + 250));
+        } else {
             QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t));
         }
     }
@@ -465,6 +486,12 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
         return;
     }
 
+    if (NODE_ID_COUNTERS[paket->source] > paket->id) {
+        // We already received this paket, this is just a repetition
+        return;
+    }
+
+#ifdef RETRANSMIT_PAKETS
     // Send Broadcast Confirmation
     auto *broadcastAck = (FloodBroadcastAck_t *) malloc(sizeof(FloodBroadcastAck_t));
     broadcastAck->source = paket->source;
@@ -473,6 +500,12 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     broadcastAck->id = paket->id;
 
     SendRaw((uint8_t *) broadcastAck, sizeof(FloodBroadcastAck_t));
+
+    free(broadcastAck);
+    broadcastAck = nullptr;
+#endif
+
+    UpdateRSSI(paket->source, rssi);
 
     auto *incompletePaket = (FragmentedPaket_t *) malloc(sizeof(FragmentedPaket_t));
     incompletePaket->id = paket->id;
@@ -495,9 +528,6 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     *debugString = "FH: " + String(incompletePaket->size) + " ID: " + String(incompletePaket->id);
     incompletePaket->payload = (uint8_t *) malloc(paket->size);
     incompletePaketList.add(incompletePaket);
-
-    free(broadcastAck);
-    broadcastAck = nullptr;
 }
 
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
@@ -577,6 +607,14 @@ FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint16_t transmissionid, u
     return nullptr;
 }
 
+void MeshRouter::removeIncompletePaketById(uint16_t transmissionid, uint8_t source) {
+    for (int i = 0; i < incompletePaketList.size(); i++) {
+        if (incompletePaketList.get(i)->id == transmissionid && incompletePaketList.get(i)->source == source) {
+            incompletePaketList.remove(i);
+        }
+    }
+}
+
 void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     auto payloadBuffer = (uint8_t *) malloc(sizeof(FragmentedPaket_t) + paket->size);
     memcpy(payloadBuffer, paket, sizeof(FragmentedPaket_t));
@@ -586,21 +624,30 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     serialPaketHeader->serialPaketType = SERIAL_PAKET_TYPE_FLOOD_PAKET;
     serialPaketHeader->size = sizeof(FragmentedPaket_t) + paket->size;
 
-    Serial.write((uint8_t *) serialPaketHeader, 3);
-    Serial.write(payloadBuffer, serialPaketHeader->size);
+    //Serial.write((uint8_t *) serialPaketHeader, 3);
+    //Serial.write(payloadBuffer, serialPaketHeader->size);
+    Serial.println("[PACKET] " + String(paket->size));
 
-    receivedBytes +=paket->size;
+#ifdef TEST_MODE
+    if(millis() < 900000){
+        receivedBytes += paket->size;
+    }
+#endif
+
 
     // ReQueue Packet
+#ifdef RETRANSMIT_PAKETS
     CreateBroadcastPacket(paket->payload, paket->source, paket->size, paket->id);
+#endif
     *debugString = "HOST SEND: " + String(paket->size);
 
     blockSendUntil = millis() + random(10, 250);
 
-    //free(paket->payload);
-    //free(paket);
-    //free(serialPaketHeader);
-    //free(payloadBuffer);
+    removeIncompletePaketById(paket->id, paket->source);
+    free(paket->payload);
+    free(paket);
+    free(serialPaketHeader);
+    free(payloadBuffer);
 }
 
 // Calculates the AirTime of a paket, based on its Payload size.

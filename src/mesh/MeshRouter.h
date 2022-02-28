@@ -136,7 +136,9 @@ public:
 
     uint16_t ID_COUNTER = 0;
 
-    unsigned long receivedBytes = 0;
+    uint16_t NODE_ID_COUNTERS[255];
+
+    uint32_t receivedBytes = 0;
 
     uint8_t lastBroadcastSourceId = 0;
 
@@ -150,6 +152,7 @@ public:
     int readyPaketSize = 0;
 
     unsigned long blockSendUntil = 0;
+    unsigned long preambleAdd = 0;
 
     LinkedList<QueuedPaket_t> sendQueue;
 
@@ -162,6 +165,8 @@ public:
     void OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket);
 
     FragmentedPaket_t *getIncompletePaketById(uint16_t transmissionid, uint8_t source);
+
+    void removeIncompletePaketById(uint16_t transmissionid, uint8_t source);
 
     void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
 

@@ -33,8 +33,8 @@
 // IRQ masks
 #define IRQ_TX_DONE_MASK 0x08
 
-// Eingehende LoRa Nachricht: siehe Datasheet Seite 90. Bit 0 Mask: 00000001 -> 0x01
-#define IRQ_CAD_DETECTED 0x01
+// Eingehende LoRa Nachricht, Header Empfangen, siehe Datasheet Seite 90. Bit 0 Mask: 00010001 -> 0x10
+#define IRQ_CAD_DETECTED 0x10
 
 #define IRQ_PAYLOAD_CRC_ERROR_MASK 0x20
 #define IRQ_RX_DONE_MASK 0x40
@@ -538,7 +538,7 @@ uint8_t LoRaClass::singleTransfer(uint8_t address, uint8_t value) {
 }
 
 void LoRaClass::onDio0Rise() {
-    LoRa.handleDio0Rise();
+    LoRa.DIO_RISE = true;
 }
 
 LoRaClass LoRa;

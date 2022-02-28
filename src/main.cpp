@@ -7,7 +7,6 @@
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
 
-
 #ifdef USE_OTA_UPDATE_CHECKING
 #include <ota/devota.h>
 #endif
@@ -61,11 +60,11 @@ void setup() {
 #ifdef USE_OTA_UPDATE_CHECKING
     activateOTA();
 #endif
-
+    esp_log_level_set("*", ESP_LOG_ERROR);
     // Setup Serial
     Serial.setRxBufferSize(4096);
+    Serial.setDebugOutput(false);
     Serial.begin(115200);
-    
 
     while (!Serial) { ; // wait for serial port to connect. Needed for native USB
     }
@@ -133,6 +132,11 @@ void onButtonPress() {
 
 // FreeRTOS Task on Core 1
 void loop() {
+    // check lora interrupt raised
+    if(LoRa.DIO_RISE){
+        LoRa.DIO_RISE = false;
+        LoRa.handleDio0Rise();
+    }
     // Handle Route Loop
     meshRouter.handle();
 
