@@ -100,8 +100,7 @@ void setup() {
     Serial.println("Init Display");
 #endif
     loraDisplay.initDisplay();
-    loraDisplay.printRoutingTableScreen(meshRouter.routingTable, meshRouter.totalRoutes, meshRouter.NodeID,
-                                        UPDATE_STATE);
+
 
     LoRa.onReceive(receiveInterrupt);
     LoRa.onCad(cadInterrupt);
@@ -110,6 +109,10 @@ void setup() {
     meshRouter.debugString = &loraDisplay.lastSerialChar;
     meshRouter.displayQueueLength = &loraDisplay.queueLength;
     loraDisplay.waitTime = &meshRouter.blockSendUntil;
+    loraDisplay.receivedBytes = &meshRouter.receivedBytes;
+
+    loraDisplay.printRoutingTableScreen(meshRouter.routingTable, meshRouter.totalRoutes, meshRouter.NodeID,
+                                        UPDATE_STATE);
 
     /**
      * Start Host Serial Handler on Core 0

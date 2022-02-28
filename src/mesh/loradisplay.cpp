@@ -91,10 +91,20 @@ void LoraDisplay::drawSerialFooter() {
 void LoraDisplay::drawWaitStatusFooter() {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
-    display.println("WaitTime");
+    display.println("WT");
     display.setCursor(0, DISPLAY_HEIGHT - 8);
     unsigned long timeLeftWait = *waitTime < millis() ? 0 : *waitTime - millis();
     display.println(String(timeLeftWait));
+
+    display.setCursor(30, DISPLAY_HEIGHT - 18);
+    display.println("B");
+    display.setCursor(30, DISPLAY_HEIGHT - 8);
+    display.println(String(*receivedBytes));
+
+    display.setCursor(60, DISPLAY_HEIGHT - 18);
+    display.println("T");
+    display.setCursor(60, DISPLAY_HEIGHT - 8);
+    display.println(String((millis() / 10) /100.0));
 
     display.setCursor(95, DISPLAY_HEIGHT - 18);
     display.println("Queue");

@@ -10,11 +10,10 @@
 /**
  * Paket Typen
  */
-#define MESSAGE_TYPE_UNICAST_DATA_PAKET 0
-#define MESSAGE_TYPE_FLOOD_BROADCAST_HEADER 1
-#define MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT 2
-#define MESSAGE_TYPE_NODE_ANNOUNCE 3
-#define MESSAGE_TYPE_NODE_ID_DISAGREEMENT 4
+#define MESSAGE_TYPE_NODE_ANNOUNCE 0x00
+#define MESSAGE_TYPE_FLOOD_BROADCAST_HEADER 0x01
+#define MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT 0x02
+#define MESSAGE_TYPE_FLOOD_BROADCAST_ACK 0x03
 
 /**
  * Operating Modes
@@ -31,28 +30,40 @@
 #define RECEIVE_STATE_PAKET_READY 1
 
 /**
-     * Dieses Flood Paket wird von jeder Node, die es empfängt, propagiert
-     **/
+ * Dieses Flood Paket wird von jeder Node, die es empfängt, propagiert
+ **/
 #pragma pack(1)
 typedef struct {
-    uint8_t messageType;
-    uint16_t id;
-    uint8_t fragment;
+    uint8_t messageType = MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT;
+    uint16_t id = 0;
+    uint8_t fragment = 0;
     uint8_t payload[LORA_MAX_PAKET_SIZE - 4];
 } FloodBroadcastFragmentPaket_t;
 #pragma pack()
 
 #pragma pack(1)
 typedef struct {
-    uint8_t messageType;
-    uint16_t id;
-    uint8_t lastHop;
-    uint8_t source;
-    uint16_t size;
-    uint8_t checksum;
+    uint8_t messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
+    uint16_t id = 0;
+    uint8_t lastHop = 0;
+    uint8_t source = 0;
+    uint16_t size = 0;
+    uint8_t checksum = 0;
 } FloodBroadcastHeaderPaket_t;
 #pragma pack()
 
+#pragma pack(1)
+typedef struct {
+    uint8_t messageType = MESSAGE_TYPE_FLOOD_BROADCAST_ACK;
+    uint8_t source = 0; // Source of the initial FloodBroadcastHeaderPaket_t
+    uint16_t id = 0;
+    uint16_t totalTransmissionSize = 0;
+} FloodBroadcastAck_t;
+#pragma pack()
+
+/**
+ * Diese Struct stellt ein Angekündigtes Paket dar. Dieses wird nach empfang eines FloodBroadcastHeaderPaket_t angelegt.
+ */
 #pragma pack(1)
 typedef struct {
     uint16_t id;
@@ -65,26 +76,6 @@ typedef struct {
     uint8_t checksum;
     uint8_t *payload;
 } FragmentedPaket_t;
-#pragma pack()
-/**
-     * 
-    * 
-    * dest: ziel node
-    * source: quelle des pakets
-    * lastHop: letzte Node, über die das Paket geleitet worden ist
-    * id: generierte ID des pakets
-    **/
-#pragma pack(1)
-typedef struct {
-    uint8_t messageType;
-    uint8_t nextHop;
-    uint8_t lastHop;
-    uint8_t dest;
-    uint8_t source;
-    uint8_t flags;
-    uint16_t id;
-    uint8_t payload[LORA_MAX_PAKET_SIZE - 8];
-} UnicastMeshPaket_t;
 #pragma pack()
 
 /**
@@ -103,15 +94,6 @@ typedef struct {
 } NodeIdAnnounce_t;
 #pragma pack()
 
-#pragma pack(1)
-typedef struct {
-    uint8_t messageType;
-    uint8_t deviceMac[6];
-    uint8_t minNodeId;
-    uint8_t lastHop;
-} NodeIdDisagreement_t;
-#pragma pack()
-
 typedef struct {
     uint8_t deviceMac[6];
     uint8_t nodeId;
@@ -123,6 +105,7 @@ typedef struct {
 typedef struct {
     uint8_t *paketPointer;
     uint8_t paketSize;
+    long waitTimeAfter;
 } QueuedPaket_t;
 
 #define SERIAL_PAKET_TYPE_FLOOD_PAKET 1
@@ -151,6 +134,12 @@ public:
     uint8_t totalRoutes = 0;
     uint8_t OPERATING_MODE = 0;
 
+    uint16_t ID_COUNTER = 0;
+
+    unsigned long receivedBytes = 0;
+
+    uint8_t lastBroadcastSourceId = 0;
+
     // Cad Detected
     // Modem hat den Anfang eines LoRa Signals empfangen
     bool cad = false;
@@ -168,19 +157,21 @@ public:
 
     void OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi);
 
+    void OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi);
+
     void OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket);
 
-    void retransmitPaket(uint8_t *overrideBuffer, uint8_t overrideSize, uint8_t totalSize);
-
-    FragmentedPaket_t *getIncompletePaketById(uint16_t transmissionid);
+    FragmentedPaket_t *getIncompletePaketById(uint16_t transmissionid, uint8_t source);
 
     void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
+
+    void CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id);
 
     void initNode();
 
     void SendRaw(uint8_t *rawPaket, uint8_t size);
 
-    void QueuePaket(uint8_t *rawPaket, uint8_t size);
+    void QueuePaket(uint8_t *rawPaket, uint8_t size, long waitTimeAfter = 0);
 
     void ProcessQueue();
 
@@ -197,8 +188,6 @@ public:
     void _debugDumpSRAM();
 
     void OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi);
-
-    void OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int rssi);
 
     uint8_t findNextFreeNodeId(uint8_t nodeId, uint8_t deviceMac[6]);
 
@@ -227,7 +216,7 @@ private:
 
     uint8_t findNextHopForDestination(uint8_t dest);
 
-    unsigned long predictPacketSendTime(uint8_t size);
+    long predictPacketSendTime(uint8_t size);
 
     void SenderWait(unsigned long delay);
 };

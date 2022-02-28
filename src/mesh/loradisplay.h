@@ -20,12 +20,13 @@ private:
     void drawWaitStatusFooter();
 
 
-    uint8_t screenIndex = 1;
+    uint8_t screenIndex = 2;
 
 public:
     String lastSerialChar;
     unsigned long *waitTime;
     int queueLength;
+    unsigned long *receivedBytes;
     void nextScreen();
     void initDisplay();
     void printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID, double_t update);

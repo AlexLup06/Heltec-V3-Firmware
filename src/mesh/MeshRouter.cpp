@@ -143,11 +143,18 @@ void MeshRouter::_debugDumpSRAM() {
  * 
  */
 void MeshRouter::handle() {
-    // Modem empfängt Nachricht. Warte bis Ready.
+    // Modem hat preable Empfangen
     if (cad) {
-        SenderWait(400 + predictPacketSendTime(255));
+        SenderWait(50 + predictPacketSendTime(255));
         cad = false;
     }
+
+    if(sendQueue.size() < 3){
+        uint16_t size = 1000;
+        auto dummyPayload = (uint8_t * ) malloc(size);
+        CreateBroadcastPacket(dummyPayload, NodeID, size, ID_COUNTER++);
+    }
+
 
     switch (OPERATING_MODE) {
         case OPERATING_MODE_INIT:
@@ -183,9 +190,9 @@ void MeshRouter::handle() {
 
             ProcessQueue();
 
-            if(millis() - lastAnounceTime > 15000){
-                MeshRouter::announceNodeId(1);
-            }
+           // if (millis() - lastAnounceTime > 15000) {
+                //MeshRouter::announceNodeId(1);
+           // }
 
             break;
 
@@ -222,27 +229,49 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("MessageType: " + String(messageType));
 #endif
+    readPaketFromSRAM(rawPaket, 1, paketSize);
+
     switch (messageType) {
-        case MESSAGE_TYPE_UNICAST_DATA_PAKET:
-            MeshRouter::OnUnicastPaket((UnicastMeshPaket_t *) rawPaket, paketSize, rssi);
-            break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
-            readPaketFromSRAM(rawPaket, 1, paketSize);
             MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket, rssi);
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
-            readPaketFromSRAM(rawPaket, 1, paketSize);
             MeshRouter::OnFloodFragmentPaket((FloodBroadcastFragmentPaket_t *) rawPaket);
             break;
         case MESSAGE_TYPE_NODE_ANNOUNCE:
-            readPaketFromSRAM(rawPaket, 1, paketSize);
             MeshRouter::OnNodeIdAnnouncePaket((NodeIdAnnounce_t *) rawPaket, rssi);
+            break;
+        case MESSAGE_TYPE_FLOOD_BROADCAST_ACK:
+            MeshRouter::OnFloodBroadcastAck((FloodBroadcastAck_t *) rawPaket, rssi);
+            break;
+        default:
             break;
     }
 
     // Paket Processed - Free Ram
     free(rawPaket);
 }
+
+void MeshRouter::OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi) {
+    // We have announced this as a Broadcast, so we expected this. Dont do anything.
+    if (paket->source == NodeID) {
+        return;
+    }
+
+    // We are not the Sender of the Broadcast.
+    if (paket->source != NodeID) {
+
+        if (getIncompletePaketById(paket->id, paket->source) == nullptr) {
+            // We have not received the Broadcast Announcement (FloodBroadcastHeaderPaket_t). We need to sleep now for the duration of the Transmission.
+            int fragments = paket->totalTransmissionSize / 251 + 1;
+            SenderWait(predictPacketSendTime(paket->totalTransmissionSize) + fragments * 15);
+        } else {
+            // Just dont Send until next Fragment arrives
+            SenderWait(predictPacketSendTime(251) + 100);
+        }
+    }
+}
+
 
 void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 #ifdef DEBUG_LORA_SERIAL
@@ -262,29 +291,15 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
     } else {
         // ToDo: Route Dispute
     }
-}
 
-void MeshRouter::OnUnicastPaket(UnicastMeshPaket_t *paket, uint8_t size, int rssi) {
-    // Read lastHop, nextHop and dest from SRAM
-    readPaketFromSRAM((uint8_t *) paket, 1, 4);
-    if (paket->nextHop == NodeID) {
-        if (paket->dest == NodeID) {
-            // We are the destination, read whole paket from Lora Module
-            readPaketFromSRAM((uint8_t *) paket, 2, size);
-        } else {
-            // We are just a hop on the Route
-            // Adjust data in SRAM and resend
-            paket->nextHop = findNextHopForDestination(paket->dest);
-            paket->lastHop = NodeID;
-
-            writePaketToSRAM((uint8_t *) paket, 1, 3);
-
-            LoRa.writeRegister(REG_FIFO_ADDR_PTR, 0);
-            LoRa.writeRegister(REG_PAYLOAD_LENGTH, size);
-
-            LoRa.endPacket();
-        }
+    if(paket->nodeId != NodeID){
+        auto *repeatedPacked = (NodeIdAnnounce_t *) malloc(sizeof(NodeIdAnnounce_t));
+        memcpy(repeatedPacked, paket, sizeof(NodeIdAnnounce_t));
+        repeatedPacked->lastHop = NodeID;
+        repeatedPacked->respond = 0;
+        QueuePaket((uint8_t * )repeatedPacked, sizeof(NodeIdAnnounce_t));
     }
+
 }
 
 /**
@@ -338,10 +353,11 @@ void MeshRouter::SenderWait(unsigned long waitTime) {
     }
 }
 
-void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size) {
+void MeshRouter::QueuePaket(uint8_t *rawPaket, uint8_t size, long waitTimeAfter) {
     QueuedPaket_t paket;
     paket.paketPointer = rawPaket;
     paket.paketSize = size;
+    paket.waitTimeAfter = waitTimeAfter;
     sendQueue.add(paket);
     if (displayQueueLength != nullptr) {
         *displayQueueLength = sendQueue.size();
@@ -354,13 +370,20 @@ void MeshRouter::ProcessQueue() {
     }
     QueuedPaket_t paketQueueEntry = sendQueue.shift();
 
+    if(paketQueueEntry.paketPointer == nullptr){
+        return;
+    }
+
     MeshRouter::SendRaw(paketQueueEntry.paketPointer,
                         paketQueueEntry.paketSize);
 
-    // Wait for Nodes to Receive and Retransmit Paket
-    // SenderWait(200 + predictPacketSendTime(paketQueueEntry.paketSize));
+    // Wait for ACK of Receiving Nodes
+    if (paketQueueEntry.waitTimeAfter > 0) {
+        SenderWait(paketQueueEntry.waitTimeAfter);
+    }
 
     free(paketQueueEntry.paketPointer);
+    paketQueueEntry.paketPointer = nullptr;
 
     // Update Queue on Display
     if (displayQueueLength != nullptr) {
@@ -382,50 +405,54 @@ uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
     return 0;
 }
 
-/**
- * Diese Methode wird aufgerufen, wenn ein vollständiges Serielles Paket über die USB Schnittstelle eingegangen ist.
- * @param serialPaket
- */
-uint16_t ID_COUNTER = 0;
-
-void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket) {
+void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id){
     // Announce Transmission with Header Paket
     auto *headerLoraPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
     headerLoraPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
     headerLoraPaket->lastHop = NodeID;
-    headerLoraPaket->id = ID_COUNTER++;
+    headerLoraPaket->id = id;
     headerLoraPaket->source = NodeID;
-    headerLoraPaket->size = serialPayloadFloodPaket->size;
+    headerLoraPaket->size = size;
 
     // Very simple Content Checksum
     uint8_t checksum = 0;
-    for (uint16_t i = 0; i < serialPayloadFloodPaket->size; i++) {
-        checksum += serialPayloadFloodPaket->payload[i];
+    for (uint16_t i = 0; i < size; i++) {
+        checksum += payload[i];
     }
     headerLoraPaket->checksum = checksum;
 
-    QueuePaket((uint8_t *) headerLoraPaket, sizeof(FloodBroadcastHeaderPaket_t));
+    QueuePaket((uint8_t *) headerLoraPaket, sizeof(FloodBroadcastHeaderPaket_t), 150);
 
     uint8_t fragment = 0;
 
     // Send Payload as Fragments
-    for (uint16_t i = 0; i < serialPayloadFloodPaket->size;) {
+    for (uint16_t i = 0; i < size;) {
         auto *fragPaket = (FloodBroadcastFragmentPaket_t *) malloc(sizeof(FloodBroadcastFragmentPaket_t));
         fragPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT;
         fragPaket->id = headerLoraPaket->id;
         fragPaket->fragment = fragment++;
 
         uint16_t bytesToCopy =
-                sizeof(fragPaket->payload) > serialPayloadFloodPaket->size - i ? serialPayloadFloodPaket->size - i
+                sizeof(fragPaket->payload) > size - i ? size - i
                                                                                : sizeof(fragPaket->payload);
-        memcpy(&fragPaket->payload, serialPayloadFloodPaket->payload + i, bytesToCopy);
+        memcpy(&fragPaket->payload, payload + i, bytesToCopy);
         i += bytesToCopy;
-        QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t));
-    }
 
-    // Free Serial Data and Buffer
-    // free(serialPayloadFloodPaket->payload);
-    // free(serialPayloadFloodPaket);
+        if(i == size){
+            long fullWaitTime = predictPacketSendTime(255);
+            QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),150 + random(fullWaitTime, fullWaitTime * 2) );
+        }else{
+            QueuePaket((uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t));
+        }
+    }
+}
+
+/**
+* Diese Methode wird aufgerufen, wenn ein vollständiges Serielles Paket über die USB Schnittstelle eingegangen ist.
+* @param serialPaket
+*/
+void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket) {
+    CreateBroadcastPacket(serialPayloadFloodPaket->payload, NodeID, serialPayloadFloodPaket->size, ID_COUNTER++);
 }
 
 /**
@@ -433,10 +460,19 @@ void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloa
  * @param paket
  */
 void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi) {
-    if(getIncompletePaketById(paket->id) != nullptr){
-        SenderWait((unsigned long) 300 + predictPacketSendTime(255));
+    if (getIncompletePaketById(paket->id, paket->source) != nullptr) {
+        // Already received this Paket!
         return;
     }
+
+    // Send Broadcast Confirmation
+    auto *broadcastAck = (FloodBroadcastAck_t *) malloc(sizeof(FloodBroadcastAck_t));
+    broadcastAck->source = paket->source;
+    broadcastAck->totalTransmissionSize = paket->size;
+    broadcastAck->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_ACK;
+    broadcastAck->id = paket->id;
+
+    SendRaw((uint8_t *) broadcastAck, sizeof(FloodBroadcastAck_t));
 
     auto *incompletePaket = (FragmentedPaket_t *) malloc(sizeof(FragmentedPaket_t));
     incompletePaket->id = paket->id;
@@ -448,6 +484,8 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     incompletePaket->corrupted = false;
     incompletePaket->checksum = paket->checksum;
 
+    lastBroadcastSourceId = paket->source;
+
     MeshRouter::UpdateRSSI(paket->lastHop, rssi);
     MeshRouter::UpdateHOP(paket->source, paket->lastHop);
 
@@ -458,13 +496,12 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     incompletePaket->payload = (uint8_t *) malloc(paket->size);
     incompletePaketList.add(incompletePaket);
 
-    // Redirect to next Node
-    //paket->lastHop = NodeID;
-    //retransmitPaket((uint8_t *)paket, 4, sizeof (FloodBroadcastHeaderPaket_t));
+    free(broadcastAck);
+    broadcastAck = nullptr;
 }
 
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
-    FragmentedPaket_t *incompletePaket = getIncompletePaketById(paket->id);
+    FragmentedPaket_t *incompletePaket = getIncompletePaketById(paket->id, lastBroadcastSourceId);
     if (incompletePaket == nullptr) {
         // Keine Informationen über zukünftige Pakete. Gehe vom größten aus!
         SenderWait(400 + predictPacketSendTime(255));
@@ -495,7 +532,7 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
                          : incompletePaket->size - incompletePaket->received;
 
     // Delay Transmission of Pakets
-    SenderWait(400 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
+    SenderWait(150 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
 
     // Copy paket data to buffer
     memcpy(incompletePaket->payload + incompletePaket->received, paket->payload, bytesLeft);
@@ -525,19 +562,15 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
             *debugString = "Success: " + String(checksum);
         }
 
-        if(!incompletePaket->corrupted){
+        if (!incompletePaket->corrupted) {
             OnPaketForHost(incompletePaket);
         }
-
-        // Wait
-        //SenderWait(400 + 2 * predictPacketSendTime(255));
-        //retransmitPaket((uint8_t *)paket, 0, sizeof (FloodBroadcastFragmentPaket_t));
     }
 }
 
-FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint16_t transmissionid) {
+FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint16_t transmissionid, uint8_t source) {
     for (int i = 0; i < incompletePaketList.size(); i++) {
-        if (incompletePaketList.get(i)->id == transmissionid) {
+        if (incompletePaketList.get(i)->id == transmissionid && incompletePaketList.get(i)->source == source) {
             return incompletePaketList.get(i);
         }
     }
@@ -556,7 +589,13 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     Serial.write((uint8_t *) serialPaketHeader, 3);
     Serial.write(payloadBuffer, serialPaketHeader->size);
 
+    receivedBytes +=paket->size;
+
+    // ReQueue Packet
+    CreateBroadcastPacket(paket->payload, paket->source, paket->size, paket->id);
     *debugString = "HOST SEND: " + String(paket->size);
+
+    blockSendUntil = millis() + random(10, 250);
 
     //free(paket->payload);
     //free(paket);
@@ -618,28 +657,10 @@ void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
     }
 }
 
-unsigned long MeshRouter::predictPacketSendTime(uint8_t size) {
-    unsigned long time = (unsigned long) (1.0 * timePerByte * size + sendOverhead);
+long MeshRouter::predictPacketSendTime(uint8_t size) {
+    long time = (long) (1.0 * timePerByte * size + sendOverhead);
     if (time < 10) {
         time = 500;
     }
     return time;
-}
-
-/**
- * Überschreibt die ersten n bytes im LoRa Modul RAM mit dem angegebenem Buffer Inhalt.
- * Wird verwendet, um Pakete neu zu Transferieren, ohne das Paket komplett neu Schreiben zu müssen.
- * @param overrideBuffer
- * @param overrideSize
- * @param totalSize
- */
-void MeshRouter::retransmitPaket(uint8_t *overrideBuffer, uint8_t overrideSize, uint8_t totalSize) {
-    if(overrideSize > 0){
-        writePaketToSRAM(overrideBuffer, 0, overrideSize - 1);
-    }
-
-    LoRa.writeRegister(REG_FIFO_ADDR_PTR, 0);
-    LoRa.writeRegister(REG_PAYLOAD_LENGTH, totalSize);
-
-    LoRa.endPacket();
 }
