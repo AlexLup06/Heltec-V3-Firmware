@@ -22,7 +22,7 @@
 #define LORA_PREAMBLE_LENGTH 12 // Default Value
 
 // Last-Test Modus
-#define TEST_MODE;
+#undef TEST_MODE
 
 // Aktiviere das Weiterleiten von Paketen an Netzwerk Teilnehmer
-#undef RETRANSMIT_PAKETS;
+#undef RETRANSMIT_PAKETS

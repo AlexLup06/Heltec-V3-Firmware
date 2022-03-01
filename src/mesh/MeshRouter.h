@@ -105,7 +105,10 @@ typedef struct {
 typedef struct {
     uint8_t *paketPointer;
     uint8_t paketSize;
+    uint8_t source;
+    uint16_t id;
     long waitTimeAfter;
+    int64_t hash = 0;
 } QueuedPaket_t;
 
 #define SERIAL_PAKET_TYPE_FLOOD_PAKET 1
@@ -115,6 +118,7 @@ typedef struct {
     uint8_t messageType;
     uint16_t size;
     uint8_t source;
+    int64_t hash; // Typ des Pakets
     uint8_t *payload;
 } SerialPayloadFloodPaket_t;
 #pragma pack()
@@ -154,7 +158,7 @@ public:
     unsigned long blockSendUntil = 0;
     unsigned long preambleAdd = 0;
 
-    LinkedList<QueuedPaket_t> sendQueue;
+    LinkedList<QueuedPaket_t *> sendQueue;
 
     void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi);
 
@@ -170,13 +174,15 @@ public:
 
     void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
 
-    void CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id);
+    void CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id,int64_t hash);
+
+    void AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t *> *newPackts, int64_t hash, uint8_t messageSource);
 
     void initNode();
 
     void SendRaw(uint8_t *rawPaket, uint8_t size);
 
-    void QueuePaket(uint8_t *rawPaket, uint8_t size, long waitTimeAfter = 0);
+    void QueuePaket(LinkedList<QueuedPaket_t *> *listPointer, uint8_t *rawPaket, uint8_t size, uint8_t source, uint16_t id, long waitTimeAfter = 0, int64_t hash = 0);
 
     void ProcessQueue();
 

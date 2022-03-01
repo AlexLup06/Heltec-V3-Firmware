@@ -62,7 +62,7 @@ void setup() {
 #endif
     esp_log_level_set("*", ESP_LOG_ERROR);
     // Setup Serial
-    Serial.setRxBufferSize(4096);
+    Serial.setRxBufferSize(2048);
     Serial.setDebugOutput(false);
     Serial.begin(115200);
 

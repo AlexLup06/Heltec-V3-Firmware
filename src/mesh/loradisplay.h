@@ -20,7 +20,7 @@ private:
     void drawWaitStatusFooter();
 
 
-    uint8_t screenIndex = 2;
+    uint8_t screenIndex = 1;
 
 public:
     String lastSerialChar;
