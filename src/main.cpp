@@ -61,6 +61,7 @@ void setup() {
     activateOTA();
 #endif
     esp_log_level_set("*", ESP_LOG_ERROR);
+
     // Setup Serial
     Serial.setRxBufferSize(2048);
     Serial.setDebugOutput(false);

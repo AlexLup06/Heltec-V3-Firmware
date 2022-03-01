@@ -7,6 +7,7 @@
 #include "HostHandler.h"
 #include <Arduino.h>
 #include "mesh/MeshRouter.h"
+
 #define SERIAL_MAGIC_BYTES 0
 #define SERIAL_REC_HEADER 1
 #define SERIAL_REC_PAYLOAD 2
@@ -20,6 +21,7 @@ SerialPaketHeader_t *serialPaketHeader = nullptr;
 uint8_t *receiveBuffer;
 
 unsigned long lastDataReceived = millis();
+
 void onPacketReceived() {
     // Paket komplett empfangen
 
@@ -27,17 +29,16 @@ void onPacketReceived() {
         case SERIAL_PAKET_TYPE_FLOOD_PAKET:
             auto floodPaket = (SerialPayloadFloodPaket_t *) malloc(sizeof(SerialPayloadFloodPaket_t));
             memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
-            
+
             floodPaket->payload = (uint8_t *) malloc(floodPaket->size);
             memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
-        
+
             hostHandlerParams->serialFloodPaketHeader = floodPaket;
             hostHandlerParams->ready = true;
             serialStatus = SERIAL_WAIT_PROCESS;
 
             unsigned long checksum = 0;
-            for (int k = 0; k < 10; k++)
-            {
+            for (int k = 0; k < 10; k++) {
                 checksum += floodPaket->payload[k];
             }
 
@@ -56,23 +57,26 @@ void onPacketReceived() {
             break;
     }
 }
-uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
+
+uint8_t magicBytes[] = {0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2};
 uint8_t magicBytesIndex = 0;
+
 void readAvailableSerialData() {
     uint16_t availableBytes = Serial.available();
 
     if (availableBytes) {
-        if(serialStatus == SERIAL_MAGIC_BYTES){
-            if(magicBytesIndex < 8){
+        while (availableBytes > 0 && serialStatus == SERIAL_MAGIC_BYTES) {
+            if (magicBytesIndex < 8) {
                 uint8_t read = Serial.read();
-                if(read == magicBytes[magicBytesIndex]){
+                availableBytes--;
+                if (read == magicBytes[magicBytesIndex]) {
                     magicBytesIndex++;
-                }else if(magicBytesIndex > 0 && read == magicBytes[0]){
+                } else if (magicBytesIndex > 0 && read == magicBytes[0]) {
                     magicBytesIndex = 1;
-                }else{
+                } else {
                     magicBytesIndex = 0;
                 }
-            }else{
+            } else {
                 serialStatus = SERIAL_REC_HEADER;
                 availableBytes = Serial.available();
                 magicBytesIndex = 0;
@@ -89,6 +93,14 @@ void readAvailableSerialData() {
             //*hostHandlerParams->debugString = String("H.S:") + String(serialPaketHeader->size);
 
             // Speicher mit angegebener größe aus dem Header alokieren und pointer setzten
+            // Wenn nach allokation weniger als PAKET_SIZE + 10000 Heap verfügbar ist, dann verwerfe das Paket!
+            if (xPortGetFreeHeapSize() - serialPaketHeader->size < serialPaketHeader->size + 10000) {
+                serialStatus = SERIAL_MAGIC_BYTES;
+                free(serialPaketHeader);
+                serialPaketHeader = nullptr;
+                serialIndex = 0;
+                return;
+            }
             receiveBuffer = (uint8_t *) malloc(serialPaketHeader->size);
             serialStatus = SERIAL_REC_PAYLOAD;
             availableBytes = Serial.available();

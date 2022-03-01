@@ -151,7 +151,7 @@ void MeshRouter::handle() {
     // Modem hat preable Empfangen
     if (cad) {
         SenderWait(0);
-        preambleAdd = 350 + predictPacketSendTime(255);
+        preambleAdd = 1000 + predictPacketSendTime(255);
         cad = false;
     }
 
@@ -624,9 +624,14 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     uint16_t nextFragLength = (uint16_t) paket->size > 255 ? 255 : paket->size;
     SenderWait((unsigned long) 300 + predictPacketSendTime(nextFragLength));
 
-    *debugString = "FH: " + String(incompletePaket->size) + " ID: " + String(incompletePaket->id);
-    incompletePaket->payload = (uint8_t *) malloc(paket->size);
-    incompletePaketList.add(incompletePaket);
+    if(xPortGetFreeHeapSize() - incompletePaket->size > incompletePaket->size + 10000){
+        *debugString = "FH: " + String(incompletePaket->size) + " ID: " + String(incompletePaket->id);
+        incompletePaket->payload = (uint8_t *) malloc(paket->size);
+        incompletePaketList.add(incompletePaket);
+    }else{
+        free(incompletePaket);
+    }
+
 }
 
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
@@ -670,8 +675,8 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
     // Set last Received fragment
     incompletePaket->lastFragment = paket->fragment;
 
-    *debugString = "F" + String(paket->fragment) + "R" + String(incompletePaket->received) + "S" +
-                   String(incompletePaket->size) + "L" + String(bytesLeft);
+    //*debugString = "F" + String(paket->fragment) + "R" + String(incompletePaket->received) + "S" +
+    //               String(incompletePaket->size) + "L" + String(bytesLeft);
 
     if (incompletePaket->received == incompletePaket->size) {
         // End of Transmission
