@@ -202,10 +202,11 @@ void MeshRouter::handle() {
 
             ProcessQueue();
 
-            // if (millis() - lastAnounceTime > 15000) {
-            //MeshRouter::announceNodeId(1);
-            // }
-
+#ifdef ANNOUNCE_IN_INTERVAL
+            if (millis() - lastAnounceTime > 3000) {
+                MeshRouter::announceNodeId(0);
+            }
+#endif
             break;
 
         case OPERATING_MODE_UPDATE_IDLE:
@@ -312,6 +313,7 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
     // Jode just started, reset NodeID Counter
     NODE_ID_COUNTERS[paket->nodeId] = 0;
 
+#ifdef RETRANSMIT_PAKETS
     if (paket->nodeId != NodeID) {
         auto *repeatedPacked = (NodeIdAnnounce_t *) malloc(sizeof(NodeIdAnnounce_t));
         memcpy(repeatedPacked, paket, sizeof(NodeIdAnnounce_t));
@@ -319,6 +321,7 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
         repeatedPacked->respond = 0;
         QueuePaket(&sendQueue, (uint8_t *) repeatedPacked, sizeof(NodeIdAnnounce_t), NodeID, 0);
     }
+#endif
 
 }
 

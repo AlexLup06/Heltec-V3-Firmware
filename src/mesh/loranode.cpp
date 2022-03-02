@@ -14,7 +14,7 @@ void LoraNode::initLora()
     }
     // Default:
     // High Power:
-    LoRa.setTxPower(7, RF_PACONFIG_PASELECT_PABOOST);
+    LoRa.setTxPower(20, RF_PACONFIG_PASELECT_PABOOST);
     LoRa.setSignalBandwidth(LORA_BANDWIDTH);
     LoRa.setSpreadingFactor(LORA_SPREADINGFACTOR);
     LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
