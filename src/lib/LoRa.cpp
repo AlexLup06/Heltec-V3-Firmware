@@ -197,6 +197,22 @@ int LoRaClass::parsePacket(int size) {
     }
     return packetLength;
 }
+int8_t LoRaClass::getSNR()
+{
+	int8_t snr = 0;
+	int8_t SnrValue = readRegister(0x19);
+	if (SnrValue & 0x80) // The SNR sign bit is 1
+	{
+		// Invert and divide by 4
+		snr = ((~SnrValue + 1) & 0xFF) >> 2;
+		snr = -snr;
+	}
+	else {
+		// Divide by 4
+		snr = (SnrValue & 0xFF) >> 2;
+	}
+    return snr;
+}
 
 int LoRaClass::packetRssi() {
     int8_t snr = 0;

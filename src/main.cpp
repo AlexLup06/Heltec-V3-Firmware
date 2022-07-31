@@ -1,9 +1,9 @@
-#include "config.h"
-
+#include <config.h>
+#include <main.h>
 #include <lib/LoRa.h>
 #include <mesh/loranode.h>
 #include <mesh/loradisplay.h>
-#include "HostHandler.h"
+#include <HostHandler.h>
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
 
@@ -14,13 +14,7 @@
 // Toggle Serial Debug
 // #define DEBUG_LORA_SERIAL
 
-MeshRouter meshRouter;
-LoraNode loraNode;
-LoraDisplay loraDisplay;
-TaskHandle_t otaTask;
-TaskHandle_t hostTask;
 
-HostSerialHandlerParams_t hostSerialHandlerParams;
 
 
 unsigned long lastScreenDraw = 0;

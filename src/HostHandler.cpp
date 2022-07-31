@@ -3,7 +3,7 @@
  * Dieser Typ ist 5 bytes groß. Der Pointer auf den ersten 5 Bytes wird direkt als diese Struktur interpretiert. Es folgt keine Prüfung auf Gültigkeit.
  * Anmerkung: Diese Implementierung ist sehr anfällig für verlorene Bytes, da dann die Zustände von Gerät und Host nicht mehr Synchron sind.
  */
-
+#include "main.h"
 #include "HostHandler.h"
 #include <Arduino.h>
 #include "mesh/MeshRouter.h"
@@ -26,35 +26,122 @@ void onPacketReceived() {
     // Paket komplett empfangen
 
     switch (serialPaketHeader->serialPaketType) {
-        case SERIAL_PAKET_TYPE_FLOOD_PAKET:
-            auto floodPaket = (SerialPayloadFloodPaket_t *) malloc(sizeof(SerialPayloadFloodPaket_t));
-            memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
+    case SERIAL_PAKET_TYPE_FLOOD_PAKET:
+        auto floodPaket = (SerialPayloadFloodPaket_t*)malloc(sizeof(SerialPayloadFloodPaket_t));
+        memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
 
-            floodPaket->payload = (uint8_t *) malloc(floodPaket->size);
-            memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
+        floodPaket->payload = (uint8_t*)malloc(floodPaket->size);
+        memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
 
-            hostHandlerParams->serialFloodPaketHeader = floodPaket;
-            hostHandlerParams->ready = true;
-            serialStatus = SERIAL_WAIT_PROCESS;
+        hostHandlerParams->serialFloodPaketHeader = floodPaket;
+        hostHandlerParams->ready = true;
 
-            unsigned long checksum = 0;
-            for (int k = 0; k < 10; k++) {
-                checksum += floodPaket->payload[k];
-            }
+        //free allocated memory
+        free(serialPaketHeader);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+        break;
 
-            //*hostHandlerParams->debugString = "CS:" + String(checksum) + " S:" + String(floodPaket->size);
-            /**
-            String bytesAsHex = "";
-            for (int k = 0; k < 32; k++)
-            {
-                bytesAsHex.concat(String(unsigned(floodPaket->payload[k])) + " ");
-            }
-            *hostHandlerParams->debugString = bytesAsHex;
-            */
+    case SERIAL_PACKET_TYPE_RSSI_REQUEST:
+    {
+        auto rssiRequestPaket = (SerialPacketRSSI_Request_t*)malloc(sizeof(SerialPacketRSSI_Request_t));
+        memcpy(rssiRequestPaket, receiveBuffer, sizeof(SerialPacketRSSI_Request_t));
 
-            free(serialPaketHeader);
-            free(receiveBuffer);
-            break;
+        auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketRSSI_Response_t));
+        ((SerialPacketRSSI_Response_t*)payloadBuffer)->nodeRSSI = meshRouter->getRSSI(rssiRequestPaket->nodeID);
+        //packet not longer needed
+        free(rssiRequestPaket);
+
+        //reuse Serial Header for response
+        serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_RSSI_RESPONSE;
+        serialPaketHeader->size = sizeof(SerialPacketRSSI_Response_t);
+        //send message
+        {
+            std::lock_guard<std::mutex> lck(serial_mtx);
+            uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
+            Serial.write(magicBytes, 8);
+            Serial.write((uint8_t*)serialPaketHeader, 3);
+            Serial.write(payloadBuffer, serialPaketHeader->size);
+        }
+        //free allocated memory
+        free(serialPaketHeader);
+        free(payloadBuffer);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
+
+    case SERIAL_PACKET_TYPE_SNR_REQUEST:
+    {
+        auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketSNR_Response_t));
+        ((SerialPacketSNR_Response_t*)payloadBuffer)->nodeSNR = meshRouter->getSNR();
+
+        //reuse Serial Header for response
+        serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_SNR_RESPONSE;
+        serialPaketHeader->size = sizeof(SerialPacketSNR_Response_t);
+
+        //send message
+        {
+            std::lock_guard<std::mutex> lck(serial_mtx);
+            uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
+            Serial.write(magicBytes, 8);
+            Serial.write((uint8_t*)serialPaketHeader, 3);
+            Serial.write(payloadBuffer, serialPaketHeader->size);
+        }
+        //free allocated memory
+        free(serialPaketHeader);
+        free(payloadBuffer);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
+
+    case SERIAL_PACKET_TYPE_STATUS_REQUEST:
+    {
+        //free allocated memory
+        free(serialPaketHeader);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
+
+    case SERIAL_PACKET_TYPE_CONFIGURATION_REQUEST:
+    {
+        auto configRequestPaket = (SerialPacketConfig_Request_t*)malloc(sizeof(SerialPacketConfig_Request_t));
+        memcpy(configRequestPaket, receiveBuffer, sizeof(SerialPacketConfig_Request_t));
+
+        auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketConfig_Response_t));
+        ((SerialPacketConfig_Response_t*)payloadBuffer)->newNodeID = meshRouter->setNodeID(configRequestPaket->newNodeID);
+        //packet not longer needed
+        free(configRequestPaket);
+
+        //reuse Serial Header for response
+        serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_CONFIGURATION_RESPONSE;
+        serialPaketHeader->size = sizeof(SerialPacketConfig_Response_t);
+        //send message
+        {
+            std::lock_guard<std::mutex> lck(serial_mtx);
+            uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
+            Serial.write(magicBytes, 8);
+            Serial.write((uint8_t*)serialPaketHeader, 3);
+            Serial.write(payloadBuffer, serialPaketHeader->size);
+        }
+        //free allocated memory
+        free(serialPaketHeader);
+        free(payloadBuffer);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
+    default:
+    {
+        //free allocated memory
+        free(serialPaketHeader);
+        free(payloadBuffer);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
     }
 }
 
@@ -71,12 +158,15 @@ void readAvailableSerialData() {
                 availableBytes--;
                 if (read == magicBytes[magicBytesIndex]) {
                     magicBytesIndex++;
-                } else if (magicBytesIndex > 0 && read == magicBytes[0]) {
+                }
+                else if (magicBytesIndex > 0 && read == magicBytes[0]) {
                     magicBytesIndex = 1;
-                } else {
+                }
+                else {
                     magicBytesIndex = 0;
                 }
-            } else {
+            }
+            else {
                 serialStatus = SERIAL_REC_HEADER;
                 availableBytes = Serial.available();
                 magicBytesIndex = 0;
@@ -86,8 +176,8 @@ void readAvailableSerialData() {
 
         if (serialStatus == SERIAL_REC_HEADER && availableBytes >= sizeof(SerialPaketHeader_t)) {
             // Speicher für den Header alokieren und mit ersten 3 Bytes aus dem Serial füllen
-            serialPaketHeader = (SerialPaketHeader_t *) malloc(sizeof(SerialPaketHeader_t));
-            Serial.read((uint8_t *) serialPaketHeader, sizeof(SerialPaketHeader_t));
+            serialPaketHeader = (SerialPaketHeader_t*)malloc(sizeof(SerialPaketHeader_t));
+            Serial.read((uint8_t*)serialPaketHeader, sizeof(SerialPaketHeader_t));
 
             // Debug
             //*hostHandlerParams->debugString = String("H.S:") + String(serialPaketHeader->size);
@@ -101,7 +191,7 @@ void readAvailableSerialData() {
                 serialIndex = 0;
                 return;
             }
-            receiveBuffer = (uint8_t *) malloc(serialPaketHeader->size);
+            receiveBuffer = (uint8_t*)malloc(serialPaketHeader->size);
             serialStatus = SERIAL_REC_PAYLOAD;
             availableBytes = Serial.available();
         }
@@ -111,8 +201,8 @@ void readAvailableSerialData() {
         if (serialStatus == SERIAL_REC_PAYLOAD && availableBytes) {
             // Wenn mehr Daten als verfügbar Bereit stehen, dann nur bis Paket-Ende einlesen. Ansonsten verfügbare Bytes lesen.
             uint16_t bytesToRead =
-                    availableBytes + serialIndex > serialPaketHeader->size ?
-                    serialPaketHeader->size - serialIndex : availableBytes;
+                availableBytes + serialIndex > serialPaketHeader->size ?
+                serialPaketHeader->size - serialIndex : availableBytes;
             // serialIndex ist der aktuelle Index im Empfangs-Puffer.
             // Dieser wird um die empfangenen Bytes erhöht.
             serialIndex += Serial.read(receiveBuffer + serialIndex, bytesToRead);
@@ -146,8 +236,8 @@ void readAvailableSerialData() {
  * Die Bearbeitung der vollständig empfangenen Pakete erfolgt auf dem Kern 1, welcher die Logik für das Lora-Netzwerk ausführt.
  * @param pvParameters
  */
-void hostHandler(void *pvParameters) {
-    hostHandlerParams = (HostSerialHandlerParams_t *) pvParameters;
+void hostHandler(void* pvParameters) {
+    hostHandlerParams = (HostSerialHandlerParams_t*)pvParameters;
     *hostHandlerParams->debugString = "Waiting..";
     // Wir befinden uns in einem RTOS Task, daher ist diese Endlosschleife gültiges verhalten. Wir blockieren damit nicht den gesamten Kern.
     for (;;) {

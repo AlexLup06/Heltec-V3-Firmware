@@ -1,11 +1,39 @@
 #include <Arduino.h>
 #include <mesh/MeshRouter.h>
 #include <lib/LoRa.h>
-#include "config.h"
+#include <config.h>
 
 /**
  * Incoming Packets are Processed here
  **/
+
+
+uint8_t MeshRouter::setNodeID(uint8_t newNodeID)
+{
+    NodeID = newNodeID;
+
+	// Announce Local NodeID to the Network to
+	MeshRouter::announceNodeId(1);
+    return NodeID;
+}
+int8_t MeshRouter::getSNR()
+{
+    return LoRa.getSNR();
+}
+uint8_t MeshRouter::getRSSI(uint8_t nodeID)
+{
+	if (routingTable == nullptr) {
+		return;
+	}
+
+	for (int i = 0; i < totalRoutes; i++) {
+		if (routingTable[i]->nodeId == nodeID) {
+            return routingTable[i]->rssi;
+		}
+	}
+    return 255;
+}
+
 
 void MeshRouter::initNode() {
     // Read MAC Adress
@@ -203,7 +231,7 @@ void MeshRouter::handle() {
             ProcessQueue();
 
 #ifdef ANNOUNCE_IN_INTERVAL
-            if (millis() - lastAnounceTime > 3000) {
+            if (millis() - lastAnounceTime > 5000) {
                 MeshRouter::announceNodeId(0);
             }
 #endif
@@ -734,10 +762,13 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
 #ifdef TEST_MODE
     Serial.println("[PACKET] " + String(paket->size));
 #else
-    uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
-    Serial.write(magicBytes, 8);
-    Serial.write((uint8_t *) serialPaketHeader, 3);
-    Serial.write(payloadBuffer, serialPaketHeader->size);
+    {
+        std::lock_guard<std::mutex> lck(serial_mtx);
+        uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
+        Serial.write(magicBytes, 8);
+        Serial.write((uint8_t *) serialPaketHeader, 3);
+        Serial.write(payloadBuffer, serialPaketHeader->size);
+    }
 #endif
 
 

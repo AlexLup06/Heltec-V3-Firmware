@@ -115,7 +115,7 @@ public:
   void writeRegister(uint8_t address, uint8_t value);
   uint8_t readRegister(uint8_t address);
   void handleDio0Rise();
-
+  int8_t getSNR();
 private:
   void explicitHeaderMode();
   void implicitHeaderMode();

@@ -4,7 +4,9 @@
  **/
 
 #include "../../.pio/libdeps/heltec_wifi_lora_32_V2/LinkedList/LinkedList.h"
+#include <mutex>
 
+std::mutex serial_mtx;
 #define LORA_MAX_PAKET_SIZE 255
 
 /**
@@ -111,7 +113,15 @@ typedef struct {
     int64_t hash = 0;
 } QueuedPaket_t;
 
+#define SERIAL_PACKET_TYPE_STATUS_REQUEST 0
 #define SERIAL_PAKET_TYPE_FLOOD_PAKET 1
+#define SERIAL_PACKET_TYPE_STATUS_RESPONSE 2
+#define SERIAL_PACKET_TYPE_CONFIGURATION_REQUEST 3
+#define SERIAL_PACKET_TYPE_CONFIGURATION_RESPONSE 4
+#define SERIAL_PACKET_TYPE_SNR_REQUEST 5
+#define SERIAL_PACKET_TYPE_SNR_RESPONSE 6
+#define SERIAL_PACKET_TYPE_RSSI_REQUEST 7
+#define SERIAL_PACKET_TYPE_RSSI_RESPONSE 8
 
 #pragma pack(1)
 typedef struct {
@@ -128,6 +138,37 @@ typedef struct {
     uint8_t serialPaketType;
     uint16_t size;
 } SerialPaketHeader_t;
+#pragma pack()
+
+
+#pragma pack(1)
+typedef struct {
+    uint8_t nodeID;
+} SerialPacketRSSI_Request_t;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+    uint8_t nodeRSSI;
+} SerialPacketRSSI_Response_t;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+    int8_t nodeSNR;
+} SerialPacketSNR_Response_t;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+    uint8_t newNodeID;
+} SerialPacketConfig_Request_t;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+    uint8_t newNodeID;
+} SerialPacketConfig_Response_t;
 #pragma pack()
 
 class MeshRouter {
@@ -159,6 +200,10 @@ public:
     unsigned long preambleAdd = 0;
 
     LinkedList<QueuedPaket_t *> sendQueue;
+
+    uint8_t setNodeID();
+    int8_t getSNR();
+    uint8_t getRSSI(uint8_t nodeID);
 
     void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi);
 
