@@ -19,3 +19,11 @@ revision.txt
 /cmake-build-debug/
 /.vscode/
 /.idea/
+/out
+out/
+/.vscode
+/.vs
+.vs/
+.vscode/
+doc/
+build/

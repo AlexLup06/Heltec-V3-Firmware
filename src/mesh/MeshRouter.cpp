@@ -7,6 +7,8 @@
  * Incoming Packets are Processed here
  **/
 
+std::mutex serial_mtx;
+std::mutex* getSerialMutex(){return &serial_mtx;}
 
 uint8_t MeshRouter::setNodeID(uint8_t newNodeID)
 {
@@ -23,7 +25,7 @@ int8_t MeshRouter::getSNR()
 uint8_t MeshRouter::getRSSI(uint8_t nodeID)
 {
 	if (routingTable == nullptr) {
-		return;
+		return 255;
 	}
 
 	for (int i = 0; i < totalRoutes; i++) {

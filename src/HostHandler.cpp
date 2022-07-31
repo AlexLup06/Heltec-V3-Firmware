@@ -27,6 +27,7 @@ void onPacketReceived() {
 
     switch (serialPaketHeader->serialPaketType) {
     case SERIAL_PAKET_TYPE_FLOOD_PAKET:
+    {
         auto floodPaket = (SerialPayloadFloodPaket_t*)malloc(sizeof(SerialPayloadFloodPaket_t));
         memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
 
@@ -40,6 +41,7 @@ void onPacketReceived() {
         free(serialPaketHeader);
         free(receiveBuffer);
         serialStatus = SERIAL_WAIT_PROCESS;
+    }
         break;
 
     case SERIAL_PACKET_TYPE_RSSI_REQUEST:
@@ -48,7 +50,7 @@ void onPacketReceived() {
         memcpy(rssiRequestPaket, receiveBuffer, sizeof(SerialPacketRSSI_Request_t));
 
         auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketRSSI_Response_t));
-        ((SerialPacketRSSI_Response_t*)payloadBuffer)->nodeRSSI = meshRouter->getRSSI(rssiRequestPaket->nodeID);
+        ((SerialPacketRSSI_Response_t*)payloadBuffer)->nodeRSSI = getMeshRouter()->getRSSI(rssiRequestPaket->nodeID);
         //packet not longer needed
         free(rssiRequestPaket);
 
@@ -57,7 +59,7 @@ void onPacketReceived() {
         serialPaketHeader->size = sizeof(SerialPacketRSSI_Response_t);
         //send message
         {
-            std::lock_guard<std::mutex> lck(serial_mtx);
+            std::lock_guard<std::mutex> lck(*getSerialMutex());
             uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
             Serial.write(magicBytes, 8);
             Serial.write((uint8_t*)serialPaketHeader, 3);
@@ -74,7 +76,7 @@ void onPacketReceived() {
     case SERIAL_PACKET_TYPE_SNR_REQUEST:
     {
         auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketSNR_Response_t));
-        ((SerialPacketSNR_Response_t*)payloadBuffer)->nodeSNR = meshRouter->getSNR();
+        ((SerialPacketSNR_Response_t*)payloadBuffer)->nodeSNR = getMeshRouter()->getSNR();
 
         //reuse Serial Header for response
         serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_SNR_RESPONSE;
@@ -82,7 +84,7 @@ void onPacketReceived() {
 
         //send message
         {
-            std::lock_guard<std::mutex> lck(serial_mtx);
+            std::lock_guard<std::mutex> lck(*getSerialMutex());
             uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
             Serial.write(magicBytes, 8);
             Serial.write((uint8_t*)serialPaketHeader, 3);
@@ -111,7 +113,7 @@ void onPacketReceived() {
         memcpy(configRequestPaket, receiveBuffer, sizeof(SerialPacketConfig_Request_t));
 
         auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketConfig_Response_t));
-        ((SerialPacketConfig_Response_t*)payloadBuffer)->newNodeID = meshRouter->setNodeID(configRequestPaket->newNodeID);
+        ((SerialPacketConfig_Response_t*)payloadBuffer)->newNodeID = getMeshRouter()->setNodeID(configRequestPaket->newNodeID);
         //packet not longer needed
         free(configRequestPaket);
 
@@ -120,7 +122,7 @@ void onPacketReceived() {
         serialPaketHeader->size = sizeof(SerialPacketConfig_Response_t);
         //send message
         {
-            std::lock_guard<std::mutex> lck(serial_mtx);
+            std::lock_guard<std::mutex> lck(*getSerialMutex());
             uint8_t magicBytes[] = { 0xF0, 0x4L, 0x11, 0x9B, 0x39, 0xBC, 0xE4, 0xD2 };
             Serial.write(magicBytes, 8);
             Serial.write((uint8_t*)serialPaketHeader, 3);
@@ -137,7 +139,6 @@ void onPacketReceived() {
     {
         //free allocated memory
         free(serialPaketHeader);
-        free(payloadBuffer);
         free(receiveBuffer);
         serialStatus = SERIAL_WAIT_PROCESS;
     }

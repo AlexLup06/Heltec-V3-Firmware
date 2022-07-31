@@ -1,9 +1,12 @@
 #pragma once 
 
-MeshRouter meshRouter;
-LoraNode loraNode;
-LoraDisplay loraDisplay;
-TaskHandle_t otaTask;
-TaskHandle_t hostTask;
+#include <config.h>
+#include <lib/LoRa.h>
+#include "mesh/loranode.h"
+#include "mesh/loradisplay.h"
+#include "HostHandler.h"
+#include <Arduino.h>
+#include "mesh/MeshRouter.h"
 
-HostSerialHandlerParams_t hostSerialHandlerParams;
+//getter for global router
+MeshRouter* getMeshRouter();

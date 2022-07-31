@@ -6,7 +6,8 @@
 #include "../../.pio/libdeps/heltec_wifi_lora_32_V2/LinkedList/LinkedList.h"
 #include <mutex>
 
-std::mutex serial_mtx;
+std::mutex* getSerialMutex();
+
 #define LORA_MAX_PAKET_SIZE 255
 
 /**
@@ -201,7 +202,7 @@ public:
 
     LinkedList<QueuedPaket_t *> sendQueue;
 
-    uint8_t setNodeID();
+    uint8_t setNodeID(uint8_t newNodeID);
     int8_t getSNR();
     uint8_t getRSSI(uint8_t nodeID);
 
