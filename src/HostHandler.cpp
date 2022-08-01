@@ -46,13 +46,17 @@ void onPacketReceived() {
 
     case SERIAL_PACKET_TYPE_RSSI_REQUEST:
     {
-        auto rssiRequestPaket = (SerialPacketRSSI_Request_t*)malloc(sizeof(SerialPacketRSSI_Request_t));
-        memcpy(rssiRequestPaket, receiveBuffer, sizeof(SerialPacketRSSI_Request_t));
+        auto floodPaket = (SerialPayloadFloodPaket_t*)malloc(sizeof(SerialPayloadFloodPaket_t));
+        memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
+
+        floodPaket->payload = (uint8_t*)malloc(floodPaket->size);
+        memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
+
+        auto rssiRequestPaket = (SerialPacketRSSI_Request_t*)floodPaket->payload;
 
         auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketRSSI_Response_t));
+        ((SerialPacketRSSI_Response_t*)payloadBuffer)->nodeID = rssiRequestPaket->nodeID;
         ((SerialPacketRSSI_Response_t*)payloadBuffer)->nodeRSSI = getMeshRouter()->getRSSI(rssiRequestPaket->nodeID);
-        //packet not longer needed
-        free(rssiRequestPaket);
 
         //reuse Serial Header for response
         serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_RSSI_RESPONSE;
@@ -66,6 +70,8 @@ void onPacketReceived() {
             Serial.write(payloadBuffer, serialPaketHeader->size);
         }
         //free allocated memory
+        free(floodPaket->payload);
+        free(floodPaket);
         free(serialPaketHeader);
         free(payloadBuffer);
         free(receiveBuffer);
@@ -100,6 +106,7 @@ void onPacketReceived() {
 
     case SERIAL_PACKET_TYPE_STATUS_REQUEST:
     {
+        //auto floodPaket = (SerialPayloadFloodPaket_t*)receiveBuffer;
         //free allocated memory
         free(serialPaketHeader);
         free(receiveBuffer);
@@ -109,13 +116,16 @@ void onPacketReceived() {
 
     case SERIAL_PACKET_TYPE_CONFIGURATION_REQUEST:
     {
-        auto configRequestPaket = (SerialPacketConfig_Request_t*)malloc(sizeof(SerialPacketConfig_Request_t));
-        memcpy(configRequestPaket, receiveBuffer, sizeof(SerialPacketConfig_Request_t));
+        auto floodPaket = (SerialPayloadFloodPaket_t*)malloc(sizeof(SerialPayloadFloodPaket_t));
+        memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
+
+        floodPaket->payload = (uint8_t*)malloc(floodPaket->size);
+        memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
+        auto configRequestPaket = (SerialPacketConfig_Request_t*)floodPaket->payload;
 
         auto payloadBuffer = (uint8_t*)malloc(sizeof(SerialPacketConfig_Response_t));
+        //*hostHandlerParams->debugString = String("NNID") + String(configRequestPaket->newNodeID)+String("Sz")+String(serialPaketHeader->size)+String("ST")+String(serialPaketHeader->serialPaketType);
         ((SerialPacketConfig_Response_t*)payloadBuffer)->newNodeID = getMeshRouter()->setNodeID(configRequestPaket->newNodeID);
-        //packet not longer needed
-        free(configRequestPaket);
 
         //reuse Serial Header for response
         serialPaketHeader->serialPaketType = SERIAL_PACKET_TYPE_CONFIGURATION_RESPONSE;
@@ -128,9 +138,32 @@ void onPacketReceived() {
             Serial.write((uint8_t*)serialPaketHeader, 3);
             Serial.write(payloadBuffer, serialPaketHeader->size);
         }
+        
         //free allocated memory
+        free(floodPaket->payload);
+        free(floodPaket);
         free(serialPaketHeader);
         free(payloadBuffer);
+        free(receiveBuffer);
+        serialStatus = SERIAL_WAIT_PROCESS;
+    }
+    break;
+
+    case SERIAL_PACKET_TYPE_APPLY_MODEM_CONFIG:
+    {
+        auto floodPaket = (SerialPayloadFloodPaket_t*)malloc(sizeof(SerialPayloadFloodPaket_t));
+        memcpy(floodPaket, receiveBuffer, sizeof(SerialPayloadFloodPaket_t));
+
+        floodPaket->payload = (uint8_t*)malloc(floodPaket->size);
+        memcpy(floodPaket->payload, receiveBuffer + sizeof(SerialPayloadFloodPaket_t), floodPaket->size);
+        auto modemConfig = (ModemConfig_t*)floodPaket->payload;
+
+        getMeshRouter()->applyModemConfig(modemConfig->sf,modemConfig->transmissionPower,modemConfig->frequency,modemConfig->bandwidth);
+
+        //free allocated memory
+        free(floodPaket->payload);
+        free(floodPaket);
+        free(serialPaketHeader);
         free(receiveBuffer);
         serialStatus = SERIAL_WAIT_PROCESS;
     }

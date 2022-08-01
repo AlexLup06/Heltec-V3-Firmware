@@ -5,6 +5,7 @@
 
 #include "../../.pio/libdeps/heltec_wifi_lora_32_V2/LinkedList/LinkedList.h"
 #include <mutex>
+#include "config.h"
 
 std::mutex* getSerialMutex();
 
@@ -123,6 +124,7 @@ typedef struct {
 #define SERIAL_PACKET_TYPE_SNR_RESPONSE 6
 #define SERIAL_PACKET_TYPE_RSSI_REQUEST 7
 #define SERIAL_PACKET_TYPE_RSSI_RESPONSE 8
+#define SERIAL_PACKET_TYPE_APPLY_MODEM_CONFIG 9
 
 #pragma pack(1)
 typedef struct {
@@ -150,6 +152,7 @@ typedef struct {
 
 #pragma pack(1)
 typedef struct {
+    uint8_t nodeID;
     uint8_t nodeRSSI;
 } SerialPacketRSSI_Response_t;
 #pragma pack()
@@ -171,6 +174,17 @@ typedef struct {
     uint8_t newNodeID;
 } SerialPacketConfig_Response_t;
 #pragma pack()
+
+#pragma pack(1)
+typedef struct ModemConfig{
+  uint8_t sf;
+  uint8_t transmissionPower;
+  uint32_t frequency;
+  uint32_t bandwidth;
+} ModemConfig_t;
+#pragma pack()
+
+
 
 class MeshRouter {
 public:
@@ -205,6 +219,14 @@ public:
     uint8_t setNodeID(uint8_t newNodeID);
     int8_t getSNR();
     uint8_t getRSSI(uint8_t nodeID);
+
+    uint8_t m_spreading_factor;
+    uint8_t m_transmission_power;
+    uint32_t m_frequnecy;
+    uint32_t m_bandwidth;
+    void applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth);
+    void initLoRa();
+    void reInitLoRa();
 
     void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi);
 

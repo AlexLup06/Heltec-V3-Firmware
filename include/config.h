@@ -20,6 +20,7 @@
 #define LORA_BANDWIDTH 250E3     // Bandbreite
 #define LORA_SPREADINGFACTOR 7   // Spreizfaktor
 #define LORA_PREAMBLE_LENGTH 12  // Länge der Preamble, Default 12
+#define LORA_TRANSMISSION_POWER 20//Erlaubt Sendeleitung von 20dBm
 
 // DutyCycle. Wird aktuell nicht verwendet.
 #define LORA_DUTY_CYCLE = 0.1;

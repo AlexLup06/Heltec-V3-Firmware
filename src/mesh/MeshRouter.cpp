@@ -22,6 +22,7 @@ int8_t MeshRouter::getSNR()
 {
     return LoRa.getSNR();
 }
+//returns rssi as positive value
 uint8_t MeshRouter::getRSSI(uint8_t nodeID)
 {
 	if (routingTable == nullptr) {
@@ -30,14 +31,68 @@ uint8_t MeshRouter::getRSSI(uint8_t nodeID)
 
 	for (int i = 0; i < totalRoutes; i++) {
 		if (routingTable[i]->nodeId == nodeID) {
-            return routingTable[i]->rssi;
+            return 0-routingTable[i]->rssi; //make positiv
 		}
 	}
     return 255;
 }
 
 
+   void MeshRouter::applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth)
+   {
+    m_spreading_factor=spreading_factor;
+    m_transmission_power=transmission_power;
+    m_frequnecy=frequency;
+    m_bandwidth=bandwidth;
+    reInitLoRa();
+   }
+
+void MeshRouter::initLoRa()
+{
+   SPI.begin(SCK, MISO, MOSI, SS);
+
+    LoRa.setPins(SS, RST_LoRa, DIO0);
+    if (!LoRa.begin(LORA_FREQUENCY, false))
+    {
+        Serial.println("LoRa init failed. Check your connections.");
+        while (true)
+            ;
+    }
+    // Default:
+    // High Power:
+    LoRa.setTxPower(20, RF_PACONFIG_PASELECT_PABOOST);
+    LoRa.setSignalBandwidth(LORA_BANDWIDTH);
+    LoRa.setSpreadingFactor(LORA_SPREADINGFACTOR);
+    LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
+
+
+    // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
+    LoRa.setSyncWord(0x12);
+}
+void MeshRouter::reInitLoRa()
+{
+   LoRa.end();
+   vTaskDelay(50);
+    if (!LoRa.begin(m_frequnecy, false))
+    {
+        Serial.println("LoRa init failed. Check your connections.");
+        while (true)
+            ;
+    }
+    // Default:
+    // High Power:
+    LoRa.setTxPower(m_transmission_power, RF_PACONFIG_PASELECT_PABOOST);
+    LoRa.setSignalBandwidth(m_bandwidth);
+    LoRa.setSpreadingFactor(m_spreading_factor);
+    LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
+
+
+    // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
+    LoRa.setSyncWord(0x12);
+}
+
 void MeshRouter::initNode() {
+    this->initLoRa();
     // Read MAC Adress
     esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
 
@@ -78,9 +133,9 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
         foundIndex = totalRoutes - 1;
         // Alloziiere eigentliche Datenstruktur
         routingTable[foundIndex] = (RoutingTable_t *) malloc(sizeof(RoutingTable_t));
+        memcpy(routingTable[foundIndex]->deviceMac, deviceMac, 6);
     }
-
-    memcpy(routingTable[foundIndex]->deviceMac, deviceMac, 6);
+    
     routingTable[foundIndex]->nodeId = nodeId;
     routingTable[foundIndex]->hop = hop;
     routingTable[foundIndex]->rssi = rssi;

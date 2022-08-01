@@ -80,7 +80,7 @@ void setup() {
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("Init LoRa Hardware");
 #endif
-    loraNode.initLora();
+    //loraNode.initLora(); wird im Router gemacht
 
     // Init the Mesh Node
 #ifdef DEBUG_LORA_SERIAL
