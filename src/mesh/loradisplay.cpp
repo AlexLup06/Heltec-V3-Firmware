@@ -102,11 +102,11 @@ void LoraDisplay::drawWaitStatusFooter() {
     display.setCursor(30, DISPLAY_HEIGHT - 18);
     display.println("B");
     display.setCursor(30, DISPLAY_HEIGHT - 8);
-    display.println(String(*receivedBytes / 1000) + "KB");
+    display.println(String(*receivedBytes) + "B");
 
-    display.setCursor(60, DISPLAY_HEIGHT - 18);
+    display.setCursor(85, DISPLAY_HEIGHT - 18);
     display.println("T");
-    display.setCursor(60, DISPLAY_HEIGHT - 8);
+    display.setCursor(85, DISPLAY_HEIGHT - 8);
     if(millis() < 900000){
         display.println(String((millis()) / 1000.0, 1));
     }else{
@@ -114,10 +114,10 @@ void LoraDisplay::drawWaitStatusFooter() {
     }
 
 
-    display.setCursor(95, DISPLAY_HEIGHT - 18);
-    display.println("Queue");
-    display.setCursor(95, DISPLAY_HEIGHT - 8);
-    display.println(String(queueLength));
+    //display.setCursor(95, DISPLAY_HEIGHT - 18);
+    //display.println("Queue");
+    //display.setCursor(95, DISPLAY_HEIGHT - 8);
+    //display.println(String(queueLength));
 };
 
 void LoraDisplay::drawUpdateFooter(double_t update) {
