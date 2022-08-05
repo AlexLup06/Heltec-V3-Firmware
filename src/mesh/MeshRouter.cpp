@@ -334,11 +334,11 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
     switch (messageType) {
         case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
             MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket, rssi);
-            SenderWait(random(0, 150));
+            SenderWait(random(0, 100));//(random(0, 150));
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
             MeshRouter::OnFloodFragmentPaket((FloodBroadcastFragmentPaket_t *) rawPaket);
-            SenderWait(random(0, 150));
+            SenderWait(random(0, 100));//(random(0, 150));
             break;
         case MESSAGE_TYPE_NODE_ANNOUNCE:
             MeshRouter::OnNodeIdAnnouncePaket((NodeIdAnnounce_t *) rawPaket, rssi);
@@ -370,7 +370,7 @@ void MeshRouter::OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi) {
             SenderWait(predictPacketSendTime(paket->totalTransmissionSize) + fragments * 15);
         } else {
             // Just dont Send until next Fragment arrives
-            SenderWait(predictPacketSendTime(255) + 50);
+            SenderWait(predictPacketSendTime(255));//(predictPacketSendTime(255) + 50);
         }
     }
 }
@@ -388,7 +388,7 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 
         if (paket->respond == 1) {
             // Unknown node! Block Sending for a time window, to allow other Nodes to respond.
-            MeshRouter::SenderWait(random(0, 900));
+            MeshRouter::SenderWait(random(0, 450));// (random(0, 900));
             MeshRouter::announceNodeId(0);
         }
     } else {
@@ -555,8 +555,10 @@ void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_
 
         if (i == size) {
             long fullWaitTime = predictPacketSendTime(255);
+            //QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id,
+            //           200 + random(fullWaitTime, fullWaitTime + 250),hash);
             QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id,
-                       200 + random(fullWaitTime, fullWaitTime + 250),hash);
+                       50 + random(fullWaitTime, fullWaitTime + 50),hash);
         } else {
             QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id, 0, hash);
         }
@@ -710,7 +712,7 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
     MeshRouter::UpdateHOP(paket->source, paket->lastHop);
 
     uint16_t nextFragLength = (uint16_t) paket->size > 255 ? 255 : paket->size;
-    SenderWait((unsigned long) 300 + predictPacketSendTime(nextFragLength));
+    SenderWait((unsigned long) 20 + predictPacketSendTime(nextFragLength));//((unsigned long) 300 + predictPacketSendTime(nextFragLength));
 
     if(xPortGetFreeHeapSize() - incompletePaket->size > incompletePaket->size + 10000){
         *debugString = "FH: " + String(incompletePaket->size) + " ID: " + String(incompletePaket->id);
@@ -726,7 +728,7 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
     FragmentedPaket_t *incompletePaket = getIncompletePaketById(paket->id, lastBroadcastSourceId);
     if (incompletePaket == nullptr) {
         // Keine Informationen über zukünftige Pakete. Gehe vom größten aus!
-        SenderWait(400 + predictPacketSendTime(255));
+        SenderWait(40 + predictPacketSendTime(255));//(400 + predictPacketSendTime(255));
         *debugString = "Fragment: ERR";
         return;
     }
@@ -754,7 +756,7 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
                          : incompletePaket->size - incompletePaket->received;
 
     // Delay Transmission of Pakets
-    SenderWait(150 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
+    SenderWait(20 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft)); //(150 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
 
     // Copy paket data to buffer
     memcpy(incompletePaket->payload + incompletePaket->received, paket->payload, bytesLeft);
@@ -836,6 +838,7 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     }
 #endif
 
+    receivedBytes += paket->size;
 
     // ReQueue Packet
 #ifdef RETRANSMIT_PAKETS
@@ -907,10 +910,12 @@ void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
 }
 
 long MeshRouter::predictPacketSendTime(uint8_t size) {
-    long time = (long) (1.0 * timePerByte * size + sendOverhead);
-    if (time < 10) {
-        time = 500;
-    }
+long time = size;
+time += 20; //ms = Byte overhead
+//    long time = (long) (1.0 * timePerByte * size + sendOverhead);
+//    if (time < 10) {
+//        time = 500;
+//    }
     return time;
 }
 
