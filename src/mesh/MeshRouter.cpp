@@ -1,7 +1,4 @@
-#include <Arduino.h>
-#include <mesh/MeshRouter.h>
-#include <lib/LoRa.h>
-#include <config.h>
+#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\mesh\MeshRouter.h"
 
 /**
  * Incoming Packets are Processed here
@@ -10,6 +7,9 @@
 std::mutex serial_mtx;
 std::mutex* getSerialMutex(){return &serial_mtx;}
 
+/* Set new node ID
+* Input parameters: new node ID
+*/
 uint8_t MeshRouter::setNodeID(uint8_t newNodeID)
 {
     NodeID = newNodeID;
@@ -18,11 +18,16 @@ uint8_t MeshRouter::setNodeID(uint8_t newNodeID)
 	MeshRouter::announceNodeId(1);
     return NodeID;
 }
+
+// Returns signal - to - noise ratio of the latest received packet.
 int8_t MeshRouter::getSNR()
 {
     return LoRa.getSNR();
 }
-//returns rssi as positive value
+
+/* Returns RSSI as positive value.
+* Input parameters : new node ID
+*/
 uint8_t MeshRouter::getRSSI(uint8_t nodeID)
 {
 	if (routingTable == nullptr) {
@@ -37,7 +42,9 @@ uint8_t MeshRouter::getRSSI(uint8_t nodeID)
     return 255;
 }
 
-
+/* Change LoRa module configuration.
+* Input parameters: spreading factor, transmission power, frequency, bandwidth
+*/
    void MeshRouter::applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth)
    {
     m_spreading_factor=spreading_factor;
@@ -47,6 +54,7 @@ uint8_t MeshRouter::getRSSI(uint8_t nodeID)
     reInitLoRa();
    }
 
+// Initialize LoRa communication. This function starts a SPI communication and sets LoRa module pins. It sets the Tx power, signal bandwidth, spreading factor and preamble length to their default values. It also sets a sync word to avoid interference from other Lora networks.
 void MeshRouter::initLoRa()
 {
    SPI.begin(SCK, MISO, MOSI, SS);
@@ -65,10 +73,12 @@ void MeshRouter::initLoRa()
     LoRa.setSpreadingFactor(LORA_SPREADINGFACTOR);
     LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
 
-
+    // Set your own sync word so that packets from other LoRa networks are ignored.
     // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
     LoRa.setSyncWord(0x12);
 }
+
+// Re-initialize LoRa module.
 void MeshRouter::reInitLoRa()
 {
    LoRa.end();
@@ -86,17 +96,18 @@ void MeshRouter::reInitLoRa()
     LoRa.setSpreadingFactor(m_spreading_factor);
     LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
 
-
+    // Set your own sync word so that packets from other LoRa networks are ignored.
     // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
     LoRa.setSyncWord(0x12);
 }
 
+// Initialize node by setting Node ID from MAC address.
 void MeshRouter::initNode() {
     this->initLoRa();
     // Read MAC Adress
     esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
 
-    // 255 = keine Zugewiesene ID
+    // 255 = no assigned ID
     NodeID = macAdress[5];
     routingTable = nullptr;
 
@@ -108,6 +119,9 @@ void MeshRouter::initNode() {
     }
 }
 
+/* Update route parameters for the given node ID.If node ID not found in Routing Table, new row is created based on MAC address.
+* Input parameters: node ID, hop value, device MAC address, RSSI
+*/ 
 void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], int rssi) {
     // Malloc pointer array, when not allocated yet
     if (routingTable == nullptr) {
@@ -118,6 +132,7 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("nodeId: " + String(nodeId));
 #endif
+    // Search Node in existing RoutingTable
     // Suche Node in vorhandenem RoutingTable
     uint8_t foundIndex = 255;
     for (int i = 0; i < totalRoutes; i++) {
@@ -126,11 +141,13 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
         }
     }
 
+    // Node not yet in Routing Table
     // Node noch nicht im Routing Table
     if (foundIndex == 255) {
         totalRoutes++;
 
         foundIndex = totalRoutes - 1;
+        // Allocate actual data structure
         // Alloziiere eigentliche Datenstruktur
         routingTable[foundIndex] = (RoutingTable_t *) malloc(sizeof(RoutingTable_t));
         memcpy(routingTable[foundIndex]->deviceMac, deviceMac, 6);
@@ -142,6 +159,9 @@ void MeshRouter::UpdateRoute(uint8_t nodeId, uint8_t hop, uint8_t deviceMac[], i
     routingTable[foundIndex]->lastSeen = millis();
 }
 
+/* Set RSSI for the given node ID.
+* Input parameters: node ID, RSSI value
+*/
 void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
     if (routingTable == nullptr) {
         return;
@@ -156,6 +176,9 @@ void MeshRouter::UpdateRSSI(uint8_t nodeId, int rssi) {
     }
 }
 
+/* Set new hop value for the given node ID.
+* Input parameters: node ID, hop value
+*/
 void MeshRouter::UpdateHOP(uint8_t nodeId, uint8_t hop) {
     if (routingTable == nullptr) {
         return;
@@ -168,6 +191,9 @@ void MeshRouter::UpdateHOP(uint8_t nodeId, uint8_t hop) {
     }
 }
 
+/* Finds and returns the next free node ID in Routing Table.
+* Input parameters: ...??
+*/ 
 uint8_t MeshRouter::findNextFreeNodeId(uint8_t currentLeastKnownFreeNodeId, uint8_t deviceMac[6]) {
     int nextFreeNodeId = currentLeastKnownFreeNodeId;
     for (int i = 0; i < totalRoutes; i++) {
@@ -185,6 +211,7 @@ uint8_t MeshRouter::findNextFreeNodeId(uint8_t currentLeastKnownFreeNodeId, uint
     return nextFreeNodeId;
 }
 
+// Print Routing Table.
 void MeshRouter::debugPrintRoutingTable() {
     Serial.println("--- ROUTING_TABLE ---");
     for (int i = 0; i < totalRoutes; i++) {
@@ -229,13 +256,15 @@ void MeshRouter::_debugDumpSRAM() {
 }
 
 /**
- * Main Loop
+ * Main Loop: Tasks performed based on operating-mode. This loop runs endlessly.
  * 
  */
 void MeshRouter::handle() {
+    // Modem has preable receiving
     // Modem hat preable Empfangen
     if (cad) {
         SenderWait(0);
+        // Increase blocking time of other senders.
         preambleAdd = 1000 + predictPacketSendTime(255);
         cad = false;
     }
@@ -255,6 +284,8 @@ void MeshRouter::handle() {
 
     switch (OPERATING_MODE) {
         case OPERATING_MODE_INIT:
+            // Initialize LoRa module.
+            // If already initialized, put LoRa module in continuous receive mode.
             LoRa.receive();
             OPERATING_MODE = OPERATING_MODE_RECEIVE;
             break;
@@ -263,6 +294,7 @@ void MeshRouter::handle() {
 
             break;
         case OPERATING_MODE_RECEIVE:
+            // LoRa module in receive mode
             if (receiveState == RECEIVE_STATE_PAKET_READY) {
                 // We need to set the Module to idle, to prevent the module from overwriting the SRAM with a new Paket and to be able to modify the Modem SRAM Pointer
                 LoRa.idle();
@@ -273,9 +305,10 @@ void MeshRouter::handle() {
                 // set FIFO address to current RX address
                 LoRa.writeRegister(REG_FIFO_ADDR_PTR, LoRa.readRegister(REG_FIFO_RX_CURRENT_ADDR));
 
-                // We only need the Paket Type at this point
+                // We only need the Packet Type at this point
                 receiveBuffer[0] = LoRa.readRegister(REG_FIFO);
 
+                // If packet is received, data is copied from SRAM.
                 OnReceivePacket(receiveBuffer[0], receiveBuffer, readyPaketSize, rssi);
 
                 receiveState = RECEIVE_STATE_IDLE;
@@ -284,7 +317,7 @@ void MeshRouter::handle() {
                 LoRa.writeRegister(REG_FIFO_RX_CURRENT_ADDR, 0);
                 LoRa.receive();
             }
-
+            // Send packet from the sendqueue.
             ProcessQueue();
 
 #ifdef ANNOUNCE_IN_INTERVAL
@@ -299,16 +332,17 @@ void MeshRouter::handle() {
     }
 }
 
+/* Handles received interrupt packets.
+* Input parameters: size of packet
+*/
 void MeshRouter::OnReceiveIR(int size) {
     receiveState = RECEIVE_STATE_PAKET_READY;
     readyPaketSize = size;
 }
 
 /**
- * Reads the Rest of the Paket into the given receive Buffer
- *
- * @param receiveBuffer
- * @param size
+ * Reads the Rest of the Packet into the given receive Buffer
+ * Input parameters: receiveBuffer, size
  */
 void MeshRouter::readPaketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_t end) {
     for (int i = start; i < end; i++) {
@@ -316,6 +350,10 @@ void MeshRouter::readPaketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_
     }
 }
 
+/**
+ * Writes the Rest of the Packet into the given receive Buffer
+ * Input parameters: packet to be written, size
+ */
 void MeshRouter::writePaketToSRAM(uint8_t *paket, uint8_t start, uint8_t end) {
     LoRa.writeRegister(REG_FIFO_ADDR_PTR, start);
     for (int i = start; i < end; i++) {
@@ -323,6 +361,9 @@ void MeshRouter::writePaketToSRAM(uint8_t *paket, uint8_t start, uint8_t end) {
     }
 }
 
+/* The function reads the data from the SRAM and sets the preambleAdd to zero, because data was received. The evaluation of the data starts with the first byte which indicates the message type.
+* Input parameters: message type, packet, packet size, rssi
+*/
 void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi) {
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("MessageType: " + String(messageType));
@@ -334,11 +375,11 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
     switch (messageType) {
         case MESSAGE_TYPE_FLOOD_BROADCAST_HEADER:
             MeshRouter::OnFloodHeaderPaket((FloodBroadcastHeaderPaket_t *) rawPaket, rssi);
-            SenderWait(random(0, 100));//(random(0, 150));
+            SenderWait(0 + (rand() % 101));//(random(0, 150));
             break;
         case MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT:
             MeshRouter::OnFloodFragmentPaket((FloodBroadcastFragmentPaket_t *) rawPaket);
-            SenderWait(random(0, 100));//(random(0, 150));
+            SenderWait(0 + (rand() % 101));//(random(0, 150));
             break;
         case MESSAGE_TYPE_NODE_ANNOUNCE:
             MeshRouter::OnNodeIdAnnouncePaket((NodeIdAnnounce_t *) rawPaket, rssi);
@@ -355,6 +396,9 @@ void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t
     free(rawPaket);
 }
 
+/* Sets all nodes which are not the sender into recieving mode to prevent collisions on the media for long packet transmissions.
+* Input parameters: packet, RSSI value
+*/ 
 void MeshRouter::OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi) {
     // We have announced this as a Broadcast, so we expected this. Dont do anything.
     if (paket->source == NodeID) {
@@ -375,7 +419,9 @@ void MeshRouter::OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi) {
     }
 }
 
-
+/* Announces the Node ID to the Network
+* Input parameters: packet, RSSI value
+*/
 void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 #ifdef DEBUG_LORA_SERIAL
     char macHexStr[18];
@@ -388,14 +434,14 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 
         if (paket->respond == 1) {
             // Unknown node! Block Sending for a time window, to allow other Nodes to respond.
-            MeshRouter::SenderWait(random(0, 450));// (random(0, 900));
+            MeshRouter::SenderWait(0 + (rand() % 451));// (random(0, 900));
             MeshRouter::announceNodeId(0);
         }
     } else {
         // ToDo: Route Dispute
     }
 
-    // Jode just started, reset NodeID Counter
+    // Node just started, reset NodeID Counter
     NODE_ID_COUNTERS[paket->nodeId] = 0;
 
 #ifdef RETRANSMIT_PAKETS
@@ -412,9 +458,10 @@ void MeshRouter::OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi) {
 
 /**
  * Announces the current Node ID to the Network
+ * Input parameters: packet respond variable
  */
 void MeshRouter::announceNodeId(uint8_t respond) {
-    // Create Paket
+    // Create Packet
     auto *paket = (NodeIdAnnounce_t *) malloc(sizeof(NodeIdAnnounce_t));
     lastAnounceTime = millis();
 
@@ -430,15 +477,13 @@ void MeshRouter::announceNodeId(uint8_t respond) {
 #ifdef DEBUG_LORA_SERIAL
     Serial.println("SendNodeDiscovery: " + String(macHexStr));
 #endif
-
+    // Queue the packet into the sendQueue
     QueuePaket(&sendQueue, (uint8_t *) paket, sizeof(NodeIdAnnounce_t), NodeID, 0);
 }
 
 /**
- * Directly sends Paket with Hardware, you should never use this directly, because this will not wait for the Receive window of other Devices
- * 
- * @param rawPaket 
- * @param size 
+ * Directly sends Packet with Hardware, you should never use this directly, because this will not wait for the Receive window of other Devices
+ * Input parameters: rawPaket , size  
  */
 void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size) {
     unsigned long time = millis();
@@ -452,8 +497,8 @@ void MeshRouter::SendRaw(uint8_t *rawPaket, uint8_t size) {
 }
 
 /**
- * Delays the Next paket in the Queue for a specific time
- * @param delay
+ * Delays the Next packet in the Queue for a specific time
+ * Input parameters: delay time
  */
 void MeshRouter::SenderWait(unsigned long waitTime) {
     if (blockSendUntil < millis() + waitTime) {
@@ -461,6 +506,9 @@ void MeshRouter::SenderWait(unsigned long waitTime) {
     }
 }
 
+/* Adds the packet to the sendQueue.
+ * Input parameters: linked list of pointers to packets, packet to be added to queue, size of packet, source of packet, packet ID, wait time, hash value
+ */
 void MeshRouter::QueuePaket(LinkedList<QueuedPaket_t *> *listPointer, uint8_t *rawPaket, uint8_t size, uint8_t source, uint16_t id, long waitTimeAfter, int64_t hash) {
     auto *paket = (QueuedPaket_t *)malloc(sizeof(QueuedPaket_t));
     paket->paketPointer = rawPaket;
@@ -477,6 +525,7 @@ void MeshRouter::QueuePaket(LinkedList<QueuedPaket_t *> *listPointer, uint8_t *r
     }
 }
 
+// Send packet only if the queue is not empty and the blocking time is less than the current time measured in milli seconds. Other senders need to wait until the package is sent.
 void MeshRouter::ProcessQueue() {
     if (sendQueue.size() == 0 || blockSendUntil + preambleAdd > millis()) {
         return;
@@ -490,26 +539,31 @@ void MeshRouter::ProcessQueue() {
     MeshRouter::SendRaw(paketQueueEntry->paketPointer,
                         paketQueueEntry->paketSize);
 
-    // Wait for ACK of Receiving Nodes
+    // Wait for ACK of Receiving Nodes before sending another packet.
     if (paketQueueEntry->waitTimeAfter > 0) {
         SenderWait(paketQueueEntry->waitTimeAfter);
     }
 
+    // Free sent packet queue pointer
     free(paketQueueEntry->paketPointer);
     free(paketQueueEntry);
     paketQueueEntry->paketPointer = nullptr;
 
-    // Update Queue on Display
+    // Update Queue length on Display
     if (displayQueueLength != nullptr) {
         *displayQueueLength = sendQueue.size();
     }
 }
 
+/* Return hop of the destination node if found in Routing Table, else return 0.
+ * Input parameters: destination Node ID
+ */
 uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
     if (routingTable == nullptr) {
         return 0;
     }
 
+    //Search Node in existing RoutingTable
     // Suche Node in vorhandenem RoutingTable
     for (int i = 0; i < totalRoutes; i++) {
         if (routingTable[i]->nodeId == dest) {
@@ -519,8 +573,11 @@ uint8_t MeshRouter::findNextHopForDestination(uint8_t dest) {
     return 0;
 }
 
+/* Sends the Broadcast packet as fragments and anticipate the packet sending and waiting time.
+ * Input parameters: packet, source, size of packet, packet ID, hash
+ */
 void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id, int64_t hash) {
-    // Announce Transmission with Header Paket
+    // Announce Transmission with Header Packet
     auto *headerLoraPaket = (FloodBroadcastHeaderPaket_t *) malloc(sizeof(FloodBroadcastHeaderPaket_t));
     headerLoraPaket->messageType = MESSAGE_TYPE_FLOOD_BROADCAST_HEADER;
     headerLoraPaket->lastHop = NodeID;
@@ -554,11 +611,13 @@ void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_
         i += bytesToCopy;
 
         if (i == size) {
+            // Predict packet send time 
             long fullWaitTime = predictPacketSendTime(255);
             //QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id,
             //           200 + random(fullWaitTime, fullWaitTime + 250),hash);
+            // After all fragments are acquired,  the list of fragments is added to the sending queue
             QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id,
-                       50 + random(fullWaitTime, fullWaitTime + 50),hash);
+                       50 + (fullWaitTime + (rand() % 51)),hash);
         } else {
             QueuePaket(&paketQueue, (uint8_t *) fragPaket, sizeof(FloodBroadcastFragmentPaket_t),source, id, 0, hash);
         }
@@ -573,11 +632,9 @@ void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_
 
 /**
  * This Method Checks for Messages of the Same Type, from the Same Host and Replaces them with the new Packets at the Same Position in the SendQueue.
- * This Prevents the Queue to fill up with already out of date Messaged.
+ * This Prevents the Queue to fill up with already outdated Messages.
  * When no hash is provided or no Message is found, the packets are regularly queued to the sendQueue.
- * @param newPackts
- * @param hash
- * @param messageSource
+ * Input parameters: list of new packets, hash value, message source
  */
 void MeshRouter::AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t *> *newPackts, int64_t hash, uint8_t messageSource) {
     // Default: No Type Provided, just add to SendQueue
@@ -598,7 +655,7 @@ void MeshRouter::AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t
         }
     }
 
-    // No Packets to replace found!
+    // No Packets found to replace!
     if(!hasPacketToReplace){
         while(newPackts->size() > 0){
             sendQueue.add(newPackts->shift());
@@ -627,7 +684,7 @@ void MeshRouter::AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t
                 shiftedStuff++;
             }
 
-            // Eins zu weit shifted
+            // Shifted one too far
             sendQueue.unshift(nextPacket);
             //*debugString = "I" + String(id) + "S" + String((uint16_t)source ) + "i"+ String(sendQueue.get(0).id) + "s" + String((uint16_t)sendQueue.get(0).source ) + ":" + String(shiftedStuff) + ":" + String((uint16_t)sendQueue.get(0).paketPointer[0]) ;
 
@@ -656,8 +713,9 @@ void MeshRouter::AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t
 
 
 /**
+* This method is called when a complete serial packet has arrived over the USB interface.
 * Diese Methode wird aufgerufen, wenn ein vollständiges Serielles Paket über die USB Schnittstelle eingegangen ist.
-* @param serialPaket
+* Input parameters: serial Packet
 */
 void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket) {
     CreateBroadcastPacket(serialPayloadFloodPaket->payload, NodeID, serialPayloadFloodPaket->size, ID_COUNTER++, serialPayloadFloodPaket->hash);
@@ -666,17 +724,18 @@ void MeshRouter::ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloa
 }
 
 /**
+ * Called when the header of a pending transfer is received.
  * Wird aufgerufen, wenn der Header einer anstehenden Übertragung empfangen wird.
- * @param paket
+ * Input parameters: packet, RSSI
  */
 void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi) {
     if (getIncompletePaketById(paket->id, paket->source) != nullptr) {
-        // Already received this Paket!
+        // Already received this Packet!
         return;
     }
 
     if (NODE_ID_COUNTERS[paket->source] > paket->id) {
-        // We already received this paket, this is just a repetition
+        // We already received this packet, this is just a repetition
         return;
     }
 
@@ -724,16 +783,21 @@ void MeshRouter::OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi
 
 }
 
+/* Main program for fragment packet transmission.
+* Input parameters: fragment packet
+*/
 void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
+    // Find fragment packet
     FragmentedPaket_t *incompletePaket = getIncompletePaketById(paket->id, lastBroadcastSourceId);
     if (incompletePaket == nullptr) {
+        // No information about future packages. Assume the greatest!
         // Keine Informationen über zukünftige Pakete. Gehe vom größten aus!
         SenderWait(40 + predictPacketSendTime(255));//(400 + predictPacketSendTime(255));
         *debugString = "Fragment: ERR";
         return;
     }
 
-    // Igore! We are receiving a repeated Paket!
+    // Ignore! We are receiving a repeated Paket!
     if (paket->fragment <= incompletePaket->lastFragment && paket->fragment > 0) {
         return;
     }
@@ -758,7 +822,7 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
     // Delay Transmission of Pakets
     SenderWait(20 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft)); //(150 + predictPacketSendTime(bytesLeft > 255 ? 255 : bytesLeft));
 
-    // Copy paket data to buffer
+    // Copy packet data to buffer
     memcpy(incompletePaket->payload + incompletePaket->received, paket->payload, bytesLeft);
     incompletePaket->received += bytesLeft;
 
@@ -792,6 +856,9 @@ void MeshRouter::OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket) {
     }
 }
 
+/* Returns information about fragment of packet with matching transmission ID and source.
+* Input parameters: Transmission ID, source
+*/
 FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint16_t transmissionid, uint8_t source) {
     for (int i = 0; i < incompletePaketList.size(); i++) {
         if (incompletePaketList.get(i)->id == transmissionid && incompletePaketList.get(i)->source == source) {
@@ -801,6 +868,9 @@ FragmentedPaket_t *MeshRouter::getIncompletePaketById(uint16_t transmissionid, u
     return nullptr;
 }
 
+/* Delete information about fragment of packet with matching transmission ID and source.
+* Input parameters: Transmission ID, source
+*/
 void MeshRouter::removeIncompletePaketById(uint16_t transmissionid, uint8_t source) {
     for (int i = 0; i < incompletePaketList.size(); i++) {
         if (incompletePaketList.get(i)->id == transmissionid && incompletePaketList.get(i)->source == source) {
@@ -809,6 +879,9 @@ void MeshRouter::removeIncompletePaketById(uint16_t transmissionid, uint8_t sour
     }
 }
 
+/*
+* ??
+*/
 void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     auto payloadBuffer = (uint8_t *) malloc(sizeof(FragmentedPaket_t) + paket->size);
     memcpy(payloadBuffer, paket, sizeof(FragmentedPaket_t));
@@ -846,7 +919,7 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
 #endif
     *debugString = "HOST SEND: " + String(paket->size);
 
-    blockSendUntil = millis() + random(10, 250);
+    blockSendUntil = millis() + (10 + (rand() % 241));
 
     removeIncompletePaketById(paket->id, paket->source);
     free(paket->payload);
@@ -855,9 +928,9 @@ void MeshRouter::OnPaketForHost(FragmentedPaket_t *paket) {
     free(payloadBuffer);
 }
 
-// Calculates the AirTime of a paket, based on its Payload size.
-// Calculation is based of the LoRa Chip Datasheet.
-// SX1276-7-8-9 Datasheet-> https://semtech--c.na98.content.force.com/sfc/dist/version/download/?oid=00DE0000000JelG&ids=0682R000006TQEPQA4&d=%2Fa%2F2R0000001Rbr%2F6EfVZUorrpoKFfvaF_Fkpgp5kzjiNyiAbqcpqh9qSjE&operationContext=DELIVERY&asPdf=true&viewId=05H2R000002POsoUAG&dpt=
+/* Calculates the AirTime of a paket, based on its Payload size.
+ Calculation is based of the LoRa Chip Datasheet.
+ SX1276-7-8-9 Datasheet-> https://semtech--c.na98.content.force.com/sfc/dist/version/download/?oid=00DE0000000JelG&ids=0682R000006TQEPQA4&d=%2Fa%2F2R0000001Rbr%2F6EfVZUorrpoKFfvaF_Fkpgp5kzjiNyiAbqcpqh9qSjE&operationContext=DELIVERY&asPdf=true&viewId=05H2R000002POsoUAG&dpt= */
 double MeshRouter::getSendTimeByPaketSizeInMS(int PL) {
     double R_s = 1.0 * LORA_BANDWIDTH / pow(2, LORA_SPREADINGFACTOR);
     double T_s = 1.0 / R_s;
@@ -882,6 +955,9 @@ double MeshRouter::getSendTimeByPaketSizeInMS(int PL) {
 unsigned long timeMap[256];
 uint8_t totalTimeMapEntries = 0;
 
+/* 
+* ??
+*/
 void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
     if (timeMap[size] > 0) {
         return;
@@ -909,6 +985,9 @@ void MeshRouter::measurePaketTime(uint8_t size, unsigned long time) {
     }
 }
 
+/* Estimate time to send a packet.
+* Input parameters: size of packet
+*/
 long MeshRouter::predictPacketSendTime(uint8_t size) {
 long time = size;
 time += 20; //ms = Byte overhead

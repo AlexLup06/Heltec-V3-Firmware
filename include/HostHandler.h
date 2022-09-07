@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include "mesh/MeshRouter.h"
 
+//??
 typedef struct {
     SerialPayloadFloodPaket_t *serialFloodPaketHeader = nullptr;
     bool ready = false;

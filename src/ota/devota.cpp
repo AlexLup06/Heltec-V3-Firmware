@@ -1,8 +1,15 @@
 #include <WiFi.h>
 #include <ArduinoHttpClient.h>
 #include <Update.h>
+#include <cmath>
 
 /**
+ * Over-The-Air update for development purposes.
+ * This code runs as a task on core 0.
+ * Every 3 seconds a GET request is sent to a server containing the current software version as a txt file.
+ * If the version is newer than the one installed, the firmware will be downloaded and written to memory.
+ * After that, the board will be reset.
+ * 
  * Over-The-Air Update für Entwicklungszwecke.
  * Dieser Code wird als Task auf dem Kern 0 ausgeführt.
  * Alle 3 Sekunden wir ein GET Request an einen Server geschickt, welcher die aktuelle Software Version als txt Datei enthält.

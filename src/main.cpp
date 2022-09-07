@@ -1,7 +1,7 @@
-#include "main.h"
+#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\main.h"
 
 #ifdef USE_OTA_UPDATE_CHECKING
-#include <ota/devota.h>
+#include <C:\Users\Anushka Gulati\source\repos\RobotNetwork\src\ota\devota.h>
 #endif
 
 // Toggle Serial Debug
@@ -25,10 +25,14 @@ static double_t UPDATE_STATE = -1;
 
 hw_timer_t *timer = NULL;
 
+/* Handle an interrupt packet.
+* Input parameters: size of packet 
+*/
 void receiveInterrupt(int size) {
     meshRouter.OnReceiveIR(size);
 }
 
+/* Sets CAD flag to True.*/
 void cadInterrupt() {
     meshRouter.cad = true;
 }
@@ -95,10 +99,11 @@ void setup() {
 #endif
     loraDisplay.initDisplay();
 
-
+    // Check for any received packets.
     LoRa.onReceive(receiveInterrupt);
     LoRa.onCad(cadInterrupt);
 
+    // Display LoRa communication network characteristics on SSD1306 screen.
     hostSerialHandlerParams.debugString = &loraDisplay.lastSerialChar;
     meshRouter.debugString = &loraDisplay.lastSerialChar;
     meshRouter.displayQueueLength = &loraDisplay.queueLength;
@@ -121,6 +126,7 @@ void setup() {
             0);
 }
 
+// Move to next display screen
 void onButtonPress() {
     loraDisplay.nextScreen();
 }
@@ -141,16 +147,19 @@ void loop() {
                                             UPDATE_STATE);
     }
 
+    // Check update state and if operating mode Router is not idle, set LoRa module and Router in Idle mode.
     if (UPDATE_STATE > 0 && meshRouter.OPERATING_MODE != OPERATING_MODE_UPDATE_IDLE) {
         LoRa.idle();
         meshRouter.OPERATING_MODE = OPERATING_MODE_UPDATE_IDLE;
 
+        // We dont need the Serial Host task anymore
         // Wir brauchen den Serial Host task nicht mehr
         vTaskDelete(hostTask);
     }
 
+    // Check if Serial Host Handler packet is ready and if yes, process the received serial packet.
     if (hostSerialHandlerParams.ready) {
-        // Paket from Serial is ready
+        // Packet from Serial is ready
         // *hostSerialHandlerParams.debugString = "PROCESSED";
         meshRouter.ProcessFloodSerialPaket(hostSerialHandlerParams.serialFloodPaketHeader);
         hostSerialHandlerParams.ready = false;

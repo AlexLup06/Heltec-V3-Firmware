@@ -1,6 +1,6 @@
 #include "LoRa.h"
 
-
+// Registers.
 #define REG_IRQ_FLAGS 0x12
 #define REG_RX_NB_BYTES 0x13
 #define REG_PKT_RSSI_VALUE 0x1a
@@ -19,7 +19,7 @@
 #define REG_VERSION 0x42
 #define REG_PaDac 0x4d //add REG_PaDac
 
-// modes
+// Modes.
 #define MODE_LONG_RANGE_MODE 0x80
 #define MODE_SLEEP 0x00
 #define MODE_STDBY 0x01
@@ -33,12 +33,11 @@
 // IRQ masks
 #define IRQ_TX_DONE_MASK 0x08
 
-// Eingehende LoRa Nachricht, Header Empfangen, siehe Datasheet Seite 90. Bit 0 Mask: 00010000 -> 0x10
+// Incoming LoRa message, header received, see datasheet page 90. Bit 0 Mask: 00010000 -> 0x10
 #define IRQ_HEADER_RECEIVED 0x10
 
-// LoRa Signal Empfangen, siehe Datasheet Seite 90. Bit 0 Mask: 00000001 -> 0x01
+// LoRa signal received, see data sheet page 90. Bit 0 Mask: 00000001 -> 0x01
 #define IRQ_CAD_DETECTED 0x01
-
 #define IRQ_PAYLOAD_CRC_ERROR_MASK 0x20
 #define IRQ_RX_DONE_MASK 0x40
 
@@ -61,9 +60,9 @@
 #define RFLR_INVERTIQ2_OFF 0x1D
 
 #define REG_LR_INVERTIQ2 0x3B
-
 #define MAX_PKT_LENGTH 255
 
+// Constructor to initialize LoRa default parameters.
 LoRaClass::LoRaClass() : _spiSettings(8E6, MSBFIRST, SPI_MODE0),
                          _ss(LORA_DEFAULT_SS_PIN), _reset(LORA_DEFAULT_RESET_PIN), _dio0(LORA_DEFAULT_DIO0_PIN),
                          _frequency(0),
@@ -75,6 +74,9 @@ LoRaClass::LoRaClass() : _spiSettings(8E6, MSBFIRST, SPI_MODE0),
     setTimeout(0);
 }
 
+/*  This function is used to initialize the library with the specified frequency and start the SPI communication. 
+* Input parameters: transmission frequency, a boolean for transmission power
+*/
 int LoRaClass::begin(long frequency, bool PABOOST) {
     // setup pins
     pinMode(_ss, OUTPUT);
@@ -110,24 +112,32 @@ int LoRaClass::begin(long frequency, bool PABOOST) {
         setTxPower(14, RF_PACONFIG_PASELECT_PABOOST);
     else
         setTxPower(14, RF_PACONFIG_PASELECT_RFO);
+    // set spreading factor
     setSpreadingFactor(11);
     // put in standby mode
     setSignalBandwidth(125E3);
+    // set coding rate
     setCodingRate4(5);
+    // set syncword
     setSyncWord(0x34);
+    // disable Cyclic redundancy check
     disableCrc();
+    // enable Cyclic redundancy check to detect errors
     crc();
+    // put in standby mode
     idle();
     return 1;
 }
 
+// This function puts the LoRa module in sleep mode and disables the SPI bus.
 void LoRaClass::end() {
-    // put in sleep mode
     sleep();
-    // stop SPI
     SPI.end();
 }
 
+/* Start the sequence of sending a packet. Returns 1 if radio is ready to transmit, 0 if busy or on failure.
+* Input parameters: implicitHeader(optional)- true enables implicit header mode, false enables explicit header mode (default)
+*/ 
 int LoRaClass::beginPacket(int implicitHeader) {
     // put in standby mode
     idle();
@@ -136,12 +146,14 @@ int LoRaClass::beginPacket(int implicitHeader) {
     } else {
         explicitHeaderMode();
     }
-    // reset FIFO address and paload length
+    // reset FIFO address and payload length
     writeRegister(REG_FIFO_ADDR_PTR, 0);
     writeRegister(REG_PAYLOAD_LENGTH, 0);
     return 1;
 }
-
+/* End the sequence of sending a packet. Returns 1 on success, 0 on failure.
+* Input parameters: boolean variable async - true enables non-blocking mode, false waits for transmission to be completed(default)
+*/ 
 int LoRaClass::endPacket(bool async) {
     // put in TX mode
     writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
@@ -161,6 +173,9 @@ int LoRaClass::endPacket(bool async) {
     return 1;
 }
 
+/* This function checks if a packet has been received. Returns the packet size in bytes or 0 if no packet was received.
+* Input parameters: size - if > 0 implicit header mode is enabled with the expected packet of size bytes, default mode is explicit header mode
+*/ 
 int LoRaClass::parsePacket(int size) {
     int packetLength = 0;
     int irqFlags = readRegister(REG_IRQ_FLAGS);
@@ -178,13 +193,13 @@ int LoRaClass::parsePacket(int size) {
     if ((irqFlags & IRQ_RX_DONE_MASK) && (irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0) {
         // received a packet
         _packetIndex = 0;
-        // read packet length
+        // Read packet length. If no packet received, set packet length to 0.           
         if (_implicitHeaderMode) {
             packetLength = readRegister(REG_PAYLOAD_LENGTH);
         } else {
             packetLength = readRegister(REG_RX_NB_BYTES);
         }
-        // set FIFO address to current RX address
+        // Store received value to FIFO address
         writeRegister(REG_FIFO_ADDR_PTR, readRegister(REG_FIFO_RX_CURRENT_ADDR));
         // put in standby mode
         idle();
@@ -197,6 +212,9 @@ int LoRaClass::parsePacket(int size) {
     }
     return packetLength;
 }
+
+/* Returns signal - to - noise ratio (SNR) of the latest received packet.
+*/
 int8_t LoRaClass::getSNR()
 {
 	int8_t snr = 0;
@@ -214,6 +232,7 @@ int8_t LoRaClass::getSNR()
     return snr;
 }
 
+// Returns the signal strength indicator (RSSI) of the radio (dBm).
 int LoRaClass::packetRssi() {
     int8_t snr = 0;
     int8_t SnrValue = readRegister(0x19);
@@ -237,33 +256,43 @@ int LoRaClass::packetRssi() {
     return (rssi);
 }
 
+// Returns the estimated SNR of the received packet in dB.
 float LoRaClass::packetSnr() {
     return ((int8_t) readRegister(REG_PKT_SNR_VALUE)) * 0.25;
 }
 
+/*This function writes data to the packet. Each packet can contain up to 255 bytes. Returns the number of bytes written.
+* Input parameters: buffer data
+*/ 
 size_t LoRaClass::write(uint8_t byte) {
     return write(&byte, sizeof(byte));
 }
 
+/* This function writes data to the packet. Each packet can contain up to 255 bytes. Returns the number of bytes written.
+* Input parameters: buffer data, size of buffer data
+*/ 
 size_t LoRaClass::write(const uint8_t *buffer, size_t size) {
+    // read current payload length
     int currentLength = readRegister(REG_PAYLOAD_LENGTH);
-    // check size
+    // check remaining empty space in packet 
     if ((currentLength + size) > MAX_PKT_LENGTH) {
         size = MAX_PKT_LENGTH - currentLength;
     }
-    // write data
+    // write as much data into the packet as can be accommodated
     for (size_t i = 0; i < size; i++) {
         writeRegister(REG_FIFO, buffer[i]);
     }
-    // update length
+    // update length of payload
     writeRegister(REG_PAYLOAD_LENGTH, currentLength + size);
     return size;
 }
 
+// Returns number of bytes available for reading.
 int LoRaClass::available() {
     return (readRegister(REG_RX_NB_BYTES) - _packetIndex);
 }
 
+// Returns the next byte in the packet or -1 if no bytes are available.
 int LoRaClass::read() {
     if (!available()) {
         return -1;
@@ -272,6 +301,7 @@ int LoRaClass::read() {
     return readRegister(REG_FIFO);
 }
 
+// Peek at the next byte in the packet. Returns -1 if no bytes are available.
 int LoRaClass::peek() {
     if (!available()) {
         return -1;
@@ -288,9 +318,13 @@ int LoRaClass::peek() {
 void LoRaClass::flush() {
 }
 
+/* Register a callback function for when a packet is received.
+* Input paramters: function to call when a packet is received.
+*/ 
 void LoRaClass::onReceive(void (*callback)(int)) {
     _onReceive = callback;
 
+   // The dio0 pin is used for receiving callback. It handles external interrupts.
     if (callback) {
         writeRegister(REG_DIO_MAPPING_1, 0x00);
         attachInterrupt(digitalPinToInterrupt(_dio0), LoRaClass::onDio0Rise, RISING);
@@ -300,10 +334,17 @@ void LoRaClass::onReceive(void (*callback)(int)) {
     }
 }
 
+//??
+/* Detect a LoRa packet preamble
+*Input paramters : callback function.
+*/ 
 void LoRaClass::onCad(void (*callback)()) {
     _onCad = callback;
 }
 
+/* Puts the radio in continuous receive mode.
+*Input paramters : size - (optional) if > 0 implicit header mode is enabled with the expected a packet of size bytes, default mode is explicit header mode.
+*/
 void LoRaClass::receive(int size) {
     if (size > 0) {
         implicitHeaderMode();
@@ -311,18 +352,23 @@ void LoRaClass::receive(int size) {
     } else {
         explicitHeaderMode();
     }
-
+    //
     writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
 }
 
+// Put the radio in idle (standby) mode.
 void LoRaClass::idle() {
     writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
 }
 
+// Put the radio in sleep mode.
 void LoRaClass::sleep() {
     writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
 }
 
+/* This function changes the TX power of the radio.
+* Input parameters: txPower - TX power in dB, defaults to 17, outputPin - (optional) PA output pin.
+*/
 void LoRaClass::setTxPower(int8_t power, int8_t outputPin) {
     uint8_t paConfig = 0;
     uint8_t paDac = 0;
@@ -369,6 +415,9 @@ void LoRaClass::setTxPower(int8_t power, int8_t outputPin) {
     writeRegister(REG_PaDac, paDac);
 }
 
+/* This function sets the power of the Lora radio to the maximum.
+* Input parameters: level
+*/
 void LoRaClass::setTxPowerMax(int level) {
     if (level < 5) {
         level = 5;
@@ -380,6 +429,9 @@ void LoRaClass::setTxPowerMax(int level) {
     writeRegister(REG_PA_CONFIG, RF_PACONFIG_PASELECT_PABOOST | (level - 5));
 }
 
+/* This function sets the frequency of the radio.
+* Input parameters: frequency in Hz 
+*/
 void LoRaClass::setFrequency(long frequency) {
     _frequency = frequency;
     uint64_t frf = ((uint64_t) frequency << 19) / 32000000;
@@ -388,6 +440,9 @@ void LoRaClass::setFrequency(long frequency) {
     writeRegister(REG_FRF_LSB, (uint8_t) (frf >> 0));
 }
 
+/* This function sets the spreading factor of the radio.
+* Input parameters:  spreading factor- ranges from 6 to 12
+*/
 void LoRaClass::setSpreadingFactor(int sf) {
     if (sf < 6) {
         sf = 6;
@@ -404,6 +459,9 @@ void LoRaClass::setSpreadingFactor(int sf) {
     writeRegister(REG_MODEM_CONFIG_2, (readRegister(REG_MODEM_CONFIG_2) & 0x0f) | ((sf << 4) & 0xf0));
 }
 
+/* This function sets the signal bandwidth of the radio.
+* Input parameters: signal bandwidth in Hz
+*/
 void LoRaClass::setSignalBandwidth(long sbw) {
     int bw;
 
@@ -432,6 +490,9 @@ void LoRaClass::setSignalBandwidth(long sbw) {
     writeRegister(REG_MODEM_CONFIG_1, (readRegister(REG_MODEM_CONFIG_1) & 0x0f) | (bw << 4));
 }
 
+/* This function sets the coding rate of the radio.
+* Input parameters: denominator of the coding rate- ranges 5 to 8
+*/
 void LoRaClass::setCodingRate4(int denominator) {
     if (denominator < 5) {
         denominator = 5;
@@ -442,61 +503,84 @@ void LoRaClass::setCodingRate4(int denominator) {
     writeRegister(REG_MODEM_CONFIG_1, (readRegister(REG_MODEM_CONFIG_1) & 0xf1) | (cr << 1));
 }
 
+/* This function sets preamble length of the radio.
+* Input parameters: preamble length in symbols
+*/
 void LoRaClass::setPreambleLength(long length) {
     writeRegister(REG_PREAMBLE_MSB, (uint8_t) (length >> 8));
     writeRegister(REG_PREAMBLE_LSB, (uint8_t) (length >> 0));
 }
 
+/* This function sets  the sync word of the radio.
+* Input parameters:  byte value to use as the sync word
+*/
 void LoRaClass::setSyncWord(int sw) {
     writeRegister(REG_SYNC_WORD, sw);
 }
 
+/* This function enables Cyclic Redundancy Check.*/
 void LoRaClass::enableCrc() {
     writeRegister(REG_MODEM_CONFIG_2, readRegister(REG_MODEM_CONFIG_2) | 0x04);
 }
 
+/* This function disables Cyclic Redundancy Check.*/
 void LoRaClass::disableCrc() {
     writeRegister(REG_MODEM_CONFIG_2, readRegister(REG_MODEM_CONFIG_2) & 0xfb);
 }
 
+/* This function enables TX Invert the LoRa I and Q signals. */
 void LoRaClass::enableTxInvertIQ() {
     writeRegister(REG_LR_INVERTIQ, ((readRegister(REG_LR_INVERTIQ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK) |
                                     RFLR_INVERTIQ_RX_OFF | RFLR_INVERTIQ_TX_ON));
     writeRegister(REG_LR_INVERTIQ2, RFLR_INVERTIQ2_ON);
 }
 
+/* This function enables RX Invert the LoRa I and Q signals. */
 void LoRaClass::enableRxInvertIQ() {
     writeRegister(REG_LR_INVERTIQ, ((readRegister(REG_LR_INVERTIQ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK) |
                                     RFLR_INVERTIQ_RX_ON | RFLR_INVERTIQ_TX_OFF));
     writeRegister(REG_LR_INVERTIQ2, RFLR_INVERTIQ2_ON);
 }
 
+/* This function disables Invert the LoRa I and Q signals. */
 void LoRaClass::disableInvertIQ() {
     writeRegister(REG_LR_INVERTIQ, ((readRegister(REG_LR_INVERTIQ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK) |
                                     RFLR_INVERTIQ_RX_OFF | RFLR_INVERTIQ_TX_OFF));
     writeRegister(REG_LR_INVERTIQ2, RFLR_INVERTIQ2_OFF);
 }
 
+/* This function enables Invert the LoRa I and Q signals. */
 void LoRaClass::enableInvertIQ() {
     writeRegister(REG_LR_INVERTIQ, ((readRegister(REG_LR_INVERTIQ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK) |
                                     RFLR_INVERTIQ_RX_ON | RFLR_INVERTIQ_TX_ON));
     writeRegister(REG_LR_INVERTIQ2, RFLR_INVERTIQ2_ON);
 }
 
+/* This function generates and returns a random byte, based on the Wideband RSSI measurement.
+*/
 byte LoRaClass::random() {
     return readRegister(REG_RSSI_WIDEBAND);
 }
 
+/* Override the default NSS, NRESET, and DIO0 pins used by the library.
+* Input parameters: new slave select pin, new reset pin, new DIO0 pin 
+*/
 void LoRaClass::setPins(int ss, int reset, int dio0) {
     _ss = ss;
     _reset = reset;
     _dio0 = dio0;
 }
 
+/* This function overrides the default SPI frequency of 10 MHz used by the library. 
+* Input parameters:  new SPI frequency 
+*/
 void LoRaClass::setSPIFrequency(uint32_t frequency) {
     _spiSettings = SPISettings(frequency, MSBFIRST, SPI_MODE0);
 }
 
+/* This function will send in log a dump of registers: it can be a way to check if SPI is OK and if access to hard is OK
+* Input parameters: serial dump data
+*/
 void LoRaClass::dumpRegisters(Stream &out) {
     for (int i = 0; i < 128; i++) {
         out.print("0x");
@@ -506,16 +590,20 @@ void LoRaClass::dumpRegisters(Stream &out) {
     }
 }
 
+// Sets LoRa explicit header mode
 void LoRaClass::explicitHeaderMode() {
     _implicitHeaderMode = 0;
     writeRegister(REG_MODEM_CONFIG_1, readRegister(REG_MODEM_CONFIG_1) & 0xfe);
 }
 
+// Sets LoRa implicit header mode (fixed length transmission)
 void LoRaClass::implicitHeaderMode() {
     _implicitHeaderMode = 1;
     writeRegister(REG_MODEM_CONFIG_1, readRegister(REG_MODEM_CONFIG_1) | 0x01);
 }
 
+/* Handles interrupts with the onReceive callback function.
+*/
 void LoRaClass::handleDio0Rise() {
     int irqFlags = readRegister(REG_IRQ_FLAGS);
     // clear IRQ's
@@ -528,7 +616,7 @@ void LoRaClass::handleDio0Rise() {
     if ((irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0) {
         // received a packet
         _packetIndex = 0;
-        // read packet length
+        // read packet length. 0 if no packet received.
         int packetLength = _implicitHeaderMode ? readRegister(REG_PAYLOAD_LENGTH) : readRegister(REG_RX_NB_BYTES);
 
         if (_onReceive) {
@@ -537,14 +625,24 @@ void LoRaClass::handleDio0Rise() {
     }
 }
 
+/* Reads the indicated internal register.
+ Input parameters: address of register
+ Output parameters: returns value stored in given address
+*/
 uint8_t LoRaClass::readRegister(uint8_t address) {
     return singleTransfer(address & 0x7f, 0x00);
 }
 
+/* Writes to indicated internal register
+ Input parameters: address of register, value written on register
+*/ 
 void LoRaClass::writeRegister(uint8_t address, uint8_t value) {
     singleTransfer(address | 0x80, value);
 }
 
+/* Uses SPI transmission to send a single byte, simultaneously sends and receives the register address and the data that will be placed there. Returns the received data.
+ * Input parameters: address of register, the byte to send out over the bus
+*/
 uint8_t LoRaClass::singleTransfer(uint8_t address, uint8_t value) {
     uint8_t response;
     digitalWrite(_ss, LOW);
@@ -556,6 +654,7 @@ uint8_t LoRaClass::singleTransfer(uint8_t address, uint8_t value) {
     return response;
 }
 
+// Indicates RX and TX done 
 void LoRaClass::onDio0Rise() {
     LoRa.DIO_RISE = true;
 }

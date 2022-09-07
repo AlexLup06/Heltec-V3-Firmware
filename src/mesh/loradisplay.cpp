@@ -1,10 +1,11 @@
-#include <mesh/loradisplay.h>
+#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\mesh\loradisplay.h"
 
 #define DEBUG_PRINT_SERIAL_DATA
 
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Initialize SSD1306 display.
 void LoraDisplay::initDisplay() {
     Wire.setPins(4, 15);
 
@@ -20,10 +21,9 @@ void LoraDisplay::initDisplay() {
     display.display();
 }
 
-/**
- * Draws the Display based on the current Application state
+/** Draws the Display based on the current Application state.
+ * Input parameters: pointer to Routing table, total routes, node ID, update message
  */
-
 void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID,
                                           double_t update) {
 
@@ -78,6 +78,7 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
     interrupts();
 }
 
+// Draw last character serially and queue length in footer of screen.
 void LoraDisplay::drawSerialFooter() {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
@@ -91,6 +92,7 @@ void LoraDisplay::drawSerialFooter() {
     display.println(String(queueLength));
 };
 
+// Draw remaining waiting time, received Bytes and the alive time in footer of screen.
 void LoraDisplay::drawWaitStatusFooter() {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
@@ -120,6 +122,7 @@ void LoraDisplay::drawWaitStatusFooter() {
     //display.println(String(queueLength));
 };
 
+// Draw update status on screen footer.
 void LoraDisplay::drawUpdateFooter(double_t update) {
     int barWidth = update / 100 * 128;
     display.fillRect(0, DISPLAY_HEIGHT - 10, barWidth, 10, WHITE);
@@ -130,7 +133,7 @@ void LoraDisplay::drawUpdateFooter(double_t update) {
     display.println(String(update, 0) + "%");
 };
 
-
+// Draw node ID, ....??
 void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
@@ -151,6 +154,7 @@ void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
 
 }
 
+// Move to next display screen
 void LoraDisplay::nextScreen() {
 
     screenIndex++;
