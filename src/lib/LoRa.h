@@ -3,17 +3,19 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <stdint.h>
 
+// LoRa connections with Arduino module
 #define LORA_DEFAULT_SS_PIN 18
 #define LORA_DEFAULT_RESET_PIN 14
 #define LORA_DEFAULT_DIO0_PIN 26
 
-#define REG_FIFO_TX_BASE_ADDR 0x0e
-#define REG_FIFO_RX_BASE_ADDR 0x0f
-#define REG_FIFO_RX_CURRENT_ADDR 0x10
-#define REG_FIFO_ADDR_PTR 0x0d
+#define REG_FIFO_TX_BASE_ADDR 0x0e	// register for FIFO base address transfer
+#define REG_FIFO_RX_BASE_ADDR 0x0f	// register for FIFO base address receiver
+#define REG_FIFO_RX_CURRENT_ADDR 0x10	// register for FIFO current address transfer
+#define REG_FIFO_ADDR_PTR 0x0d	// register for FIFO current address receiver
 
-#define REG_PAYLOAD_LENGTH 0x22
+#define REG_PAYLOAD_LENGTH 0x22		// register containing payload length
 
 
 // registers
@@ -53,6 +55,8 @@ inline unsigned char digitalPinToInterrupt(unsigned char Interrupt_pin) { return
 #define portOutputRegister(port) (volatile byte *)(&(port->regs->ODR))                            //These are defined in STM32F1/variants/generic_stm32f103c/variant.h but return a non byte* value
 #define portInputRegister(port) (volatile byte *)(&(port->regs->IDR))                             //These are defined in STM32F1/variants/generic_stm32f103c/variant.h but return a non byte* value
 #endif
+
+typedef unsigned char byte;
 
 class LoRaClass : public Stream
 {

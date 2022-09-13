@@ -1,6 +1,7 @@
-#include <mesh/loranode.h>
-#include "config.h"
+#include "mesh\loranode.h"
 
+
+// Initialize LoRa communication. This function starts a SPI communication and sets LoRa module pins. It sets the Tx power, signal bandwidth, spreading factor and preamble length to their default values. It also sets a sync word to avoid interference from other Lora networks.
 void LoraNode::initLora()
 {
     SPI.begin(SCK, MISO, MOSI, SS);
@@ -20,6 +21,7 @@ void LoraNode::initLora()
     LoRa.setPreambleLength(LORA_PREAMBLE_LENGTH);
 
 
-    // Eigenes Sync-Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden
+    // Set your own sync word so that packets from other LoRa networks are ignored.
+    // Eigenes Sync - Word setzen, damit Pakete anderer LoRa Netzwerke ignoriert werden.
     LoRa.setSyncWord(0x12);
 }
