@@ -1,7 +1,7 @@
-#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\main.h"
+#include "include\main.h"
 
 #ifdef USE_OTA_UPDATE_CHECKING
-#include <C:\Users\Anushka Gulati\source\repos\RobotNetwork\src\ota\devota.h>
+#include <ota\devota.h>
 #endif
 
 // Toggle Serial Debug
@@ -161,7 +161,7 @@ void loop() {
     if (hostSerialHandlerParams.ready) {
         // Packet from Serial is ready
         // *hostSerialHandlerParams.debugString = "PROCESSED";
-        meshRouter.ProcessFloodSerialPaket(hostSerialHandlerParams.serialFloodPaketHeader);
+        meshRouter.ProcessFloodSerialPacket(hostSerialHandlerParams.serialFloodPacketHeader);
         hostSerialHandlerParams.ready = false;
     }
     yield();

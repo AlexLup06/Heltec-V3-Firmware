@@ -8,9 +8,9 @@
 #include <Arduino.h>
 #include "mesh/MeshRouter.h"
 
-//??
+// Structure defining parameters for a Host receiving serial data. It notifies the system when a packet is received with the 'ready' flag. 
 typedef struct {
-    SerialPayloadFloodPaket_t *serialFloodPaketHeader = nullptr;
+    SerialPayloadFloodPacket_t *serialFloodPacketHeader = nullptr;
     bool ready = false;
     String *debugString;
 } HostSerialHandlerParams_t;

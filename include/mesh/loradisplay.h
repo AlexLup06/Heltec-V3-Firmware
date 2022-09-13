@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\mesh\MeshRouter.h"
+#include "mesh\MeshRouter.h"
 #include <math.h>
 #include <stdint.h>
 
@@ -27,11 +27,10 @@ private:
     uint8_t screenIndex = 1; // OLED screen's starting-point index, in pixels
 
 public:
-    String lastSerialChar;  // returns last serial character of message 
-    unsigned long *waitTime;    // ??
-    // wait time before a message can be transmitted OR  the time for which the transmission of a particular packet takes place/ the amount of time required to push all the packet's bits into the wire
-    int queueLength;    // number of messages waiting in a queue 
-    unsigned int *receivedBytes;    // Pointer to received Bytes.
+    String lastSerialChar;  // Returns last serial character of message 
+    unsigned long *blockingTime;    // Wait time before a message can be transmitted. If 0, packet can be sent.
+    int queueLength;    // Length of sending queue 
+    unsigned int *receivedBytes;    // Refers to number of received Bytes.
 
     void nextScreen();
     void initDisplay();

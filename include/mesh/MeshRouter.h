@@ -6,13 +6,13 @@
 #include "../../.pio/libdeps/heltec_wifi_lora_32_V2/LinkedList/LinkedList.h"
 #include <mutex>
 #include <Arduino.h>
-#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\config.h"
-#include <C:\Users\Anushka Gulati\source\repos\RobotNetwork\src\lib\LoRa.h>
+#include "include\config.h"
+#include <lib\LoRa.h>
 
 std::mutex* getSerialMutex();
 
 // The Modem can only transmit 255 Byte large LoRa Packets.
-#define LORA_MAX_PAKET_SIZE 255
+#define LORA_MAX_PACKET_SIZE 255
 
 /**
  * Packet Types
@@ -34,7 +34,7 @@ std::mutex* getSerialMutex();
  * Receive States
  */
 #define RECEIVE_STATE_IDLE 0    
-#define RECEIVE_STATE_PAKET_READY 1 
+#define RECEIVE_STATE_PACKET_READY 1 
 
 /**
  * This flood packet is propagated by every node that receives it.
@@ -46,8 +46,8 @@ typedef struct {
     uint8_t messageType = MESSAGE_TYPE_FLOOD_BROADCAST_FRAGMENT;
     uint16_t id = 0;
     uint8_t fragment = 0;
-    uint8_t payload[LORA_MAX_PAKET_SIZE - 4];
-} FloodBroadcastFragmentPaket_t;
+    uint8_t payload[LORA_MAX_PACKET_SIZE - 4];
+} FloodBroadcastFragmentPacket_t;
 #pragma pack()
 
 // Broadcast header packet
@@ -59,14 +59,14 @@ typedef struct {
     uint8_t source = 0;
     uint16_t size = 0;
     uint8_t checksum = 0;
-} FloodBroadcastHeaderPaket_t;
+} FloodBroadcastHeaderPacket_t;
 #pragma pack()
 
 // Broadcast acknowledgement packet
 #pragma pack(1)
 typedef struct {
     uint8_t messageType = MESSAGE_TYPE_FLOOD_BROADCAST_ACK;
-    uint8_t source = 0; // Source of the initial FloodBroadcastHeaderPaket_t
+    uint8_t source = 0; // Source of the initial FloodBroadcastHeaderPacket_t
     uint16_t id = 0;
     uint16_t totalTransmissionSize = 0;
 } FloodBroadcastAck_t;
@@ -74,7 +74,7 @@ typedef struct {
 
 /**
  * This struct represents an announced packet. This is created after receiving a FloodBroadcastHeaderPacket_t. 
- * Diese Struct stellt ein Angekündigtes Paket dar. Dieses wird nach empfang eines FloodBroadcastHeaderPaket_t angelegt.
+ * Diese Struct stellt ein Angekündigtes Paket dar. Dieses wird nach empfang eines FloodBroadcastHeaderPacket_t angelegt.
  */
 #pragma pack(1)
 typedef struct {
@@ -87,7 +87,7 @@ typedef struct {
     bool corrupted = false;
     uint8_t checksum;
     uint8_t *payload;
-} FragmentedPaket_t;
+} FragmentedPacket_t;
 #pragma pack()
 
 /**
@@ -118,16 +118,16 @@ typedef struct {
 
 // This struct contains information of a queued packet. 
 typedef struct {
-    uint8_t *paketPointer;
-    uint8_t paketSize;
+    uint8_t *packetPointer;
+    uint8_t packetSize;
     uint8_t source;
     uint16_t id;
     long waitTimeAfter;
     int64_t hash = 0;
-} QueuedPaket_t;
+} QueuedPacket_t;
 
 #define SERIAL_PACKET_TYPE_STATUS_REQUEST 0
-#define SERIAL_PAKET_TYPE_FLOOD_PAKET 1
+#define SERIAL_PACKET_TYPE_FLOOD_PACKET 1
 #define SERIAL_PACKET_TYPE_STATUS_RESPONSE 2
 #define SERIAL_PACKET_TYPE_CONFIGURATION_REQUEST 3
 #define SERIAL_PACKET_TYPE_CONFIGURATION_RESPONSE 4
@@ -145,15 +145,15 @@ typedef struct {
     uint8_t source;
     int64_t hash; // Type of packet
     uint8_t *payload;
-} SerialPayloadFloodPaket_t;
+} SerialPayloadFloodPacket_t;
 #pragma pack()
 
 // Struct to determine the type and size of serial packet from header.
 #pragma pack(1)
 typedef struct {
-    uint8_t serialPaketType;
+    uint8_t serialPacketType;
     uint16_t size;
-} SerialPaketHeader_t;
+} SerialPacketHeader_t;
 #pragma pack()
 
 // Struct to access node ID of the serial packet for which RSSI is requested. 
@@ -225,12 +225,12 @@ public:
     String *debugString;
     int *displayQueueLength;
     uint8_t receiveState = RECEIVE_STATE_IDLE;  // Node is in standby default receive state
-    int readyPaketSize = 0;     // Size of packet ready to be sent
+    int readyPacketSize = 0;     // Size of packet ready to be sent
 
-    unsigned long blockSendUntil = 0;    // Blocks sending messages until ??
+    unsigned long blockSendUntil = 0;    // Blocks senders until previous message sent
     unsigned long preambleAdd = 0;      // Increases blocking time causing the other senders to wait
 
-    LinkedList<QueuedPaket_t *> sendQueue;  // List of queued packets to be sent
+    LinkedList<QueuedPacket_t *> sendQueue;  // List of queued packets to be sent
 
     uint8_t setNodeID(uint8_t newNodeID);
     int8_t getSNR();   
@@ -246,29 +246,29 @@ public:
     // Funtion to re-initialize LoRa parameters
     void reInitLoRa();
 
-    void OnReceivePacket(uint8_t messageType, uint8_t *rawPaket, uint8_t paketSize, int rssi);
+    void OnReceivePacket(uint8_t messageType, uint8_t *rawPacket, uint8_t packetSize, int rssi);
 
-    void OnFloodHeaderPaket(FloodBroadcastHeaderPaket_t *paket, int rssi);
+    void OnFloodHeaderPacket(FloodBroadcastHeaderPacket_t *packet, int rssi);
 
-    void OnFloodBroadcastAck(FloodBroadcastAck_t *paket, int rssi);
+    void OnFloodBroadcastAck(FloodBroadcastAck_t *packet, int rssi);
 
-    void OnFloodFragmentPaket(FloodBroadcastFragmentPaket_t *paket);
+    void OnFloodFragmentPacket(FloodBroadcastFragmentPacket_t *packet);
 
-    FragmentedPaket_t *getIncompletePaketById(uint16_t transmissionid, uint8_t source);
+    FragmentedPacket_t *getIncompletePacketById(uint16_t transmissionid, uint8_t source);
 
-    void removeIncompletePaketById(uint16_t transmissionid, uint8_t source);
+    void removeIncompletePacketById(uint16_t transmissionid, uint8_t source);
 
-    void ProcessFloodSerialPaket(SerialPayloadFloodPaket_t *serialPayloadFloodPaket);
+    void ProcessFloodSerialPacket(SerialPayloadFloodPacket_t *serialPayloadFloodPacket);
 
     void CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id,int64_t hash);
 
-    void AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPaket_t *> *newPackts, int64_t hash, uint8_t messageSource);
+    void AddToSendQueueReplaceSameHashedPackets(LinkedList<QueuedPacket_t *> *newPackts, int64_t hash, uint8_t messageSource);
 
     void initNode();
 
-    void SendRaw(uint8_t *rawPaket, uint8_t size);
+    void SendRaw(uint8_t *rawPacket, uint8_t size);
 
-    void QueuePaket(LinkedList<QueuedPaket_t *> *listPointer, uint8_t *rawPaket, uint8_t size, uint8_t source, uint16_t id, long waitTimeAfter = 0, int64_t hash = 0);
+    void QueuePacket(LinkedList<QueuedPacket_t *> *listPointer, uint8_t *rawPacket, uint8_t size, uint8_t source, uint16_t id, long waitTimeAfter = 0, int64_t hash = 0);
 
     void ProcessQueue();
 
@@ -284,7 +284,7 @@ public:
 
     void _debugDumpSRAM();
 
-    void OnNodeIdAnnouncePaket(NodeIdAnnounce_t *paket, int rssi);
+    void OnNodeIdAnnouncePacket(NodeIdAnnounce_t *packet, int rssi);
 
     uint8_t findNextFreeNodeId(uint8_t nodeId, uint8_t deviceMac[6]);
 
@@ -292,26 +292,26 @@ public:
 
     void debugPrintRoutingTable();
 
-    void OnPaketForHost(FragmentedPaket_t *paket);
+    void OnPacketForHost(FragmentedPacket_t *packet);
 
-    void measurePaketTime(uint8_t size, unsigned long time);
+    void measurePacketTime(uint8_t size, unsigned long time);
 
 private:
-    LinkedList<FragmentedPaket_t *> incompletePaketList;
+    LinkedList<FragmentedPacket_t *> incompletePacketList;
     // Time to send entire packet till last bit
     unsigned long packetTime = 0;
-    // ??
-    unsigned long lastAnounceTime = millis();
+    // Returns total time passed since last announce
+    unsigned long lastAnnounceTime = millis();
 
     // Measured Value for Sending Data
     double timePerByte = 0;
     double sendOverhead = 0;
 
-    double getSendTimeByPaketSizeInMS(int size);
+    double getSendTimeByPacketSizeInMS(int size);
 
-    void readPaketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_t size);
+    void readPacketFromSRAM(uint8_t *receiveBuffer, uint8_t start, uint8_t size);
 
-    void writePaketToSRAM(uint8_t *paket, uint8_t start, uint8_t end);
+    void writePacketToSRAM(uint8_t *packet, uint8_t start, uint8_t end);
 
     uint8_t findNextHopForDestination(uint8_t dest);
 

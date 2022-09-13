@@ -1,4 +1,4 @@
-#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\mesh\loradisplay.h"
+#include "mesh\loradisplay.h"
 
 #define DEBUG_PRINT_SERIAL_DATA
 
@@ -78,7 +78,7 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
     interrupts();
 }
 
-// Draw last character serially and queue length in footer of screen.
+// Display last character serially and queue length.
 void LoraDisplay::drawSerialFooter() {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
@@ -92,13 +92,13 @@ void LoraDisplay::drawSerialFooter() {
     display.println(String(queueLength));
 };
 
-// Draw remaining waiting time, received Bytes and the alive time in footer of screen.
+// Display wait status of the transmission. It shows the number of Bytes received and the remaining waiting time before a packet can be sent.
 void LoraDisplay::drawWaitStatusFooter() {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);
     display.println("WT");
     display.setCursor(0, DISPLAY_HEIGHT - 8);
-    unsigned long timeLeftWait = *waitTime < millis() ? 0 : *waitTime - millis();
+    unsigned long timeLeftWait = *blockingTime < millis() ? 0 : *blockingTime - millis();
     display.println(String(timeLeftWait));
 
     display.setCursor(30, DISPLAY_HEIGHT - 18);
@@ -122,7 +122,7 @@ void LoraDisplay::drawWaitStatusFooter() {
     //display.println(String(queueLength));
 };
 
-// Draw update status on screen footer.
+// Display status update.
 void LoraDisplay::drawUpdateFooter(double_t update) {
     int barWidth = update / 100 * 128;
     display.fillRect(0, DISPLAY_HEIGHT - 10, barWidth, 10, WHITE);
@@ -133,7 +133,9 @@ void LoraDisplay::drawUpdateFooter(double_t update) {
     display.println(String(update, 0) + "%");
 };
 
-// Draw node ID, ....??
+/* Display information relevant to the LoRa module.
+* Input parameters: node ID
+*/ 
 void LoraDisplay::drawInfoFooter(uint8_t nodeID) {
     display.drawFastHLine(0, DISPLAY_HEIGHT - 10, DISPLAY_WIDTH, WHITE);
     display.setCursor(0, DISPLAY_HEIGHT - 18);

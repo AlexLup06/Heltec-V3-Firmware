@@ -1,4 +1,4 @@
-#include "C:\Users\Anushka Gulati\source\repos\RobotNetwork\include\mesh\loranode.h"
+#include "mesh\loranode.h"
 
 
 // Initialize LoRa communication. This function starts a SPI communication and sets LoRa module pins. It sets the Tx power, signal bandwidth, spreading factor and preamble length to their default values. It also sets a sync word to avoid interference from other Lora networks.

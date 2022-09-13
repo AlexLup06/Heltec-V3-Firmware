@@ -334,8 +334,8 @@ void LoRaClass::onReceive(void (*callback)(int)) {
     }
 }
 
-//??
-/* Detect a LoRa packet preamble
+//
+/* Always called on detecting a LoRa packet preamble
 *Input paramters : callback function.
 */ 
 void LoRaClass::onCad(void (*callback)()) {

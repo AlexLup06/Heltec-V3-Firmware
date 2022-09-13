@@ -38,4 +38,4 @@
 // By activating this option, the performance of the network is severely restricted, as each node resends the packet.
 // Aktiviere das Weiterleiten von Paketen an Netzwerk Teilnehmer
 // Durch aktivierern dieser Option, wird die Leistung des Netzwerks Massiv eingeschränkt, da jeder Knoten das Paket erneut versendet.
-#undef RETRANSMIT_PAKETS
+#undef RETRANSMIT_PACKETS
