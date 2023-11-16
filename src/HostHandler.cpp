@@ -7,8 +7,8 @@
  * Dieser Typ ist 5 bytes groß. Der Pointer auf den ersten 5 Bytes wird direkt als diese Struktur interpretiert. Es folgt keine Prüfung auf Gültigkeit.
  * Anmerkung: Diese Implementierung ist sehr anfällig für verlorene Bytes, da dann die Zustände von Gerät und Host nicht mehr Synchron sind.
  */
-#include "include\main.h"
-#include "include\HostHandler.h"
+#include "main.h"
+#include "HostHandler.h"
 #include <Arduino.h>
 #include "mesh\MeshRouter.h"
 

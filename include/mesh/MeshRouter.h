@@ -6,7 +6,7 @@
 #include "../../.pio/libdeps/heltec_wifi_lora_32_V2/LinkedList/LinkedList.h"
 #include <mutex>
 #include <Arduino.h>
-#include "include\config.h"
+#include "config.h"
 #include <lib\LoRa.h>
 
 std::mutex* getSerialMutex();

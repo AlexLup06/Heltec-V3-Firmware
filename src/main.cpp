@@ -1,4 +1,4 @@
-#include "include\main.h"
+#include "main.h"
 
 #ifdef USE_OTA_UPDATE_CHECKING
 #include <ota\devota.h>
@@ -107,7 +107,7 @@ void setup() {
     hostSerialHandlerParams.debugString = &loraDisplay.lastSerialChar;
     meshRouter.debugString = &loraDisplay.lastSerialChar;
     meshRouter.displayQueueLength = &loraDisplay.queueLength;
-    loraDisplay.waitTime = &meshRouter.blockSendUntil;
+    loraDisplay.blockingTime = &(meshRouter.blockSendUntil);
     loraDisplay.receivedBytes = &meshRouter.receivedBytes;
 
     loraDisplay.printRoutingTableScreen(meshRouter.routingTable, meshRouter.totalRoutes, meshRouter.NodeID,

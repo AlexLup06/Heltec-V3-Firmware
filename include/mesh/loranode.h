@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <lib\LoRa.h>
-#include "include\config.h"
+#include "config.h"
 
 // This class defines the LoRa parameters for a node and functions to intialize LoRa node and transmit messages.
 class LoraNode
