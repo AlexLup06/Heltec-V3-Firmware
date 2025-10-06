@@ -9,7 +9,6 @@
 // Enables serial debug outputs to the Lora network
 // Aktiviert Serielle Debug Ausgaben zum Lora-Netzwerk
 #undef DEBUG_LORA_SERIAL
-#define USE_OTA_UPDATE_CHECKING
 
 // OLED screen refresh rate
 // Aktualisierungsrate des OLED Bildschirms
@@ -17,18 +16,17 @@
 
 // LoRa parameters of the node
 // LoRa Parameter des Knotens
+#define LORA_OUTPUT_POWER 20 // Allows transmission power of 20dBm and duty cycle of 10%
 #define LORA_FREQUENCY 869400000 // Allows transmission power of 20dBm and duty cycle of 10%
 #define LORA_BANDWIDTH 250E3     // Bandwidth
 #define LORA_SPREADINGFACTOR 7   // Spreading factor
 #define LORA_PREAMBLE_LENGTH 12  // Length of Preamble, Default 12
 #define LORA_TRANSMISSION_POWER 20	// Allows transmission power of 20dBm
+#define LORA_CR 1	// Allows transmission power of 20dBm
+
 
 // DutyCycle. Currently not used. 
 #define LORA_DUTY_CYCLE = 0.1;
-
-// Last test Modus. If this is activated, an infinite number of packets are generated and the throughput is measured.
-// Last test Modus. Wenn dieser aktiviert ist, werden unendlich viele Pakete generiert und der Durchsatz gemessen.
-#undef TEST_MODE
 
 // Sends a NodeAnnouncement every 3 seconds (for range measurement)
 // Sendet alle 3 Sekunden ein NodeAnnouncement (zur Reichweitenmessung)

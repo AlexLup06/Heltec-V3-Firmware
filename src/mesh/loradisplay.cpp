@@ -1,4 +1,4 @@
-#include "mesh\loradisplay.h"
+#include "mesh/loradisplay.h"
 
 #define DEBUG_PRINT_SERIAL_DATA
 
@@ -56,22 +56,6 @@ void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t
     display.drawFastVLine(22, 0, 10 + totalRoutes * 8, WHITE);
     display.drawFastVLine(50, 0, 10 + totalRoutes * 8, WHITE);
     display.drawFastVLine(97, 0, 10 + totalRoutes * 8, WHITE);
-
-    if (update > 0) {
-        drawUpdateFooter(update);
-    } else {
-        switch (screenIndex) {
-            case 0:
-                drawInfoFooter(nodeID);
-                break;
-            case 1:
-                drawSerialFooter();
-                break;
-            case 2:
-                drawWaitStatusFooter();
-                break;
-        }
-    }
 
     noInterrupts();
     display.display();

@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "mesh\MeshRouter.h"
+#include "mesh/MeshRouter.h"
 #include <math.h>
 #include <stdint.h>
 
@@ -34,5 +34,6 @@ public:
 
     void nextScreen();
     void initDisplay();
+    void printConectedNodes();
     void printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID, double_t update);
 };
