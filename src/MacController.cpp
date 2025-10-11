@@ -27,7 +27,7 @@ void markMacFinished()
         onMacFinish(currentMac);
 }
 
-void updateMacController()
+void updateMacController(bool isInConfigMode)
 {
     unsigned long now = millis();
 
@@ -38,7 +38,7 @@ void updateMacController()
     }
 
     // Check if the 2-min wait period has elapsed
-    if (waitingForNext && now >= switchTime)
+    if (waitingForNext && !isInConfigMode)
     {
         waitingForNext = false;
         currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);

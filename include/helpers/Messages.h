@@ -29,6 +29,25 @@ public:
 };
 
 #pragma pack(push, 1)
+struct OperationConfig_t
+{
+    uint8_t messageType = MESSAGE_TYPE_OPERATION_MODE_CONFIG;
+    uint8_t newOperationMode;
+    uint32_t startTime;
+
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct TimeSync_t
+{
+    uint8_t messageType = MESSAGE_TYPE_TIME_SYNC;
+    uint32_t currentTime;
+};
+#pragma pack(pop)
+
+
+#pragma pack(push, 1)
 struct NodeIdAnnounce_t
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;

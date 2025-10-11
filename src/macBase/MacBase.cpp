@@ -1,7 +1,9 @@
 #include "macBase/MacBase.h"
 
-void MacBase::finish(){
-
+void MacBase::finish()
+{
+    // TODO: clear all data structures and reset values
+    turnOnConfigMode();
 }
 
 void MacBase::createNodeAnnouncePacket()
@@ -22,6 +24,49 @@ void MacBase::finishCurrentTransmission()
 
 void MacBase::handleUpperPacket()
 {
+}
+
+void MacBase::handleLowerPacket(const uint8_t messageType, const uint8_t *packet, const uint8_t packetSize, const int rssi)
+{
+    if (messageType == MESSAGE_TYPE_TIME_SYNC || messageType == MESSAGE_TYPE_OPERATION_MODE_CONFIG)
+    {
+        handleConfigPacket(messageType, packet, packetSize);
+        return;
+    }
+
+    if (!isInConfigMode())
+    {
+        handleProtocolPacket(messageType, packet, packetSize, rssi);
+    }
+
+    // if we get past here then we got a protocol packet but we are in config mode. It will be ignored
+}
+
+void MacBase::onReceiveIR()
+{
+    radio->standby();
+
+    size_t len = radio->getPacketLength();
+    uint8_t *receiveBuffer = (uint8_t *)malloc(len);
+    if (!receiveBuffer)
+    {
+        Serial.println("ERROR: malloc failed!");
+        return;
+    }
+
+    int state = radio->readData(receiveBuffer, len);
+    float rssi = radio->getRSSI();
+
+    if (state == RADIOLIB_ERR_NONE)
+    {
+        handleLowerPacket(receiveBuffer[0], receiveBuffer, len, rssi);
+    }
+    else
+    {
+        Serial.printf("Receive failed: %d\n", state);
+    }
+
+    radio->startReceive();
 }
 
 void MacBase::decapsulate(const bool isMission, const uint8_t *packet)

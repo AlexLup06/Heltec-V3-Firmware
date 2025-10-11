@@ -47,6 +47,12 @@ void MeshRouter::init()
 
 void MeshRouter::finish()
 {
+    turnOnConfigMode();
+}
+
+String MeshRouter::getProtocolName()
+{
+    return "meshrouter";
 }
 
 /**
@@ -82,9 +88,9 @@ void MeshRouter::handle()
         // LoRa module in receive mode
         if (receiveState == RECEIVE_STATE_PACKET_READY)
         {
-            radio.standby();
+            radio->standby();
 
-            size_t len = radio.getPacketLength();
+            size_t len = radio->getPacketLength();
             uint8_t *receiveBuffer = (uint8_t *)malloc(len);
             if (!receiveBuffer)
             {
@@ -92,8 +98,8 @@ void MeshRouter::handle()
                 return;
             }
 
-            int state = radio.readData(receiveBuffer, len);
-            float rssi = radio.getRSSI();
+            int state = radio->readData(receiveBuffer, len);
+            float rssi = radio->getRSSI();
 
             if (state == RADIOLIB_ERR_NONE)
             {
@@ -104,8 +110,8 @@ void MeshRouter::handle()
                 Serial.printf("Receive failed: %d\n", state);
             }
 
+            radio->startReceive();
             receiveState = RECEIVE_STATE_IDLE;
-            radio.startReceive();
         }
         // Send packet from the sendqueue.
         ProcessQueue();
@@ -145,6 +151,23 @@ void MeshRouter::onCRCerrorIR()
  */
 void MeshRouter::OnReceivePacket(uint8_t messageType, uint8_t *rawPacket, uint8_t packetSize, int rssi)
 {
+
+    if (isInConfigMode())
+    {
+        switch (messageType)
+        {
+        case MESSAGE_TYPE_OPERATION_MODE_CONFIG:
+            handleConfigPacket(messageType, rawPacket, packetSize);
+            break;
+        case MESSAGE_TYPE_TIME_SYNC:
+            handleConfigPacket(messageType, rawPacket, packetSize);
+            break;
+            return;
+        default:
+            break;
+        }
+    }
+
     // remove preamble wait value
     preambleAdd = 0;
     switch (messageType)

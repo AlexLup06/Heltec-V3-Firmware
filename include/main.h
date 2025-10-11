@@ -10,6 +10,7 @@
 #include "radioHandler/RadioHandler.h"
 #include "MacController.h"
 #include "macBase/OperationalBase.h"
+#include "helpers/DataLogger.h"
 
 // Toggle Serial Debug
 // #define DEBUG_LORA_SERIAL
@@ -21,6 +22,7 @@ int currentMac = MESH_ROUTER;
 
 OperationalBase *macProtocol = nullptr;
 MeshRouter meshRouter;
+DataLogger dataLogger;
 
 HostSerialHandlerParams_t hostSerialHandlerParams;
 unsigned long lastScreenDraw = 0;

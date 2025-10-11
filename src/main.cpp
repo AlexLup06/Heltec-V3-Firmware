@@ -19,6 +19,16 @@ void onMacFinished(MacProtocol finished)
 void setup()
 {
     macProtocol = &meshRouter;
+    meshRouter.radio = &radio;
+    // csma.radio = &radio;
+    // aloha.radio = &radio;
+    // ..
+
+    meshRouter.dataLogger = &dataLogger;
+    // csma.dataLogger = &dataLogger;
+    // aloha.dataLogger = &dataLogger;
+    // ..
+
     esp_log_level_set("*", ESP_LOG_ERROR);
 
     // Setup Serial
@@ -65,7 +75,7 @@ void setup()
 void loop()
 {
     macProtocol->handle();
-    updateMacController();
+    updateMacController(macProtocol->isInConfigMode());
 
     if (lastScreenDraw + OLED_SCREEN_UPDATE_INTERVAL_MS < millis())
     {

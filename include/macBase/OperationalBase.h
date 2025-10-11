@@ -1,31 +1,49 @@
+#ifndef OPERATIONALBASE_H
+#define OPERATIONALBASE_H
+
 #pragma once
 #include <Arduino.h>
+#include <RadioLib.h>
+#include "helpers/definitions.h"
+#include "helpers/Messages.h"
+
+enum OperationMode
+{
+    CONFIG,
+    OPERATIONAL,
+};
 
 class OperationalBase
 {
 public:
+    OperationMode operationMode = CONFIG;
+    SX1262Public *radio;
+
     virtual ~OperationalBase() {}
     virtual void init() = 0;
     virtual void handle() = 0;
     virtual void finish() = 0;
+    void handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const uint8_t packetSize);
 
-    void receiveDio1Interrupt()
-    {
-        uint16_t irq = radio.getIrqFlags();
-        radio.clearIrqFlags(irq);
+    void turnOnConfigMode();
+    void turnOnOperationMode();
+    bool isInConfigMode();
 
-        if (irq & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
-            onPreambleDetectedIR();
+    void receiveDio1Interrupt();
 
-        if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
-            onReceiveIR();
+    void startTimeIR();
 
-        if (irq & RADIOLIB_SX126X_IRQ_CRC_ERR)
-            onCRCerrorIR();
-    }
+    bool isStartTimePassed();
+
+    virtual String getProtocolName() = 0;
 
 protected:
     virtual void onReceiveIR() = 0;
     virtual void onPreambleDetectedIR() = 0;
     virtual void onCRCerrorIR() = 0;
+
+private:
+    uint32_t startTime = -1;
 };
+
+#endif

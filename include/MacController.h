@@ -19,4 +19,4 @@ void switchToMac(MacProtocol next);
 void setMacSwitchCallback(MacSwitchCallback cb);
 void setMacFinishCallback(MacFinishCallback cb);
 void markMacFinished();
-void updateMacController();
+void updateMacController(bool isInConfigMode);

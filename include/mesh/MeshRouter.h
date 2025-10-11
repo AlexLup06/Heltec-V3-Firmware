@@ -10,6 +10,7 @@
 #include "config.h"
 #include "radioHandler/RadioHandler.h"
 #include "macBase/OperationalBase.h"
+#include "../helpers/DataLogger.h"
 
 std::mutex *getSerialMutex();
 
@@ -210,6 +211,8 @@ public:
     uint8_t receiveState = RECEIVE_STATE_IDLE; // Node is in standby default receive state
     bool cad = false;                          // bool variable to determine if the modem has received the beginning of a LoRa signal
 
+    DataLogger *dataLogger;
+
     unsigned long blockSendUntil = 0; // Blocks senders until previous message sent
     unsigned long preambleAdd = 0;    // Increases blocking time causing the other senders to wait
 
@@ -241,6 +244,7 @@ public:
     void ProcessFloodSerialPacket(SerialPayloadFloodPacket_t *serialPayloadFloodPacket);
     void announceNodeId(uint8_t respond);
     void SendRaw(uint8_t *rawPacket, uint8_t size);
+    String getProtocolName() override;
 
 protected:
     void onReceiveIR() override;
