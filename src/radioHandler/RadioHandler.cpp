@@ -1,4 +1,3 @@
-// RadioHandler.cpp
 #include "radioHandler/RadioHandler.h"
 
 SX1262Public radio = SX1262Public(new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY));

@@ -18,8 +18,7 @@
 LoraDisplay loraDisplay;
 TaskHandle_t hostTask;
 
-int currentMac = MESH_ROUTER;
-
+int currentMac = MacProtocol::MESH_ROUTER;
 OperationalBase *macProtocol = nullptr;
 MeshRouter meshRouter;
 DataLogger dataLogger;
@@ -28,11 +27,3 @@ HostSerialHandlerParams_t hostSerialHandlerParams;
 unsigned long lastScreenDraw = 0;
 static double_t UPDATE_STATE = -1;
 hw_timer_t *timer = NULL;
-
-MeshRouter *getMeshRouter();
-void onButtonPress();
-void onDio1IR();
-void onMacChanged(MacProtocol newMac);
-void onMacFinished(MacProtocol finished);
-void setup();
-void loop();

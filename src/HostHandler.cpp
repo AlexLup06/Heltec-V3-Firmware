@@ -9,9 +9,7 @@
  */
 #include <Arduino.h>
 
-#include "main.h"
 #include "HostHandler.h"
-#include "mesh/MeshRouter.h"
 
 #define SERIAL_MAGIC_BYTES 0
 #define SERIAL_REC_HEADER 1
@@ -74,7 +72,7 @@ void onPacketReceived()
 
         auto payloadBuffer = (uint8_t *)malloc(sizeof(SerialPacketConfig_Response_t));
         //*hostHandlerParams->debugString = String("NNID") + String(configRequestPacket->newNodeID)+String("Sz")+String(serialPacketHeader->size)+String("ST")+String(serialPacketHeader->serialPacketType);
-        ((SerialPacketConfig_Response_t *)payloadBuffer)->newNodeID = getMeshRouter()->setNodeID(configRequestPacket->newNodeID);
+        ((SerialPacketConfig_Response_t *)payloadBuffer)->newNodeID = hostHandlerParams->macProtocol->setNodeID(configRequestPacket->newNodeID);
 
         // reuse Serial Header for response
         serialPacketHeader->serialPacketType = SERIAL_PACKET_TYPE_CONFIGURATION_RESPONSE;
@@ -107,7 +105,7 @@ void onPacketReceived()
         memcpy(floodPacket->payload, receiveBuffer + sizeof(SerialPayloadFloodPacket_t), floodPacket->size);
         auto modemConfig = (ModemConfig_t *)floodPacket->payload;
 
-        getMeshRouter()->applyModemConfig(modemConfig->sf, modemConfig->transmissionPower, modemConfig->frequency, modemConfig->bandwidth);
+        hostHandlerParams->macProtocol->applyModemConfig(modemConfig->sf, modemConfig->transmissionPower, modemConfig->frequency, modemConfig->bandwidth);
 
         // free allocated memory
         free(floodPacket->payload);
@@ -249,7 +247,6 @@ void readAvailableSerialData()
 void hostHandler(void *pvParameters)
 {
     hostHandlerParams = (HostSerialHandlerParams_t *)pvParameters;
-    *hostHandlerParams->debugString = "Waiting..";
     // We are in an RTOS task, so this infinite loop is valid behavior. We're not blocking the entire core with it.
     // Wir befinden uns in einem RTOS Task, daher ist diese Endlosschleife gültiges verhalten. Wir blockieren damit nicht den gesamten Kern.
     for (;;)

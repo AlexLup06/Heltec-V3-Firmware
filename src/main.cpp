@@ -14,6 +14,30 @@ void onMacFinished(MacProtocol finished)
 {
     Serial.printf("Finished MAC %d — cooling down for 2 minutes\n", finished);
     macProtocol->finish();
+    // TODO: assign new mac
+    switch (finished)
+    {
+    case MacProtocol::MESH_ROUTER:
+        // macProtocol=&;
+        break;
+    case MacProtocol::CAD_ALOHA:
+        // macProtocol=&cadAloha;
+        break;
+    case MacProtocol::ALOHA:
+        // macProtocol=&aloha;
+        break;
+    case MacProtocol::CSMA:
+        // macProtocol=&csma;
+        break;
+    case MacProtocol::RS_IMITRA:
+        // macProtocol=&rsimitra;
+        break;
+    case MacProtocol::MIRS:
+        // macProtocol=&mirs;
+        break;
+    default:
+        break;
+    }
 }
 
 void setup()
@@ -55,10 +79,10 @@ void setup()
 
     // Display LoRa communication network characteristics on SSD1306 screen.
     hostSerialHandlerParams.debugString = &loraDisplay.lastSerialChar;
+    hostSerialHandlerParams.macProtocol = macProtocol;
+
     meshRouter.debugString = &loraDisplay.lastSerialChar;
     meshRouter.displayQueueLength = &loraDisplay.queueLength;
-    loraDisplay.blockingTime = &(meshRouter.blockSendUntil);
-    loraDisplay.receivedBytes = &meshRouter.receivedBytes;
 
     // Start Host Serial Handler on Core 0
     xTaskCreatePinnedToCore(

@@ -218,9 +218,9 @@ public:
 
     LinkedList<QueuedPacket_t *> sendQueue; // List of queued packets to be sent
 
-    uint8_t setNodeID(uint8_t newNodeID);
+    uint8_t setNodeID(uint8_t newNodeID) override;
 
-    void applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth);
+    void applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth) override;
 
     void init() override;
     void handle() override;

@@ -1,11 +1,10 @@
-#ifndef OPERATIONALBASE_H
-#define OPERATIONALBASE_H
-
 #pragma once
+
 #include <Arduino.h>
 #include <RadioLib.h>
 #include "helpers/definitions.h"
 #include "helpers/Messages.h"
+#include "radioHandler/RadioHandler.h"
 
 enum OperationMode
 {
@@ -23,6 +22,8 @@ public:
     virtual void init() = 0;
     virtual void handle() = 0;
     virtual void finish() = 0;
+    virtual void applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth) = 0;
+    virtual uint8_t setNodeID(uint8_t newNodeID) = 0;
     void handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const uint8_t packetSize);
 
     void turnOnConfigMode();
@@ -45,5 +46,3 @@ protected:
 private:
     uint32_t startTime = -1;
 };
-
-#endif

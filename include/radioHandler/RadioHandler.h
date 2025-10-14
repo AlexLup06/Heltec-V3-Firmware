@@ -27,10 +27,8 @@ public:
     }
 };
 
-// --- Radio instance ---
 extern SX1262Public radio;
 
-// --- Function prototypes ---
 void initRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
 void reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
 

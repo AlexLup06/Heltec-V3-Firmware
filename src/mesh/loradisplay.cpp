@@ -24,43 +24,43 @@ void LoraDisplay::initDisplay() {
 /** Draws the Display based on the current Application state.
  * Input parameters: pointer to Routing table, total routes, node ID, update message
  */
-void LoraDisplay::printRoutingTableScreen(RoutingTable_t **routingTable, uint8_t totalRoutes, uint8_t nodeID,
-                                          double_t update) {
+// void LoraDisplay::printRoutingTableScreen(RoutingTable_t , uint8_t totalRoutes, uint8_t nodeID,
+//                                           double_t update) {
 
 
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.print("Id");
-    display.setCursor(28, 0);
-    display.print("Hop");
-    display.setCursor(56, 0);
-    display.print("Seen");
-    display.setCursor(103, 0);
-    display.println("RSSI");
-    display.drawFastHLine(0, 8, DISPLAY_WIDTH, WHITE);
-    display.setCursor(0, 10);
+//     display.clearDisplay();
+//     display.setCursor(0, 0);
+//     display.print("Id");
+//     display.setCursor(28, 0);
+//     display.print("Hop");
+//     display.setCursor(56, 0);
+//     display.print("Seen");
+//     display.setCursor(103, 0);
+//     display.println("RSSI");
+//     display.drawFastHLine(0, 8, DISPLAY_WIDTH, WHITE);
+//     display.setCursor(0, 10);
 
-    for (int i = 0; i < totalRoutes; i++) {
-        char macHexStr[8] = {0};
-        sprintf(macHexStr, "%02X%02X%02X", routingTable[i]->deviceMac[3], routingTable[i]->deviceMac[4],
-                routingTable[i]->deviceMac[5]);
-        display.setCursor(0, 10 + 8 * i);
-        display.print(String(routingTable[i]->nodeId));
-        display.setCursor(28, 10 + 8 * i);
-        display.print(String(routingTable[i]->hop));
-        display.setCursor(56, 10 + 8 * i);
-        display.println(String((millis() - routingTable[i]->lastSeen) / 1000.0, 1));
-        display.setCursor(103, 10 + 8 * i);
-        display.println(String(routingTable[i]->rssi));
-    }
-    display.drawFastVLine(22, 0, 10 + totalRoutes * 8, WHITE);
-    display.drawFastVLine(50, 0, 10 + totalRoutes * 8, WHITE);
-    display.drawFastVLine(97, 0, 10 + totalRoutes * 8, WHITE);
+//     for (int i = 0; i < totalRoutes; i++) {
+//         char macHexStr[8] = {0};
+//         sprintf(macHexStr, "%02X%02X%02X", routingTable[i]->deviceMac[3], routingTable[i]->deviceMac[4],
+//                 routingTable[i]->deviceMac[5]);
+//         display.setCursor(0, 10 + 8 * i);
+//         display.print(String(routingTable[i]->nodeId));
+//         display.setCursor(28, 10 + 8 * i);
+//         display.print(String(routingTable[i]->hop));
+//         display.setCursor(56, 10 + 8 * i);
+//         display.println(String((millis() - routingTable[i]->lastSeen) / 1000.0, 1));
+//         display.setCursor(103, 10 + 8 * i);
+//         display.println(String(routingTable[i]->rssi));
+//     }
+//     display.drawFastVLine(22, 0, 10 + totalRoutes * 8, WHITE);
+//     display.drawFastVLine(50, 0, 10 + totalRoutes * 8, WHITE);
+//     display.drawFastVLine(97, 0, 10 + totalRoutes * 8, WHITE);
 
-    noInterrupts();
-    display.display();
-    interrupts();
-}
+//     noInterrupts();
+//     display.display();
+//     interrupts();
+// }
 
 // Display last character serially and queue length.
 void LoraDisplay::drawSerialFooter() {

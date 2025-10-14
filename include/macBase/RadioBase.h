@@ -1,5 +1,4 @@
-#ifndef RADIOBASE_h
-#define RADIOBASE_H
+#pragma once
 
 enum RadioMode{
     RECEIVER,
@@ -14,7 +13,7 @@ enum TransmitterState {
 };
 
 enum ReceiverState {
-    IDEL,
+    IDLE,
     RECEIVING,
     UNDEFINED,
 };
@@ -24,8 +23,8 @@ class RadioBase {
     private: 
         bool isReceiving = false;
         RadioMode radioMode;
-        TransmitterState transmitterState = IDLE;
-        ReceiverState receiverState = IDLE;
+        TransmitterState transmitterState = TransmitterState::IDLE;
+        ReceiverState receiverState = ReceiverState::IDLE;
 
 
     public:
@@ -33,5 +32,3 @@ class RadioBase {
         bool isReceiving();
         bool isFreeToSend();
 };
-
-#endif 

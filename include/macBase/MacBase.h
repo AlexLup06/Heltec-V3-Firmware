@@ -1,5 +1,4 @@
-#ifndef MACBASE_H
-#define MACBASE_H
+#pragma once
 
 #include <Arduino.h>
 #include "../helpers/IncompletePacketList.h"
@@ -60,5 +59,3 @@ public:
 
     uint32_t getSendTimeByPacketSizeInUS(int packetBytes);
 };
-
-#endif // MACBASE_H
