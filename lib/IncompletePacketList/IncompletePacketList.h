@@ -10,9 +10,10 @@
 #include <cstring>
 #include <cassert>
 #include "definitions.h"
+#include "functions.h"
 
-using std::vector;
 using std::pair;
+using std::vector;
 
 // mock xPortGetFreeHeapSize for native builds
 #ifndef ARDUINO
@@ -57,16 +58,14 @@ public:
 
     ~IncompletePacketList() = default;
 
-    FragmentedPacket_t *getPacketBySource(
-        const uint16_t source);
+    FragmentedPacket_t *getPacketBySource(const uint16_t source);
+    void removePacketBySource(const uint8_t source);
     void createIncompletePacket(
         const uint16_t id,
         const uint16_t packetSize,
         const uint8_t source,
         const uint8_t messageType,
         const uint8_t checksum);
-    void removePacketBySource(
-        const uint8_t source);
     Result addToIncompletePacket(
         const uint16_t id,
         const uint16_t source,
@@ -74,18 +73,10 @@ public:
         const uint16_t payloadSize,
         const uint8_t *payload);
 
-    void updatePacketId(
-        const uint8_t sourceId,
-        const uint16_t newId);
-    bool isNewIdLower(
-        const uint8_t sourceId,
-        const uint16_t newId) const;
-    bool isNewIdSame(
-        const uint8_t sourceId,
-        const uint16_t newId) const;
-    bool isNewIdHigher(
-        const uint8_t sourceId,
-        const uint16_t newId) const;
+    void updatePacketId(const uint8_t sourceId, const uint16_t newId);
+    bool isNewIdLower(const uint8_t sourceId, const uint16_t newId) const;
+    bool isNewIdSame(const uint8_t sourceId, const uint16_t newId) const;
+    bool isNewIdHigher(const uint8_t sourceId, const uint16_t newId) const;
 
     bool isCorrupted(const FragmentedPacket_t *incompletePacket, const uint8_t fragment, const uint16_t payloadSize);
     int calcOffset(const FragmentedPacket_t *incompletePacket, const uint8_t fragment);

@@ -1,10 +1,6 @@
 #include "Aloha.h"
 
-void Aloha::init()
-{
-}
-
-void Aloha::setNodeID()
+void Aloha::initProtocol()
 {
 }
 
@@ -14,11 +10,13 @@ void Aloha::handleWithFSM()
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Enter();
-            FSMA_Event_Transition(a, true, RECEIVING, );
+            FSMA_Event_Transition(
+                detected preamble and trying to receive,
+                isReceiving(),
+                RECEIVING, );
             FSMA_Event_Transition(
                 we have packet to send and just send it,
-                currentTransmission,
+                currentTransmission != nullptr,
                 TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
@@ -27,27 +25,20 @@ void Aloha::handleWithFSM()
             FSMA_Event_Transition(
                 finished transmitting,
                 !isTransmitting(),
-                LISTENING, );
+                LISTENING, finishCurrentTransmission());
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Enter();
             FSMA_Event_Transition(
                 got - message,
                 isReceivedPacketReady,
                 LISTENING,
-                handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->rssi););
+                handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->rssi, receivedPacket->isMission););
+            FSMA_Event_Transition(
+                we have packet to send and just send it,
+                currentTransmission != nullptr,
+                TRANSMITTING, );
         }
-    }
-
-    if (currentTransmission)
-    {
-        sendPacket(currentTransmission->data, currentTransmission->packetSize);
-    }
-
-    if (isReceivedPacketReady)
-    {
-        handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->rssi);
     }
 }
 
@@ -59,25 +50,52 @@ void Aloha::clearMacData()
 {
 }
 
-void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const uint8_t packetSize, const int rssi)
+void Aloha::handleUpperPacket(MessageToSend_t *msg)
+{
+    if (msg->isMission)
+    {
+        createMessage(msg->payload, msg->size, nodeId, false, true);
+    }
+    else
+    {
+        createMessage(msg->payload, msg->size, nodeId, false, false);
+    }
+}
+
+void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission)
 {
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
-        handleLeaderFragment(packet, packetSize);
+        handleLeaderFragment((BroadcastLeaderFragmentPacket_t *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment(packet, packetSize);
+        handleFragment((BroadcastFragmentPacket_t *)packet, packetSize, isMission);
         break;
     default:
         break;
     }
 }
 
-void Aloha::handleLeaderFragment(const uint8_t *packet, const uint8_t packetSize)
+void Aloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
+    createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
+    Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
+    handlePacketResult(result);
 }
 
-void Aloha::handleFragment(const uint8_t *packet, const uint8_t packetSize)
+void Aloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
+    Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, false);
+    handlePacketResult(result);
+}
+
+void Aloha::onCRCerrorIR()
+{
+    DEBUG_LORA_SERIAL("CRC error (packet corrupted)");
+}
+
+String Aloha::getProtocolName()
+{
+    return "aloha";
 }

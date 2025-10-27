@@ -9,19 +9,19 @@ protected:
     static constexpr uint8_t MSG_MASK = 0x7F;  // 0111 1111
 
 public:
-    inline void setType(bool isTypeB)
+    inline void setIsMission(bool isMission)
     {
-        uint8_t &t = reinterpret_cast<uint8_t &>(*this); // messageType is always first
-        t = isTypeB ? (t | TYPE_MASK) : (t & MSG_MASK);
+        uint8_t &t = reinterpret_cast<uint8_t &>(*this);
+        t = isMission ? (t | TYPE_MASK) : (t & MSG_MASK);
     }
 
-    inline bool isTypeB() const
+    inline bool isMission() const
     {
         const uint8_t &t = reinterpret_cast<const uint8_t &>(*this);
         return (t & TYPE_MASK) != 0;
     }
 
-    inline void clearTypeFlag()
+    inline void clearIsMission()
     {
         uint8_t &t = reinterpret_cast<uint8_t &>(*this);
         t &= MSG_MASK;
@@ -32,9 +32,7 @@ public:
 struct OperationConfig_t
 {
     uint8_t messageType = MESSAGE_TYPE_OPERATION_MODE_CONFIG;
-    uint8_t newOperationMode;
     uint32_t startTime;
-
 };
 #pragma pack(pop)
 
@@ -46,14 +44,20 @@ struct TimeSync_t
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+struct Node_Indicator_t
+{
+    uint8_t messageType = MESSAGE_TYPE_NODE_INDICATOR;
+    uint16_t source;
+};
+#pragma pack(pop)
 
 #pragma pack(push, 1)
-struct NodeIdAnnounce_t
+struct NodeIdAnnounce_t : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
     uint8_t deviceMac[6];
     uint8_t nodeId;
-    uint8_t lastHop;
     uint8_t respond;
 };
 #pragma pack(pop)
@@ -63,7 +67,6 @@ struct BroadcastRTSPacket_t : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_RTS;
     uint16_t id = 0;
-    uint8_t lastHop = 0;
     uint8_t source = 0;
     uint16_t size = 0;
     uint8_t checksum = 0;
@@ -81,6 +84,7 @@ struct BroadcastContinuousRTSPacket_t : public MessageTypeBase
 struct BroadcastCTS_t : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CTS;
+    uint16_t sizeOfFragment;
 };
 #pragma pack(pop)
 
@@ -89,7 +93,6 @@ struct BroadcastLeaderFragmentPacket_t : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
     uint16_t id = 0;
-    uint8_t lastHop = 0;
     uint8_t source = 0;
     uint16_t size = 0;
     uint8_t checksum = 0;
@@ -103,6 +106,7 @@ struct BroadcastFragmentPacket_t : public MessageTypeBase
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
     uint16_t id = 0;
     uint8_t fragment = 0;
+    uint8_t source = 0;
     uint8_t payload[LORA_MAX_PACKET_SIZE - BROADCAST_FRAGMENT_METADATA_SIZE] = {0};
 };
 #pragma pack(pop)

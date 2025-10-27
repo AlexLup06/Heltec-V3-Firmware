@@ -1,27 +1,51 @@
 #include "OperationalBase.h"
 
-void OperationalBase::handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const uint8_t packetSize)
+void OperationalBase::handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const size_t packetSize, int rssi)
 {
     switch (messageType)
     {
     case MESSAGE_TYPE_OPERATION_MODE_CONFIG:
     {
         OperationConfig_t *packet = (OperationConfig_t *)rawPacket;
-        startTime = packet->startTime;
+
+        // Avoid duplicates
+        if (hasPropogatedConfigMessage)
+            break;
+
+        hasPropogatedConfigMessage = true;
+
+        // Schedule propagation with random backoff
+        int cw = random(0, maxCW);
+        backoffTimeConfig = millis() + cw * slotTime;
+
+        // Store the received start time
+        startTimeUnix = packet->startTime;
+        shouldExitConfig = true;
+
+        DEBUG_PRINT("[CONFIG] Received CONFIG message: startTime=%lu (UTC)\n", packet->startTime);
+        DEBUG_PRINT("[CONFIG] Will propagate after backoff (cw=%d)\n", cw);
         break;
     }
     case MESSAGE_TYPE_TIME_SYNC:
     {
         TimeSync_t *packet = (TimeSync_t *)rawPacket;
-        setClockFromTimestamp(packet->currentTime);
+        uint32_t currentTime = packet->currentTime + getSendTimeByPacketSizeInUS(5) + 2;
+        setClockFromTimestamp(currentTime);
 
         if (!hasPropogatedTimeSync)
         {
             hasPropogatedTimeSync = true;
             int cw = random(0, maxCW);
-            backoffTime = time(NULL) + cw * slotTime;
+            backoffTime = millis() + cw * slotTime;
         }
 
+        break;
+    }
+    case MESSAGE_TYPE_NODE_INDICATOR:
+    {
+        Node_Indicator_t *packet = (Node_Indicator_t *)rawPacket;
+        uint16_t source = packet->source;
+        updateNodeRssi(source, rssi);
         break;
     }
     default:
@@ -29,46 +53,120 @@ void OperationalBase::handleConfigPacket(const uint8_t messageType, const uint8_
     }
 }
 
-void OperationalBase::handlePropagateConfigMessage()
+// called from main loop if in config mode
+void OperationalBase::handleConfigMode()
 {
-    int currentTime = time(NULL);
+    unsigned long nowMs = millis();
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
 
-    if (currentTime < backoffTime)
+    if (!hasPropogatedTimeSync)
+        return; // We have no valid time yet
+
+    if (!hasSentTimeSync)
+    {
+        if (nowMs < backoffTime)
+            return;
+        sendTimeSyncMessage();
+        hasSentTimeSync = true;
+        DEBUG_PRINT("[CONFIG] Propagated TIME_SYNC after backoff\n");
+
+        int nextMinute = (tm_info->tm_min + 2) % 60;
+        nextMinuteTarget = nextMinute;
+        hasReachedNextMinute = false;
         return;
-
-    // TODO: create and send the message - adjust the current time with time on air
-
-    // TODO: clean timers and messages
-}
-
-void OperationalBase::startTimeIR()
-{
-    startTime = -1;
-    turnOnOperationMode();
-}
-
-bool OperationalBase::isStartTimePassed()
-{
-    int currentTime = time(NULL);
-    if (currentTime < startTime)
-    {
-        return false;
     }
-    return true;
-}
 
-void OperationalBase::handleStartTime()
-{
-    if (isStartTimePassed())
+    // --- 3️⃣ Wait until the next full minute (not current) ---
+    if (!hasReachedNextMinute)
     {
-        startTimeIR();
+        if (tm_info->tm_min == nextMinuteTarget && tm_info->tm_sec == 0)
+        {
+            hasReachedNextMinute = true;
+            cycleStartMs = nowMs;
+            chosenSlot = random(0, maxCW);
+            hasSentNodeIndicator = false;
+            DEBUG_PRINT("[CONFIG] Entered indicator cycle, first slot=%d\n", chosenSlot);
+        }
+        else
+        {
+            return; // still waiting for the next full minute
+        }
+    }
+
+    // --- 4️⃣ Handle periodic NODE_INDICATOR cycles ---
+    unsigned long cycleDuration = (unsigned long)maxCW * slotTime;
+    unsigned long cycleElapsed = nowMs - cycleStartMs;
+
+    // Start of a new cycle
+    if (cycleElapsed >= cycleDuration)
+    {
+        // reset for next cycle
+        cycleStartMs = nowMs;
+        chosenSlot = random(0, maxCW);
+        hasSentNodeIndicator = false;
+        DEBUG_PRINT("[CONFIG] New indicator cycle -> slot %d\n", chosenSlot);
+        cycleElapsed = 0;
+    }
+
+    // Send our indicator message in our chosen slot
+    if (!hasSentNodeIndicator && cycleElapsed >= (unsigned long)chosenSlot * slotTime)
+    {
+        sendNodeIndicatorMessage();
+        hasSentNodeIndicator = true;
+        DEBUG_PRINT("[CONFIG] Sent NODE_INDICATOR at slot %d\n", chosenSlot);
+    }
+
+    // --- 4️⃣ Handle CONFIG message propagation ---
+    if (hasPropogatedConfigMessage && !hasSentConfigMessage && millis() >= backoffTimeConfig)
+    {
+        sendConfigMessage();
+        hasSentConfigMessage = true;
+        DEBUG_PRINT("[CONFIG] Propagated CONFIG message after backoff\n");
+    }
+
+    // --- 5️⃣ Leave CONFIG mode when startTime is reached ---
+    time_t nowUnix = time(NULL);
+    if (shouldExitConfig && nowUnix >= startTimeUnix)
+    {
+        DEBUG_PRINT("[CONFIG] Start time reached (%lu) -> Switching to OPERATIONAL\n", startTimeUnix);
+        turnOnOperationMode();
+        shouldExitConfig = false;
     }
 }
 
-void OperationalBase::turnOnConfigMode()
+void OperationalBase::sendTimeSyncMessage()
 {
-    operationMode = CONFIG;
+    TimeSync_t msg{};
+    msg.messageType = MESSAGE_TYPE_TIME_SYNC;
+    msg.currentTime = static_cast<uint32_t>(time(NULL));
+
+    sendPacket((uint8_t *)&msg, sizeof(msg));
+    incrementSent();
+    DEBUG_PRINT("[SEND] TIME_SYNC t=%lu\n", msg.currentTime);
 }
+
+void OperationalBase::sendConfigMessage()
+{
+    OperationConfig_t msg{};
+    msg.messageType = MESSAGE_TYPE_OPERATION_MODE_CONFIG;
+
+    sendPacket((uint8_t *)&msg, sizeof(msg));
+    incrementSent();
+    DEBUG_PRINT("[SEND] CONFIG message\n");
+}
+
+void OperationalBase::sendNodeIndicatorMessage()
+{
+    Node_Indicator_t msg{};
+    msg.messageType = MESSAGE_TYPE_NODE_INDICATOR;
+    msg.source = getNodeId();
+
+    sendPacket((uint8_t *)&msg, sizeof(msg));
+    incrementSent();
+    DEBUG_PRINT("[SEND] NODE_INDICATOR id=%u\n", msg.source);
+}
+
 void OperationalBase::turnOnOperationMode()
 {
     operationMode = OPERATIONAL;

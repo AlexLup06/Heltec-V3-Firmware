@@ -3,29 +3,36 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "functions.h"
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
 
-struct NodeInfo {
-  uint8_t id;
+struct NodeInfo
+{
+  uint16_t id;
   int rssi;
 };
 
-class LoRaDisplay {
+class LoRaDisplay
+{
 public:
   void init();
-  void updateNode(uint8_t id, int rssi);
+  void updateNode(uint16_t id, int rssi);
+  void incrementSent();
   void render();
 
-  void loop();             // call this once per main loop
+  void loop();
 
 private:
-  static const uint8_t MAX_NODES = 32;   // you can track more, paginate later
+  static const uint8_t MAX_NODES = 32;
   static const uint8_t ROWS_PER_PAGE = 6;
   static const uint16_t PAGE_INTERVAL_MS = 5000; // 5 s
+
+  unsigned long messageReceivedCount = 0;
+  unsigned long messageSentCount = 0;
 
   NodeInfo nodes[MAX_NODES];
   uint8_t nodeCount = 0;

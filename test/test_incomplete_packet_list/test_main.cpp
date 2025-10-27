@@ -5,8 +5,8 @@
 #endif
 
 #include <unity.h>
-#include "helpers/IncompletePacketList.h"
-#include "helpers/IncompletePacketList.cpp"
+#include "IncompletePacketList.h"
+#include "IncompletePacketList.cpp"
 
 // -----------------------------------------------------------------------------
 // Helpers

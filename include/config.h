@@ -8,7 +8,7 @@
 
 // Enables serial debug outputs to the Lora network
 // Aktiviert Serielle Debug Ausgaben zum Lora-Netzwerk
-#undef DEBUG_LORA_SERIAL
+#define DEBUG_LORA_SERIAL
 
 // OLED screen refresh rate
 // Aktualisierungsrate des OLED Bildschirms

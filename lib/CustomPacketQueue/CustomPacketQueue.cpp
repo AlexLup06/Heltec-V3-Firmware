@@ -7,7 +7,6 @@ CustomPacketQueue::~CustomPacketQueue() {
         auto pkt = packetQueue.front();
         if (pkt) {
             free(pkt->data);
-            delete pkt;
         }
         packetQueue.pop_front();
     }
@@ -45,7 +44,6 @@ bool CustomPacketQueue::enqueuePacket(QueuedPacket* pkt) {
                 while (it != packetQueue.end() && !(*it)->isMission) {
                     auto old = *it;
                     free(old->data);
-                    delete old;
                     it = packetQueue.erase(it);
                 }
                 break; // stop once done
@@ -110,7 +108,6 @@ void CustomPacketQueue::enqueueNodeAnnounce(QueuedPacket* pkt) {
     for (auto existing : packetQueue) {
         if (existing->isNodeAnnounce) {
             free(pkt->data);
-            delete pkt;
             return;
         }
     }
@@ -157,7 +154,6 @@ void CustomPacketQueue::removePacketAtPosition(int pos) {
 
     auto pkt = *it;
     free(pkt->data);
-    delete pkt;
     packetQueue.erase(it);
 }
 
@@ -165,7 +161,6 @@ void CustomPacketQueue::removePacket(QueuedPacket* pkt) {
     if (!pkt) return;
     packetQueue.erase(remove(packetQueue.begin(), packetQueue.end(), pkt), packetQueue.end());
     free(pkt->data);
-    delete pkt;
 }
 
 bool CustomPacketQueue::isEmpty() const {

@@ -5,8 +5,8 @@
 #endif
 
 #include <unity.h>
-#include "helpers/CustomPacketQueue.h"
-#include "helpers/CustomPacketQueue.cpp"
+#include "CustomPacketQueue.h"
+#include "CustomPacketQueue.cpp"
 
 static QueuedPacket *makePacket(uint8_t size,
                                 bool header = false,
@@ -40,7 +40,6 @@ void test_enqueue_and_dequeue()
     auto out = q.dequeuePacket();
     TEST_ASSERT_EQUAL_PTR(pkt, out);
     free(out->data);
-    delete out;
 }
 
 void test_remove_at_position()
@@ -66,10 +65,8 @@ void test_node_announce_goes_front()
     auto first = q.dequeuePacket();
     TEST_ASSERT_TRUE(first->isNodeAnnounce);
     free(first->data);
-    delete first;
     auto second = q.dequeuePacket();
     free(second->data);
-    delete second;
 }
 
 void test_node_announce_goes_after_fragment_if_header_gone()
@@ -81,11 +78,9 @@ void test_node_announce_goes_after_fragment_if_header_gone()
     q.enqueuePacket(announce);
     auto first = q.dequeuePacket();
     free(first->data);
-    delete first;
     auto second = q.dequeuePacket();
     TEST_ASSERT_TRUE(second->isNodeAnnounce);
     free(second->data);
-    delete second;
 }
 
 void test_only_one_node_announce()
@@ -98,7 +93,6 @@ void test_only_one_node_announce()
     TEST_ASSERT_EQUAL(1, q.size());
     auto pkt = q.dequeuePacket();
     free(pkt->data);
-    delete pkt;
 }
 
 void test_new_neighbour_replaces_old_neighbour()
@@ -118,7 +112,6 @@ void test_new_neighbour_replaces_old_neighbour()
     auto out = q.dequeuePacket();
     TEST_ASSERT_TRUE(out->isHeader);
     free(out->data);
-    delete out;
 }
 
 void test_new_neighbour_does_not_replace_old_neighbour_when_header_gone()
@@ -138,12 +131,10 @@ void test_new_neighbour_does_not_replace_old_neighbour_when_header_gone()
     auto out1 = q.dequeuePacket();
     TEST_ASSERT_TRUE(!out1->isHeader);
     free(out1->data);
-    delete out1;
 
     auto out2 = q.dequeuePacket();
     TEST_ASSERT_TRUE(out2->isHeader && out2->isMission);
     free(out2->data);
-    delete out2;
 }
 
 void test_enqueue_at_position()
@@ -160,12 +151,9 @@ void test_enqueue_at_position()
     auto second = q.dequeuePacket();
     TEST_ASSERT_EQUAL(3, second->packetSize);
     free(first->data);
-    delete first;
     free(second->data);
-    delete second;
     auto last = q.dequeuePacket();
     free(last->data);
-    delete last;
 }
 
 void test_remove_specific_packet()

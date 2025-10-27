@@ -3,25 +3,7 @@
 #include <cstdint>
 #include <RadioLib.h>
 #include <RadioHandler.h>
-
-enum class RadioMode {
-    RECEIVER,
-    TRANSMITTER,
-    IDLE
-};
-
-enum class TransmitterState {
-    IDLE,
-    TRANSMITTING,
-    UNDEFINED
-};
-
-enum class ReceiverState {
-    IDLE,
-    RECEIVING,
-    UNDEFINED
-};
-
+#include "functions.h"
 
 class RadioBase
 {
@@ -29,24 +11,25 @@ class RadioBase
 private:
     bool isReceivingVar = false;
     bool isTransmittingVar = false;
-    RadioMode radioMode;
-    TransmitterState transmitterState = TransmitterState::IDLE;
-    ReceiverState receiverState = ReceiverState::IDLE;
-
-public:
     SX1262Public *radio;
 
-    void setRadioMode(RadioMode newRadioMode);
+public:
+    void reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
+    void initRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
+    void assignRadio(SX1262Public *_radio);
+
+    void sendPacket(const uint8_t *data, const size_t len);
+
+    void receiveDio1Interrupt();
+
+    void startReceive();
     bool isReceiving();
     bool isTransmitting();
-    bool isChannelFree();
-    void receiveDio1Interrupt();
-    void startReceive();
     float getRSSI();
     float getSNR();
-    void sendPacket(const uint8_t *data, const size_t len);
-    void reInitRadio(float m_frequency, uint8_t m_sf, uint8_t m_txPower, uint32_t m_bw);
-    void initRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
+    void standby();
+    size_t getPacketLength();
+    int readData(uint8_t *data, size_t len);
 
 protected:
     virtual void onReceiveIR() = 0;

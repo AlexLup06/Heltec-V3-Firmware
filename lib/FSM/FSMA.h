@@ -91,7 +91,7 @@
     int ___c = 0;                    \
     cFSM &___fsm = (fsm);            \
     bool ___logging = true;          \
-    while (!___exit && (___c++ < FSM_MAXT || (throw std::exception(), 0)))
+    while (!___exit && (___c++ < FSM_MAXT || (throw std::runtime_error("FSM infinite loop"), 0)))
 
 #define FSMA_SetLogging(enabled) \
     ___logging = enabled;
@@ -102,7 +102,7 @@
     if (!___is_event)               \
     {                               \
         if (___transition_seen)     \
-            throw std::exception(); \
+            throw std::runtime_error("Invalid enter transition"); \
         action;                     \
     }
 
@@ -137,5 +137,5 @@
     ___transition_seen = true;         \
     if (___is_event)                   \
     {                                  \
-        throw std::exception();        \
+        throw std::runtime_error("Unhandled FSM event"); \
     }

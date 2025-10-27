@@ -7,7 +7,7 @@
 struct QueuedPacket
 {
     uint8_t *data;
-    uint8_t packetSize;
+    size_t packetSize;
     uint8_t source;
     uint16_t id;
     bool isHeader;

@@ -115,7 +115,10 @@ Result IncompletePacketList::addToIncompletePacket(
     assert(incompletePacket->received <= incompletePacket->packetSize);
     if (incompletePacket->received == incompletePacket->packetSize)
     {
-        // do crc check
+        uint8_t calculatedChecksum = crc8(incompletePacket->payload, incompletePacket->packetSize);
+        if (calculatedChecksum != incompletePacket->checksum)
+            incompletePacket->corrupted = true;
+
         result.isComplete = true;
         result.sendUp = !incompletePacket->corrupted;
         result.completePacket = incompletePacket;

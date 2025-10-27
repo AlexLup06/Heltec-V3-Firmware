@@ -8,6 +8,9 @@
 
 class Aloha : public MacBase
 {
+protected:
+    void onCRCerrorIR() override;
+
 public:
     enum State
     {
@@ -18,21 +21,18 @@ public:
 
     cFSM fsm;
 
+    void initProtocol() override;
     void handleWithFSM();
-    void init();
     void clearMacData();
-    void setNodeID();
     void onPreambleDetectedIR() override;
+    void handleUpperPacket(MessageToSend_t *msg) override;
     void handleProtocolPacket(
         const uint8_t messageType,
         const uint8_t *packet,
-        const uint8_t packetSize,
-        const int rssi);
-
-    void handleLeaderFragment(
-        const uint8_t *packet,
-        const uint8_t packetSize);
-    void handleFragment(
-        const uint8_t *packet,
-        const uint8_t packetSize);
+        const size_t packetSize,
+        const int rssi,
+        bool isMission) override;
+    void handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission);
+    String getProtocolName();
 };

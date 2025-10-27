@@ -29,7 +29,7 @@ void MessageSimulator::simulateMessages()
     if (currentTime < nextMission)
     {
         uint16_t size = random(50, 247);
-        uint8_t dummyPayload[size];
+        uint8_t *dummyPayload = (uint8_t *)malloc(size);
 
         for (int i = 0; i < size; i++)
         {
@@ -52,7 +52,7 @@ void MessageSimulator::simulateMessages()
     if (currentTime < nextNeighbour)
     {
         uint16_t size = 144;
-        uint8_t dummyPayload[size];
+        uint8_t *dummyPayload = (uint8_t *)malloc(size);
 
         for (int i = 0; i < size; i++)
         {

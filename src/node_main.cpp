@@ -4,6 +4,7 @@
 
 #include <LoRaDisplay.h>
 #include <MeshRouter.h>
+#include <Aloha.h>
 #include <RadioHandler.h>
 #include <MacController.h>
 #include <OperationalBase.h>
@@ -12,30 +13,29 @@
 
 // --- Globals ---
 LoRaDisplay loraDisplay;
-TaskHandle_t hostTask;
+SX1262Public radio = SX1262Public(new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY));
+DataLogger dataLogger;
+MessageSimulator messageSimulator;
+
 int currentMac = MacProtocol::MESH_ROUTER;
 MacBase *macProtocol = nullptr;
 MeshRouter meshRouter;
-DataLogger dataLogger;
-SX1262Public radio = SX1262Public(new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY));
-MessageSimulator messageSimulator;
+Aloha aloha;
 
 unsigned long lastScreenDraw = 0;
 static double_t UPDATE_STATE = -1;
 hw_timer_t *timer = NULL;
 
-// --- Functions ---
-MeshRouter *getMeshRouter() { return &meshRouter; }
 void onDio1IR() { macProtocol->receiveDio1Interrupt(); }
 void onMacChanged(MacProtocol newMac)
 {
-    Serial.printf("Switched MAC protocol to %d\n", newMac);
+    DEBUG_LORA_SERIAL("Switched MAC protocol to %d\n", newMac);
     macProtocol->init();
 }
 
 void onMacFinished(MacProtocol finished)
 {
-    Serial.printf("Finished MAC %d — cooling down for 2 minutes\n", finished);
+    DEBUG_LORA_SERIAL("Finished MAC %d — cooling down for 2 minutes\n", finished);
     macProtocol->finish();
     // TODO: assign new mac
     switch (finished)
@@ -44,7 +44,7 @@ void onMacFinished(MacProtocol finished)
         // macProtocol=&cadAloha;
         break;
     case MacProtocol::CAD_ALOHA:
-        // macProtocol=&aloha;
+        macProtocol = &aloha;
         break;
     case MacProtocol::ALOHA:
         // macProtocol=&csma;
@@ -56,8 +56,7 @@ void onMacFinished(MacProtocol finished)
         // macProtocol=&mirs;
         break;
     case MacProtocol::MIRS:
-        // macProtocol=&meshrouter;
-        macProtocol->turnOnConfigMode(); // we now have time to change the topology and move the modules around
+        // we just simulated everyhting for the topology
         break;
     default:
         break;
@@ -67,7 +66,7 @@ void onMacFinished(MacProtocol finished)
 void setup()
 {
     macProtocol = &meshRouter;
-    meshRouter.radio = &radio;
+    meshRouter.assignRadio(&radio);
     // csma.radio = &radio;
     // aloha.radio = &radio;
     // ..
@@ -75,6 +74,11 @@ void setup()
     meshRouter.dataLogger = &dataLogger;
     // csma.dataLogger = &dataLogger;
     // aloha.dataLogger = &dataLogger;
+    // ..
+
+    meshRouter.loraDisplay = &loraDisplay;
+    // csma.loraDisplay = &loraDisplay;
+    // aloha.loraDisplay = &loraDisplay;
     // ..
 
     esp_log_level_set("*", ESP_LOG_ERROR);

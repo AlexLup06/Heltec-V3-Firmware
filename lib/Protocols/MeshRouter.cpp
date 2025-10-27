@@ -3,22 +3,8 @@
 std::mutex serial_mtx;
 std::mutex *getSerialMutex() { return &serial_mtx; }
 
-uint8_t MeshRouter::setNodeID(uint8_t newNodeID)
-{
-    nodeId = newNodeID;
-
-    MeshRouter::announceNodeId(1);
-    return nodeId;
-}
-
-// Change LoRa module configuration.
-void MeshRouter::applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth)
-{
-    reInitRadio(frequency, spreading_factor, transmission_power, bandwidth);
-}
-
 // Initialize node by setting Node ID from MAC address.
-void MeshRouter::init()
+void MeshRouter::initProtocol()
 {
 
     // Announce Local NodeID to the Network to
@@ -58,10 +44,10 @@ void MeshRouter::onPreambleDetectedIR()
 }
 void MeshRouter::onCRCerrorIR()
 {
-    Serial.println("CRC error (packet corrupted)");
+    DEBUG_LORA_SERIAL("CRC error (packet corrupted)");
 }
 
-void MeshRouter::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const uint8_t packetSize, const int rssi)
+void MeshRouter::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission)
 {
     // remove preamble wait value
     preambleAdd = 0;
@@ -115,7 +101,6 @@ void MeshRouter::announceNodeId(uint8_t respond)
 
     packet->messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
     packet->nodeId = nodeId;
-    packet->lastHop = nodeId;
     packet->respond = respond;
     memcpy(packet->deviceMac, macAdress, 6);
 
@@ -126,17 +111,6 @@ void MeshRouter::announceNodeId(uint8_t respond)
     // Queue the packet into the sendQueue
     // TODO: always place in front and replace with old node announce
     QueuePacket(&sendQueue, (uint8_t *)packet, sizeof(NodeIdAnnounce_t), nodeId, false, false, 0);
-}
-
-/**
- * Directly sends Packet with Hardware, you should never use this directly, because this will not wait for the Receive window of other Devices
- * Input parameters: rawPacket , size
- */
-void MeshRouter::sendRaw(const uint8_t *rawPacket, const uint8_t size)
-{
-    unsigned long startTime = millis();
-    sendPacket(rawPacket, size);
-    packetTime = millis() - startTime;
 }
 
 /**
@@ -154,7 +128,7 @@ void MeshRouter::SenderWait(unsigned long waitTime)
 /* Adds the packet to the sendQueue.
  * Input parameters: linked list of pointers to packets, packet to be added to queue, size of packet, source of packet, packet ID, wait time, hash value
  */
-void MeshRouter::QueuePacket(LinkedList<QueuedPacket_t *> *listPointer, uint8_t *rawPacket, uint8_t size, uint8_t source, uint16_t id, bool isHeader, bool isMission, long waitTimeAfter)
+void MeshRouter::QueuePacket(LinkedList<QueuedPacket_t *> *listPointer, uint8_t *rawPacket, size_t size, uint8_t source, uint16_t id, bool isHeader, bool isMission, long waitTimeAfter)
 {
     auto *packet = (QueuedPacket_t *)malloc(sizeof(QueuedPacket_t));
     packet->packetPointer = rawPacket;
@@ -187,7 +161,7 @@ void MeshRouter::ProcessQueue()
         return;
     }
 
-    sendRaw(packetQueueEntry->packetPointer, packetQueueEntry->packetSize);
+    sendPacket(packetQueueEntry->packetPointer, packetQueueEntry->packetSize);
 
     // Wait for ACK of Receiving Nodes before sending another packet.
     if (packetQueueEntry->waitTimeAfter > 0)
@@ -212,12 +186,11 @@ void MeshRouter::ProcessQueue()
 
  * Input parameters: packet, source, size of packet, packet ID, hash
  */
-void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id, bool isMission)
+void MeshRouter::CreateBroadcastPacket(uint8_t *payload, uint8_t source, size_t size, uint16_t id, bool isMission)
 {
     // Announce Transmission with Header Packet
     auto *headerLoraPacket = (BroadcastRTSPacket_t *)malloc(sizeof(BroadcastRTSPacket_t));
     headerLoraPacket->messageType = MESSAGE_TYPE_BROADCAST_RTS;
-    headerLoraPacket->lastHop = nodeId;
     headerLoraPacket->id = id;
     headerLoraPacket->source = source;
     headerLoraPacket->size = size;
@@ -362,7 +335,6 @@ void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, int rssi)
     auto *incompletePacket = (FragmentedPacketMeshRouter_t *)malloc(sizeof(FragmentedPacketMeshRouter_t));
     incompletePacket->id = packet->id;
     incompletePacket->size = packet->size;
-    incompletePacket->lastHop = packet->lastHop;
     incompletePacket->source = packet->source;
     incompletePacket->lastFragment = 0;
     incompletePacket->received = 0;

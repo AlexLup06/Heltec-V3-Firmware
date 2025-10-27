@@ -2,10 +2,10 @@
 
 void LoRaDisplay::init()
 {
-  Wire.setPins(4, 15); // Heltec V3 SDA/SCL
+  Wire.setPins(4, 15); 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
-    Serial.println(F("SSD1306 init failed"));
+    DEBUG_LORA_SERIAL(F("SSD1306 init failed"));
     for (;;)
     {
     }
@@ -14,10 +14,16 @@ void LoRaDisplay::init()
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.display();
+
+  messageReceivedCount = 0;
+  messageSentCount = 0;
 }
 
-void LoRaDisplay::updateNode(uint8_t id, int rssi)
+void LoRaDisplay::updateNode(uint16_t id, int rssi)
 {
+  // Count every received message
+  messageReceivedCount++;
+
   for (uint8_t i = 0; i < nodeCount; i++)
   {
     if (nodes[i].id == id)
@@ -27,6 +33,7 @@ void LoRaDisplay::updateNode(uint8_t id, int rssi)
       return;
     }
   }
+
   if (nodeCount < MAX_NODES)
   {
     nodes[nodeCount++] = {id, rssi};
@@ -38,6 +45,12 @@ void LoRaDisplay::updateNode(uint8_t id, int rssi)
       nodes[i - 1] = nodes[i];
     nodes[MAX_NODES - 1] = {id, rssi};
   }
+  render();
+}
+
+void LoRaDisplay::incrementSent()
+{
+  messageSentCount++;
   render();
 }
 
@@ -67,13 +80,16 @@ void LoRaDisplay::drawRows()
 
   // --- Bottom line ---
   display.setCursor(0, SCREEN_HEIGHT - 8);
-  
+
+  // RAM info (left)
   uint32_t total = ESP.getHeapSize();
   uint32_t free = ESP.getFreeHeap();
   uint32_t used = total - free;
-
-  display.setCursor(0, SCREEN_HEIGHT - 8);
   display.printf("RAM:%lu/%luK", used / 1024, total / 1024);
+
+  // Message counters (right)
+  display.setCursor(SCREEN_WIDTH - 80, SCREEN_HEIGHT - 8);
+  display.printf("Rx:%lu Tx:%lu", messageReceivedCount, messageSentCount);
 
   if (totalPages > 1)
   {

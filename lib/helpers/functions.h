@@ -20,27 +20,38 @@ inline uint8_t crc8(const uint8_t *data, size_t len) {
     return crc;
 }
 
-uint32_t getSendTimeByPacketSizeInUS(int packetBytes)
+inline uint32_t getSendTimeByPacketSizeInUS(int packetBytes)
 {
-    // Symbol duration in microseconds
-    // Tsym = 2^SF / BW  → multiply by 1e6 for µs
-    const double Tsym_us = (static_cast<double>(1u << LORA_SPREADINGFACTOR) * 1e6) / LORA_BANDWIDTH;
+    constexpr bool CRC_ON = true;
+    constexpr bool IMPLICIT_HEADER = false;
+    constexpr double PREAMBLE_SYMB = 12.0;
 
-    constexpr double preambleSymbNb = 12.0;
-    constexpr double headerSymbNb = 8.0;
+    // Derived parameters
+    const bool lowDataRateOptimize = (LORA_SPREADINGFACTOR >= 11 && LORA_BANDWIDTH == 125000);
+    const double DE = lowDataRateOptimize ? 1.0 : 0.0;
+    const double H = IMPLICIT_HEADER ? 1.0 : 0.0;
+    const double CRC = CRC_ON ? 1.0 : 0.0;
 
-    // Compute payload symbol number (LoRa formula)
-    const double numerator = 8.0 * packetBytes - 4.0 * LORA_SPREADINGFACTOR + 28.0 + 16.0;
-    const double denominator = 4.0 * (LORA_SPREADINGFACTOR - 2.0);
-    double payloadSymbNb = std::ceil(std::max(0.0, numerator / denominator)) * (LORA_CR + 4.0);
+    // Symbol time in microseconds
+    const double Tsym_us = (std::pow(2.0, LORA_SPREADINGFACTOR) * 1e6) / LORA_BANDWIDTH;
 
-    // Total symbols: preamble + header + payload
-    const double totalSymbols = preambleSymbNb + 4.25 + headerSymbNb + payloadSymbNb;
+    // Payload symbol calculation (from SX1262 datasheet)
+    const double numerator = 8.0 * packetBytes - 4.0 * LORA_SPREADINGFACTOR + 28.0 + 16.0 * CRC - 20.0 * H;
+    const double denominator = 4.0 * (LORA_SPREADINGFACTOR - 2.0 * DE);
+    const double payloadSymbNb = 8.0 + std::max(0.0, std::ceil(numerator / denominator) * (LORA_CR + 4.0));
+
+    // Total symbols
+    const double totalSymbols = PREAMBLE_SYMB + 4.25 + payloadSymbNb;
 
     // Airtime in µs
     const double duration_us = totalSymbols * Tsym_us;
 
-    // Clamp and round
     const uint64_t result = static_cast<uint64_t>(std::round(duration_us));
     return static_cast<uint32_t>(result > 0xFFFFFFFF ? 0xFFFFFFFF : result);
 }
+
+#ifdef DEBUG_LORA_SERIAL
+  #define DEBUG_PRINT(...)  DEBUG_LORA_SERIAL(__VA_ARGS__)
+#else
+  #define DEBUG_PRINT(...)
+#endif

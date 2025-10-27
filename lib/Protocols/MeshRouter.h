@@ -95,7 +95,6 @@ typedef struct
     uint16_t received = 0;
     uint8_t lastFragment = 0;
     uint8_t source;
-    uint8_t lastHop;
     bool corrupted = false;
     uint8_t checksum;
     uint8_t *payload;
@@ -125,22 +124,16 @@ public:
     String *debugString;
     int *displayQueueLength;
 
-    DataLogger *dataLogger;
-
     unsigned long blockSendUntil = 0; // Blocks senders until previous message sent
     unsigned long preambleAdd = 0;    // Increases blocking time causing the other senders to wait
 
     LinkedList<QueuedPacket_t *> sendQueue; // List of queued packets to be sent
 
-    uint8_t setNodeID(uint8_t newNodeID) override;
-
-    void applyModemConfig(uint8_t spreading_factor, uint8_t transmission_power, uint32_t frequency, uint32_t bandwidth) override;
-
-    void init() override;
+    void initProtocol() override;
     void handleWithFSM() override;
     void clearMacData() override;
 
-    void handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const uint8_t packetSize, const int rssi) override;
+    void handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission) override;
     void OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, int rssi);
     void OnFloodFragmentPacket(BroadcastFragmentPacket_t *packet);
     void OnNodeIdAnnouncePacket(NodeIdAnnounce_t *packet, int rssi);
@@ -149,14 +142,13 @@ public:
     FragmentedPacketMeshRouter_t *getIncompletePacketById(uint16_t transmissionid, uint8_t source);
     void removeIncompletePacketById(uint16_t transmissionid, uint8_t source);
 
-    void CreateBroadcastPacket(uint8_t *payload, uint8_t source, uint16_t size, uint16_t id, bool isMission);
+    void CreateBroadcastPacket(uint8_t *payload, uint8_t source, size_t size, uint16_t id, bool isMission);
     void AddToSendQueue(LinkedList<QueuedPacket_t *> *newPackets, bool isMission);
-    void QueuePacket(LinkedList<QueuedPacket_t *> *listPointer, uint8_t *rawPacket, uint8_t size, uint8_t source, uint16_t id, bool isHeader, bool isMission, long waitTimeAfter = 0);
+    void QueuePacket(LinkedList<QueuedPacket_t *> *listPointer, uint8_t *rawPacket, size_t size, uint8_t source, uint16_t id, bool isHeader, bool isMission, long waitTimeAfter = 0);
     void ProcessQueue();
 
     void handleUpperPacket(MessageToSend_t *serialPayloadFloodPacket) override;
     void announceNodeId(uint8_t respond);
-    void sendRaw(const uint8_t *rawPacket, const uint8_t size) override;
     String getProtocolName() override;
 
 protected:

@@ -3,7 +3,8 @@
 #endif
 
 #include <unity.h>
-#include "test_TOA.cpp"
+
+extern void test_calculate_time_on_air();
 
 // -----------------------------------------------------------------------------
 // UNITY ENTRY POINT (cross-platform)
