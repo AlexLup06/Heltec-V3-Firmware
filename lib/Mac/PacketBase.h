@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include "CustomPacketQueue.h"
 #include "definitions.h"
 #include "messages.h"
@@ -44,10 +45,12 @@ public:
     QueuedPacket *dequeuePacket();
 
     BroadcastCTS_t createCTS(uint16_t size);
-    NodeIdAnnounce_t createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId);
+    void createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId);
     void createMessage(const uint8_t *payload, uint16_t payloadSize, int source, bool withRTS, bool isMission);
+    bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id, bool isMission);
+    bool dequeuedPacketWasLast();
 
-    void createIncompletePacket(
+    bool createIncompletePacket(
         const uint16_t id,
         const uint16_t size,
         const uint8_t source,
@@ -66,3 +69,5 @@ public:
     void encapsulate(MessageTypeBase &msg);
     bool decapsulate(uint8_t *packet);
 };
+
+#include "PacketBase.tpp"

@@ -1,5 +1,7 @@
 #include "MacController.h"
 
+bool isInWaitMode = false;
+
 static MacProtocol currentMac = MESH_ROUTER;
 static MacSwitchCallback onMacSwitch = nullptr;
 static MacFinishCallback onMacFinish = nullptr;
@@ -22,12 +24,13 @@ void markMacFinished()
         return; // already waiting
     waitingForNext = true;
     switchTime = millis() + SWITCH_DELAY_MS;
+    isInWaitMode = true;
 
     if (onMacFinish)
         onMacFinish(currentMac);
 }
 
-void updateMacController(bool isInConfigMode)
+void updateMacController()
 {
     unsigned long now = millis();
 
@@ -37,21 +40,14 @@ void updateMacController(bool isInConfigMode)
         markMacFinished();
     }
 
-    if (waitingForNext && (now >= switchTime) && !isInConfigMode)
+    if (waitingForNext && (now >= switchTime))
     {
         waitingForNext = false;
         currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);
         macStartTime = now;
+        isInWaitMode = false;
 
         if (onMacSwitch)
             onMacSwitch(currentMac);
     }
-}
-
-void switchToMac(MacProtocol next)
-{
-    currentMac = next;
-    macStartTime = millis();
-    if (onMacSwitch)
-        onMacSwitch(currentMac);
 }

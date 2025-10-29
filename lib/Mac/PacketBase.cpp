@@ -1,29 +1,9 @@
 #include "PacketBase.h"
-#include <iostream>
 
 PacketBase::PacketBase() {}
 PacketBase::~PacketBase() { clearQueue(); }
 
-template <typename T>
-void PacketBase::enqueueStruct(const T &packetStruct,
-                               bool isHeader,
-                               bool isMission,
-                               bool isNodeAnnounce)
-{
-    uint8_t *buffer = (uint8_t *)malloc(sizeof(T));
-    memcpy(buffer, &packetStruct, sizeof(T));
-
-    QueuedPacket *pkt = new QueuedPacket;
-    pkt->data = buffer;
-    pkt->packetSize = sizeof(T);
-    pkt->isHeader = isHeader;
-    pkt->isMission = isMission;
-    pkt->isNodeAnnounce = isNodeAnnounce;
-
-    customPacketQueue.enqueuePacket(pkt);
-}
-
-void PacketBase::createIncompletePacket(
+bool PacketBase::createIncompletePacket(
     const uint16_t id,
     const uint16_t size,
     const uint8_t source,
@@ -33,11 +13,11 @@ void PacketBase::createIncompletePacket(
 {
     if (isMission)
     {
-        incompleteMissionPackets.createIncompletePacket(id, size, source, messageType, checksum);
+        return incompleteMissionPackets.createIncompletePacket(id, size, source, messageType, checksum);
     }
     else
     {
-        incompleteNeighbourPackets.createIncompletePacket(id, size, source, messageType, checksum);
+        return incompleteNeighbourPackets.createIncompletePacket(id, size, source, messageType, checksum);
     }
 }
 
@@ -61,7 +41,34 @@ Result PacketBase::addToIncompletePacket(
     }
 }
 
+bool PacketBase::doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id, bool isMission)
+{
+    if (isMission)
+    {
+        return incompleteMissionPackets.doesIncompletePacketExist(sourceId, id);
+    }
+    else
+    {
+        return incompleteNeighbourPackets.doesIncompletePacketExist(sourceId, id);
+    }
+}
+
+bool PacketBase::dequeuedPacketWasLast()
+{
+    auto *firstPacket = customPacketQueue.getFirstPacket();
+    return firstPacket->isHeader || firstPacket->isNodeAnnounce;
+}
+
 // ---------------------- Packet Creation ----------------------
+
+void PacketBase::createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId)
+{
+    NodeIdAnnounce_t pkt;
+    memcpy(pkt.deviceMac, mac, 6);
+    pkt.nodeId = nodeId;
+    pkt.respond = 0;
+    enqueueStruct(pkt, false, false, true);
+}
 
 void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int source, bool withRTS, bool isMission)
 {
@@ -149,18 +156,9 @@ BroadcastFragmentPacket_t PacketBase::createFragment(uint16_t packetId, uint8_t 
     pkt.id = packetId;
     pkt.fragment = fragmentId;
 
-    uint16_t leaderFragPayloadSize = hasLeaderFrag ? 247 : 0;
-    uint16_t offset = (fragmentId - 1) * 251 + leaderFragPayloadSize;
+    uint16_t leaderFragPayloadSize = hasLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : 0;
+    uint16_t offset = (fragmentId - 1) * LORA_MAX_FRAGMENT_PAYLOAD + leaderFragPayloadSize;
     memcpy(pkt.payload, payload + offset, payloadSize);
-    return pkt;
-}
-
-NodeIdAnnounce_t PacketBase::createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId)
-{
-    NodeIdAnnounce_t pkt;
-    memcpy(pkt.deviceMac, mac, 6);
-    pkt.nodeId = nodeId;
-    pkt.respond = 0;
     return pkt;
 }
 

@@ -1,9 +1,4 @@
-#ifdef ARDUINO
 #include <Arduino.h>
-#else
-#define delay(ms) ((void)0)
-#endif
-
 #include <unity.h>
 #include "CustomPacketQueue.h"
 #include "CustomPacketQueue.cpp"
@@ -171,12 +166,9 @@ void test_remove_specific_packet()
 
 // ---------- UNITY ENTRY POINT ----------
 
-// ---------- UNITY ENTRY POINT ----------
-
 void setUp() {}
 void tearDown() {}
 
-#ifdef ARDUINO
 void setup()
 {
     delay(2000); // give serial time to initialize
@@ -197,23 +189,3 @@ void setup()
 }
 
 void loop() {}
-#else
-int main(int argc, char **argv)
-{
-    UNITY_BEGIN();
-
-    RUN_TEST(test_initial_state);
-    RUN_TEST(test_enqueue_and_dequeue);
-    RUN_TEST(test_remove_at_position);
-    RUN_TEST(test_node_announce_goes_front);
-    RUN_TEST(test_only_one_node_announce);
-    RUN_TEST(test_new_neighbour_replaces_old_neighbour);
-    RUN_TEST(test_new_neighbour_does_not_replace_old_neighbour_when_header_gone);
-    RUN_TEST(test_enqueue_at_position);
-    RUN_TEST(test_remove_specific_packet);
-    RUN_TEST(test_node_announce_goes_after_fragment_if_header_gone);
-
-    UNITY_END();
-    return 0;
-}
-#endif

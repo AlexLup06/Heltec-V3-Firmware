@@ -1,0 +1,72 @@
+#include "RadioHandler.h"
+
+int16_t SX1262Public::startReceive()
+{
+    int16_t s = SX1262::startReceive();
+    if (s == RADIOLIB_ERR_NONE)
+    {
+        // RADIOLIB_IRQ_CRC_ERR already enabled by default
+        this->setDioIrqParams(
+            getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_FLAGS | RADIOLIB_IRQ_PREAMBLE_DETECTED),
+            getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_MASK | RADIOLIB_IRQ_PREAMBLE_DETECTED));
+    }
+    return s;
+}
+
+void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw)
+{
+    SPI.begin();
+
+    int state = this->begin(frequency);
+    if (state != RADIOLIB_ERR_NONE)
+    {
+        DEBUG_PRINTF("Radio init failed: %d\n", state);
+        while (true)
+            ;
+    }
+
+    this->setSpreadingFactor(sf);
+    this->setOutputPower(txPower);
+    this->setBandwidth(bw);
+    this->setCodingRate(5);
+    this->setSyncWord(0x12);
+    this->setPreambleLength(8);
+}
+
+void SX1262Public::reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw)
+{
+    this->standby();
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    int state = this->begin(frequency);
+    if (state != RADIOLIB_ERR_NONE)
+    {
+        DEBUG_PRINTF("SX1262 re-init failed! Code: %d\n", state);
+        while (true)
+            ;
+    }
+
+    this->setOutputPower(txPower);
+    this->setBandwidth(bw);
+    this->setSpreadingFactor(sf);
+    this->setCodingRate(5);
+    this->setPreambleLength(12);
+    this->setSyncWord(0x12);
+
+    this->startReceive();
+
+    DEBUG_PRINTLN("SX1262 re-initialized successfully!");
+}
+
+void SX1262Public::sendRaw(const uint8_t *data, const size_t len)
+{
+    int state = this->transmit(data, len);
+    if (state == RADIOLIB_ERR_NONE)
+    {
+        DEBUG_PRINTLN("Packet sent!");
+    }
+    else
+    {
+        DEBUG_PRINTF("Send failed: %d\n", state);
+    }
+}

@@ -1,16 +1,21 @@
 #pragma once
+#include <Arduino.h>
+#include <LittleFS.h>
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
-#include <cstdlib> 
+#include <cstdlib>
 #include "config.h"
 
 // Simple CRC-8 implementation (polynomial 0x07)
-inline uint8_t crc8(const uint8_t *data, size_t len) {
+inline uint8_t crc8(const uint8_t *data, size_t len)
+{
     uint8_t crc = 0x00;
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++)
+    {
         crc ^= data[i];
-        for (uint8_t j = 0; j < 8; j++) {
+        for (uint8_t j = 0; j < 8; j++)
+        {
             if (crc & 0x80)
                 crc = (crc << 1) ^ 0x07;
             else
@@ -50,8 +55,50 @@ inline uint32_t getSendTimeByPacketSizeInUS(int packetBytes)
     return static_cast<uint32_t>(result > 0xFFFFFFFF ? 0xFFFFFFFF : result);
 }
 
+inline void dumpFilesOverSerial()
+{
+    File root = LittleFS.open("/");
+    if (!root)
+    {
+        Serial.println("Failed to open LittleFS root");
+        return;
+    }
+
+    File file = root.openNextFile();
+    while (file)
+    {
+        String name = file.name();
+        size_t size = file.size();
+
+        // --- Send file header over Serial ---
+        Serial.printf("BEGIN_FILE:%s:%u\n", name.c_str(), (unsigned)size);
+        delay(50); // small delay to help PC sync
+
+        // --- Send file contents ---
+        uint8_t buffer[128];
+        while (file.available())
+        {
+            size_t bytesRead = file.read(buffer, sizeof(buffer));
+            Serial.write(buffer, bytesRead);
+        }
+
+        Serial.println(); // flush line break
+        Serial.printf("END_FILE:%s\n", name.c_str());
+        file = root.openNextFile();
+        delay(100);
+    }
+
+    Serial.println("ALL_DONE");
+}
+
 #ifdef DEBUG_LORA_SERIAL
-  #define DEBUG_PRINT(...)  DEBUG_LORA_SERIAL(__VA_ARGS__)
+#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
 #else
-  #define DEBUG_PRINT(...)
+#define DEBUG_PRINT(...)
+#endif
+
+#ifdef DEBUG_LORA_SERIAL
+#define DEBUG_PRINTLN(...) Serial.printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(...)
 #endif

@@ -5,7 +5,7 @@ void LoRaDisplay::init()
   Wire.setPins(4, 15); 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
-    DEBUG_LORA_SERIAL(F("SSD1306 init failed"));
+    DEBUG_PRINTLN("SSD1306 init failed");
     for (;;)
     {
     }

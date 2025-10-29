@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 #include <RadioLib.h>
+#include "LoggerManager.h"
+#include "LoRaDisplay.h"
+#include "RadioHandler.h"
 #include "definitions.h"
 #include "messages.h"
 #include "RadioHandler.h"
-#include "RadioBase.h"
 #include "time.h"
 #include "functions.h"
 
@@ -15,25 +17,33 @@ enum OperationMode
     OPERATIONAL,
 };
 
-class OperationalBase : public RadioBase
+class Configurator
 {
 public:
     OperationMode operationMode = CONFIG;
 
-    virtual ~OperationalBase() {}
+    uint16_t nodeId;
+
+    virtual ~Configurator() {}
     void handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const size_t packetSize, int rssi);
+    void setCtx(LoRaDisplay *_loraDisplay, LoggerManager *_loggerManager, SX1262Public *_radio);
 
     void turnOnOperationMode();
     bool isInConfigMode();
     void handleConfigMode(); // runs in main handle()
-
-    virtual void updateNodeRssi(uint16_t id, int rssi) = 0;
-    virtual void incrementSent() = 0;
-    virtual uint16_t getNodeId() = 0;
-
-    virtual String getProtocolName() = 0;
+    void setIsMaster(bool _isMaster) { isMaster = _isMaster; }
+    void receiveDio1Interrupt();
+    void setStartTime(time_t startTime);
+    void sendTimeSync();
+    void sendConfigMessage(time_t startTime);
 
 private:
+    LoRaDisplay *loraDisplay;
+    LoggerManager *loggerManager;
+    SX1262Public *radio;
+
+    bool isMaster = false;
+
     bool hasPropogatedTimeSync = false;
     bool hasSentTimeSync = false;
     bool hasReachedNextMinute = false;
@@ -43,19 +53,16 @@ private:
     bool hasReceivedConfigMessage = false;
     bool hasScheduledConfigPropagation = false;
     bool hasPropogatedConfigMessage = false;
-    
+
     uint32_t startTimeUnix = 0;
-    int maxCW = 100;           // contention window size
-    int slotTime = 50;         // ms
-    int chosenSlot = 0;        // random slot index
-    int nextMinuteTarget = -1; // for waiting until next-next minute
+    int maxCW = 100;
+    int slotTime = 50;
+    int chosenSlot = 0;
+    int nextMinuteTarget = -1;
     unsigned long backoffTime = 0;
     unsigned long backoffTimeConfig = 0;
     unsigned long cycleStartMs = 0;
 
-    void sendTimeSyncMessage();
     void sendNodeIndicatorMessage();
-    void sendConfigMessage();
-
     void setClockFromTimestamp(uint32_t unixTime);
 };

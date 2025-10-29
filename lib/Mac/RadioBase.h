@@ -14,12 +14,8 @@ private:
     SX1262Public *radio;
 
 public:
-    void reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
-    void initRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
     void assignRadio(SX1262Public *_radio);
-
     void sendPacket(const uint8_t *data, const size_t len);
-
     void receiveDio1Interrupt();
 
     void startReceive();
@@ -32,7 +28,7 @@ public:
     int readData(uint8_t *data, size_t len);
 
 protected:
-    virtual void onReceiveIR() = 0;
-    virtual void onPreambleDetectedIR() = 0;
-    virtual void onCRCerrorIR() = 0;
+    virtual void onReceiveIR() {};
+    virtual void onPreambleDetectedIR() {};
+    virtual void onCRCerrorIR() {};
 };

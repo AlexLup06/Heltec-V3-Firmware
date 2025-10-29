@@ -21,9 +21,7 @@ public:
 
     cFSM fsm;
 
-    void initProtocol() override;
     void handleWithFSM();
-    void clearMacData();
     void onPreambleDetectedIR() override;
     void handleUpperPacket(MessageToSend_t *msg) override;
     void handleProtocolPacket(

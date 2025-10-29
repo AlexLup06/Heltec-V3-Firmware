@@ -1,8 +1,8 @@
 #include "Aloha.h"
 
-void Aloha::initProtocol()
-{
-}
+String Aloha::getProtocolName() { return "aloha"; }
+void Aloha::onPreambleDetectedIR() {}
+void Aloha::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
 
 void Aloha::handleWithFSM()
 {
@@ -42,24 +42,9 @@ void Aloha::handleWithFSM()
     }
 }
 
-void Aloha::onPreambleDetectedIR()
-{
-}
-
-void Aloha::clearMacData()
-{
-}
-
 void Aloha::handleUpperPacket(MessageToSend_t *msg)
 {
-    if (msg->isMission)
-    {
-        createMessage(msg->payload, msg->size, nodeId, false, true);
-    }
-    else
-    {
-        createMessage(msg->payload, msg->size, nodeId, false, false);
-    }
+    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission);
 }
 
 void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission)
@@ -81,21 +66,11 @@ void Aloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, 
 {
     createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
-    handlePacketResult(result);
+    handlePacketResult(result, false);
 }
 
 void Aloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
-    Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, false);
-    handlePacketResult(result);
-}
-
-void Aloha::onCRCerrorIR()
-{
-    DEBUG_LORA_SERIAL("CRC error (packet corrupted)");
-}
-
-String Aloha::getProtocolName()
-{
-    return "aloha";
+    Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
+    handlePacketResult(result, false);
 }

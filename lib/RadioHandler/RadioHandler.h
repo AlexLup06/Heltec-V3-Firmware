@@ -1,6 +1,7 @@
 // RadioHandler.h
 #pragma once
 #include <RadioLib.h>
+#include "functions.h"
 
 // --- Pin definitions (adjust for your board) ---
 #define LORA_CS 8    // Chip select
@@ -13,16 +14,8 @@ class SX1262Public : public SX1262
 {
     using SX1262::SX1262; // inherit constructor
 public:
-    int16_t startReceive() override
-    {
-        int16_t s = SX1262::startReceive();
-        if (s == RADIOLIB_ERR_NONE)
-        {
-            // RADIOLIB_IRQ_CRC_ERR already enabled by default
-            this->setDioIrqParams(
-                getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_FLAGS | RADIOLIB_IRQ_PREAMBLE_DETECTED),
-                getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_MASK | RADIOLIB_IRQ_PREAMBLE_DETECTED));
-        }
-        return s;
-    }
+    int16_t startReceive() override;
+    void init(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
+    void reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
+    void sendRaw(const uint8_t *data, const size_t len);
 };

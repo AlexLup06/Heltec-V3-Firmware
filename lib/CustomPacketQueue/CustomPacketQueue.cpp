@@ -12,6 +12,13 @@ CustomPacketQueue::~CustomPacketQueue() {
     }
 }
 
+const QueuedPacket* CustomPacketQueue::getFirstPacket() const {
+    if (packetQueue.empty()) {
+        return nullptr;
+    }
+    return packetQueue.front();
+}
+
 bool CustomPacketQueue::enqueuePacket(QueuedPacket* pkt) {
     if (!pkt) return false;
 

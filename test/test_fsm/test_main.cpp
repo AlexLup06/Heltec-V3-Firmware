@@ -4,12 +4,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
 
-#ifdef ARDUINO
 #include <Arduino.h>
-#else
-#define delay(ms) ((void)0)
-#endif
-
 #include <unity.h>
 #include <stdexcept>
 #include <iostream>
@@ -103,7 +98,6 @@ void test_no_event_transition_XZ() {
     isBaz = true;
     didBaz = false;
 
-    // Simulate a non-event phase manually
     bool ___is_event = false;
     bool ___exit = false;
     bool ___transition_seen = false;
@@ -122,8 +116,6 @@ void test_no_event_transition_XZ() {
     TEST_ASSERT_TRUE_MESSAGE(didBaz, "No-event transition did not fire");
     TEST_ASSERT_EQUAL(STATE_Z, fsm.getState());
 }
-
-
 
 void test_ignore_event_does_not_transition() {
     cFSM fsm("fsmIgnore");
@@ -168,13 +160,12 @@ void test_enter_action_executes_once() {
 
     int counter = 0;
 
-    // Manually simulate a "no-event" phase so FSMA_Enter can run
     {
-        bool ___is_event = false;   // <-- triggers FSMA_Enter path
+        bool ___is_event = false;
         bool ___exit = false;
         bool ___transition_seen = false;
         int ___c = 0;
-        cFSM &___fsm = fsm;
+        cFSM& ___fsm = fsm;
         bool ___logging = true;
 
         while (!___exit && (___c++ < FSM_MAXT)) {
@@ -189,14 +180,12 @@ void test_enter_action_executes_once() {
     TEST_ASSERT_EQUAL(1, counter);
 }
 
-
 void test_infinite_loop_protection() {
     cFSM fsm("fsmLoop");
     fsm.setState(STATE_X, "X");
     bool threw = false;
 
     try {
-        // Run several FSMA_Switch passes manually
         for (int i = 0; i < FSM_MAXT + 2; ++i) {
             FSMA_Switch(fsm)
             {
@@ -214,15 +203,12 @@ void test_infinite_loop_protection() {
     TEST_ASSERT_TRUE_MESSAGE(threw, "FSM_MAXT protection did not trigger");
 }
 
-
-
-
 // -----------------------------------------------------------------------------
-// UNITY ENTRY POINT
+// UNITY ENTRY POINT (ESP32 only)
 // -----------------------------------------------------------------------------
-#ifdef ARDUINO
+
 void setup() {
-    delay(2000);
+    delay(2000);  // allow serial to attach
     UNITY_BEGIN();
 
     RUN_TEST(test_initial_state_and_name);
@@ -236,21 +222,5 @@ void setup() {
 
     UNITY_END();
 }
+
 void loop() {}
-#else
-int main(int argc, char **argv) {
-    UNITY_BEGIN();
-
-    RUN_TEST(test_initial_state_and_name);
-    RUN_TEST(test_event_transition_XY);
-    RUN_TEST(test_event_transition_YX);
-    RUN_TEST(test_no_event_transition_XZ);
-    RUN_TEST(test_ignore_event_does_not_transition);
-    RUN_TEST(test_fail_on_unhandled_event_throws);
-    RUN_TEST(test_enter_action_executes_once);
-    RUN_TEST(test_infinite_loop_protection);
-
-    UNITY_END();
-    return 0;
-}
-#endif

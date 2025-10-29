@@ -29,24 +29,28 @@ void IncompletePacketList::removePacketBySource(const uint8_t source)
     packets_.erase(it, packets_.end());
 }
 
-void IncompletePacketList::createIncompletePacket(
+// TODO: create checs whether we want to receive this packet
+bool IncompletePacketList::createIncompletePacket(
     const uint16_t id,
     const uint16_t messageSize,
     const uint8_t source,
     const uint8_t messageType,
     const uint8_t checksum)
 {
+
+    // if we want to create this packet return true else false
+
     auto *pkt = getPacketBySource(source);
     if (pkt)
         assert(pkt->id < id);
     removePacketBySource(source);
 
     bool isLeaderFragment = messageType == MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
-    int firstFragmentPayload = isLeaderFragment ? 247 : 251;
+    int firstFragmentPayload = isLeaderFragment ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
     int restMessageSize = messageSize - firstFragmentPayload;
     bool isOnlyOnePacket = restMessageSize <= 0;
 
-    int numOfFragments = 1 + restMessageSize % 251;
+    int numOfFragments = 1 + restMessageSize % LORA_MAX_FRAGMENT_PAYLOAD;
 
     auto *packet = (FragmentedPacket_t *)malloc(sizeof(FragmentedPacket_t));
     packet->id = id;
@@ -63,14 +67,15 @@ void IncompletePacketList::createIncompletePacket(
     {
         packet->payload = (uint8_t *)malloc(packet->packetSize);
         packets_.push_back(packet);
+        return true;
     }
     else
     {
         free(packet);
+        return false;
     }
 }
 
-// TODO
 Result IncompletePacketList::addToIncompletePacket(
     const uint16_t id,
     const uint16_t source,
@@ -98,6 +103,7 @@ Result IncompletePacketList::addToIncompletePacket(
     // already received this packet
     if (incompletePacket->receivedFragments[fragment])
     {
+        result.bytesLeft = incompletePacket->packetSize - incompletePacket->received;
         return result;
     }
     incompletePacket->receivedFragments[fragment] = true;
@@ -111,6 +117,7 @@ Result IncompletePacketList::addToIncompletePacket(
     int offset = calcOffset(incompletePacket, fragment);
     memcpy(incompletePacket->payload + offset, payload, payloadSize);
     incompletePacket->received += payloadSize;
+    result.bytesLeft = incompletePacket->packetSize - incompletePacket->received;
 
     assert(incompletePacket->received <= incompletePacket->packetSize);
     if (incompletePacket->received == incompletePacket->packetSize)
@@ -147,7 +154,7 @@ int IncompletePacketList::calcOffset(const FragmentedPacket_t *incompletePacket,
 bool IncompletePacketList::isCorrupted(const FragmentedPacket_t *incompletePacket, const uint8_t fragment, const uint16_t payloadSize)
 {
     // fragment payload has a max size of 251 Bytes
-    if (payloadSize > 251)
+    if (payloadSize > LORA_MAX_FRAGMENT_PAYLOAD)
         return true;
 
     // there is only one fragment
@@ -163,7 +170,7 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket_t *incompletePacke
     // check if first fragment is corrupted
     if (fragment == 0)
     {
-        int firstFragmentSize = incompletePacket->withLeaderFrag ? 247 : 251;
+        int firstFragmentSize = incompletePacket->withLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
         if (firstFragmentSize != payloadSize)
             return true;
         return false;
@@ -172,7 +179,7 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket_t *incompletePacke
     // check middle fragment is corrupted if it exists
     if (incompletePacket->numOfFragments > 2 && fragment > 0 && fragment < incompletePacket->numOfFragments - 1)
     {
-        if (payloadSize != 251)
+        if (payloadSize != LORA_MAX_FRAGMENT_PAYLOAD)
             return true;
         return false;
     }
@@ -180,8 +187,8 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket_t *incompletePacke
     // last fragment is corrupted
     if (incompletePacket->numOfFragments - 1 == fragment)
     {
-        int firstFragmentSize = incompletePacket->withLeaderFrag ? 247 : 251;
-        int packetSizeWithoutFirstAndLast = (incompletePacket->numOfFragments - 2) * 251;
+        int firstFragmentSize = incompletePacket->withLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
+        int packetSizeWithoutFirstAndLast = (incompletePacket->numOfFragments - 2) * LORA_MAX_FRAGMENT_PAYLOAD;
         int packetSize = firstFragmentSize + packetSizeWithoutFirstAndLast + payloadSize;
 
         if (incompletePacket->packetSize != packetSize)
@@ -206,6 +213,18 @@ void IncompletePacketList::updatePacketId(
     }
 
     latestIdsFromSource_.emplace_back(sourceId, newId);
+}
+
+bool IncompletePacketList::doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id)
+{
+    for (auto *p : packets_)
+    {
+        if (p && p->id == id && p->source == sourceId)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool IncompletePacketList::isNewIdLower(

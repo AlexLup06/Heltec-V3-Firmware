@@ -1,9 +1,4 @@
-#ifdef ARDUINO
 #include <Arduino.h>
-#else
-#define delay(ms) ((void)0)
-#endif
-
 #include <unity.h>
 #include "IncompletePacketList.h"
 #include "IncompletePacketList.cpp"
@@ -94,14 +89,14 @@ void test_is_corrupted_rules() {
     // single fragment - must match
     pkt.numOfFragments = 1;
     pkt.packetSize = 100;
-    TEST_ASSERT_TRUE(list.isCorrupted(&pkt, 0, 50));  // mismatch
+    TEST_ASSERT_TRUE(list.isCorrupted(&pkt, 0, 50));   // mismatch
     TEST_ASSERT_FALSE(list.isCorrupted(&pkt, 0, 100)); // correct
 
     // leader fragment
     pkt.numOfFragments = 2;
     pkt.withLeaderFrag = true;
     pkt.packetSize = 247 + 80; // 327 bytes total
-    TEST_ASSERT_TRUE(list.isCorrupted(&pkt, 0, 200)); // leader frag wrong
+    TEST_ASSERT_TRUE(list.isCorrupted(&pkt, 0, 200));  // leader frag wrong
     TEST_ASSERT_FALSE(list.isCorrupted(&pkt, 0, 247)); // leader frag ok
 }
 
@@ -143,12 +138,11 @@ void test_update_packet_id_comparisons() {
 }
 
 // -----------------------------------------------------------------------------
-// UNITY ENTRY POINT (cross-platform)
+// UNITY ENTRY POINT (ESP32 version)
 // -----------------------------------------------------------------------------
 
-#ifdef ARDUINO
 void setup() {
-    delay(2000); // give serial time to initialize
+    delay(2000); // allow serial monitor to attach
     UNITY_BEGIN();
 
     RUN_TEST(test_create_and_get_packet);
@@ -165,21 +159,3 @@ void setup() {
 }
 
 void loop() {}
-#else
-int main(int argc, char **argv) {
-    UNITY_BEGIN();
-
-    RUN_TEST(test_create_and_get_packet);
-    RUN_TEST(test_remove_packet_by_source);
-    RUN_TEST(test_create_replaces_existing);
-    RUN_TEST(test_calc_offset_nonleader);
-    RUN_TEST(test_calc_offset_leader);
-    RUN_TEST(test_is_corrupted_rules);
-    RUN_TEST(test_add_to_incomplete_completes);
-    RUN_TEST(test_add_duplicate_fragment_ignored);
-    RUN_TEST(test_update_packet_id_comparisons);
-
-    UNITY_END();
-    return 0;
-}
-#endif

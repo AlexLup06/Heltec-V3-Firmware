@@ -4,32 +4,30 @@ void MacBase::finish()
 {
 }
 
-void MacBase::handle()
+void MacBase::clearMacData()
 {
-    if (isInConfigMode())
-    {
-        handleConfigMode();
-    }
-    else
-    {
-        if (nodeAnnounceTime < millis())
-        {
-            createNodeAnnouncePacket(macAdress, nodeId);
-            nodeAnnounceTime += 5000;
-        }
-        handleWithFSM();
-    }
 }
 
-void MacBase::init()
+void MacBase::handle()
 {
+    if (nodeAnnounceTime < millis())
+    {
+        createNodeAnnouncePacket(macAdress, nodeId);
+        nodeAnnounceTime += 5000;
+    }
+    handleWithFSM();
+}
+
+void MacBase::init(MacContext macCtx)
+{
+    assignRadio(macCtx.radio);
+    loggerManager = macCtx.loggerManager;
+    loraDisplay = macCtx.loraDisplay;
+
     esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
 
     nodeAnnounceTime = millis();
     nodeId = macAdress[5];
-
-    turnOnOperationMode();
-    initProtocol();
 }
 
 void MacBase::finishCurrentTransmission()
@@ -38,49 +36,30 @@ void MacBase::finishCurrentTransmission()
     currentTransmission = dequeuePacket();
 }
 
-void MacBase::updateNodeRssi(uint16_t id, int rssi)
-{
-    loraDisplay->updateNode(id, rssi);
-}
-
-void MacBase::incrementSent()
-{
-    loraDisplay->incrementSent();
-}
-
-uint16_t MacBase::getNodeId()
-{
-    return nodeId;
-}
-
 void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, const int rssi)
 {
-    if (messageType == MESSAGE_TYPE_TIME_SYNC || messageType == MESSAGE_TYPE_OPERATION_MODE_CONFIG)
-    {
-        handleConfigPacket(messageType, packet, packetSize, rssi);
+    if (messageType == MESSAGE_TYPE_TIME_SYNC ||
+        messageType == MESSAGE_TYPE_OPERATION_MODE_CONFIG ||
+        messageType == MESSAGE_TYPE_NODE_INDICATOR)
         return;
-    }
 
-    if (!isInConfigMode())
-    {
-        isReceivedPacketReady = true;
-        bool isMission = decapsulate(packet);
+    isReceivedPacketReady = true;
+    bool isMission = decapsulate(packet);
 
-        receivedPacket = (ReceivedPacket_t *)malloc(sizeof(ReceivedPacket_t));
-        receivedPacket->isMission = isMission;
-        receivedPacket->messageType = messageType;
-        receivedPacket->rssi = rssi;
-        receivedPacket->size = packetSize;
-        memcpy(receivedPacket->payload, packet, packetSize);
+    receivedPacket = (ReceivedPacket_t *)malloc(sizeof(ReceivedPacket_t));
+    receivedPacket->isMission = isMission;
+    receivedPacket->messageType = messageType;
+    receivedPacket->rssi = rssi;
+    receivedPacket->size = packetSize;
+    memcpy(receivedPacket->payload, packet, packetSize);
 
-        handleWithFSM();
+    handleWithFSM();
 
-        isReceivedPacketReady = false;
-        free(receivedPacket);
-    }
+    isReceivedPacketReady = false;
+    free(receivedPacket);
 }
 
-void MacBase::handlePacketResult(Result result)
+void MacBase::handlePacketResult(Result result, bool withRTS)
 {
     if (result.isComplete)
     {
@@ -91,7 +70,7 @@ void MacBase::handlePacketResult(Result result)
             {
                 return;
             }
-            createMessage(fragmentedPacket->payload, fragmentedPacket->packetSize, fragmentedPacket->source, false, true);
+            createMessage(fragmentedPacket->payload, fragmentedPacket->packetSize, fragmentedPacket->source, withRTS, true);
         }
     }
 }
@@ -104,7 +83,7 @@ void MacBase::onReceiveIR()
     uint8_t *receiveBuffer = (uint8_t *)malloc(len);
     if (!receiveBuffer)
     {
-        DEBUG_LORA_SERIAL("ERROR: malloc failed!");
+        DEBUG_PRINTLN("ERROR: malloc failed!");
         return;
     }
 
@@ -117,7 +96,7 @@ void MacBase::onReceiveIR()
     }
     else
     {
-        DEBUG_LORA_SERIAL("Receive failed: %d\n", state);
+        DEBUG_PRINTF("Receive failed: %d\n", state);
     }
     free(receiveBuffer);
     startReceive();

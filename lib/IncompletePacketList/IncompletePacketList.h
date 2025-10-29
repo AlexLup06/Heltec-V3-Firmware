@@ -1,7 +1,4 @@
 #pragma once
-#ifdef ARDUINO
-#include <Arduino.h>
-#endif
 #include <bitset>
 #include <vector>
 #include <memory>
@@ -45,6 +42,7 @@ struct Result
     bool isComplete = false;
     bool sendUp = false;
     bool isMission = false;
+    uint16_t bytesLeft = 0;
     FragmentedPacket_t *completePacket = nullptr;
 };
 
@@ -60,7 +58,7 @@ public:
 
     FragmentedPacket_t *getPacketBySource(const uint16_t source);
     void removePacketBySource(const uint8_t source);
-    void createIncompletePacket(
+    bool createIncompletePacket(
         const uint16_t id,
         const uint16_t packetSize,
         const uint8_t source,
@@ -74,6 +72,7 @@ public:
         const uint8_t *payload);
 
     void updatePacketId(const uint8_t sourceId, const uint16_t newId);
+    bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id);
     bool isNewIdLower(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdSame(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdHigher(const uint8_t sourceId, const uint16_t newId) const;
