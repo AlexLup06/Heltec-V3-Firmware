@@ -3,7 +3,15 @@
 void MessageSimulator::simulateMessages()
 {
     uint32_t currentTime = millis();
-    if (currentTime < nextMission)
+
+    if (isFirstTimeRunning)
+    {
+        nextMission = currentTime + timeToNextMission;
+        nextNeighbour = currentTime + timeToNextNeighbour;
+        isFirstTimeRunning = false;
+    }
+
+    if (currentTime > nextMission)
     {
         uint16_t size = random(50, 247);
         uint8_t *dummyPayload = (uint8_t *)malloc(size);
@@ -14,19 +22,19 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto floodPacket = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
-        floodPacket->payload = dummyPayload;
-        floodPacket->size = size;
-        floodPacket->isMission = true;
+        auto msg = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
+        msg->payload = dummyPayload;
+        msg->size = size;
+        msg->isMission = true;
 
-        messageToSend = floodPacket;
+        messageToSend = msg;
         packetReady = true;
 
         nextMission = currentTime + timeToNextMission;
         return;
     }
 
-    if (currentTime < nextNeighbour)
+    if (currentTime > nextNeighbour)
     {
         uint16_t size = 144;
         uint8_t *dummyPayload = (uint8_t *)malloc(size);
@@ -37,16 +45,27 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto floodPacket = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
-        floodPacket->payload = dummyPayload;
-        floodPacket->size = size;
-        floodPacket->isMission = false;
+        auto msg = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
+        msg->payload = dummyPayload;
+        msg->size = size;
+        msg->isMission = false;
 
-        messageToSend = floodPacket;
+        messageToSend = msg;
         packetReady = true;
 
-        nextMission = currentTime + timeToNextNeighbour;
+        nextNeighbour = currentTime + timeToNextNeighbour;
         return;
+    }
+}
+void MessageSimulator::cleanUp()
+{
+    packetReady = false;
+
+    if (messageToSend)
+    {
+        free(messageToSend->payload);
+        free(messageToSend);
+        messageToSend = nullptr;
     }
 }
 

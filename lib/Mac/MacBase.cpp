@@ -8,6 +8,11 @@ void MacBase::clearMacData()
 {
 }
 
+void MacBase::initRun()
+{
+    nodeAnnounceTime = millis();
+}
+
 void MacBase::handle()
 {
     if (nodeAnnounceTime < millis())
@@ -32,16 +37,20 @@ void MacBase::init(MacContext macCtx)
 
 void MacBase::finishCurrentTransmission()
 {
+    free(currentTransmission->data);
     free(currentTransmission);
     currentTransmission = dequeuePacket();
 }
 
-void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, const int rssi)
+void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi)
 {
-    if (messageType == MESSAGE_TYPE_TIME_SYNC ||
-        messageType == MESSAGE_TYPE_OPERATION_MODE_CONFIG ||
-        messageType == MESSAGE_TYPE_NODE_INDICATOR)
+    if (messageType == MESSAGE_TYPE_BROADCAST_CONFIG)
         return;
+
+    if (messageType == MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE)
+    {
+        loraDisplay->updateNode(packet[1], rssi);
+    }
 
     isReceivedPacketReady = true;
     bool isMission = decapsulate(packet);
@@ -49,7 +58,6 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
     receivedPacket = (ReceivedPacket_t *)malloc(sizeof(ReceivedPacket_t));
     receivedPacket->isMission = isMission;
     receivedPacket->messageType = messageType;
-    receivedPacket->rssi = rssi;
     receivedPacket->size = packetSize;
     memcpy(receivedPacket->payload, packet, packetSize);
 
@@ -92,6 +100,7 @@ void MacBase::onReceiveIR()
 
     if (state == RADIOLIB_ERR_NONE)
     {
+        loraDisplay->incrementReceived();
         handleLowerPacket(receiveBuffer[0], receiveBuffer, len, rssi);
     }
     else

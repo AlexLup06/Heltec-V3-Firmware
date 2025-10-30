@@ -28,7 +28,6 @@ public:
         const uint8_t messageType,
         const uint8_t *packet,
         const size_t packetSize,
-        const int rssi,
         bool isMission) override;
     void handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission);
     void handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission);

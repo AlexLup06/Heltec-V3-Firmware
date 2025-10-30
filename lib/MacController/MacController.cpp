@@ -9,9 +9,10 @@ static MacFinishCallback onMacFinish = nullptr;
 static bool waitingForNext = false;
 static unsigned long switchTime = 0;
 static unsigned long macStartTime = 0;
+static bool isFirstTimeRunning = true;
 
-static const unsigned long RUN_DURATION_MS = 10UL * 60UL * 1000UL; // 10 min
-static const unsigned long SWITCH_DELAY_MS = 2UL * 60UL * 1000UL;  // 2 min
+static const unsigned long RUN_DURATION_MS = SIMULATION_DURATION_MIN * 60UL * 1000UL;
+static const unsigned long SWITCH_DELAY_MS = MAC_PROTOCOL_SWITCH_DELAY_MIN * 60UL * 1000UL;
 
 MacProtocol getCurrentMac() { return currentMac; }
 
@@ -20,8 +21,10 @@ void setMacFinishCallback(MacFinishCallback cb) { onMacFinish = cb; }
 
 void markMacFinished()
 {
+
     if (waitingForNext)
         return; // already waiting
+    DEBUG_PRINTLN("MAC finished");
     waitingForNext = true;
     switchTime = millis() + SWITCH_DELAY_MS;
     isInWaitMode = true;
@@ -32,6 +35,14 @@ void markMacFinished()
 
 void updateMacController()
 {
+    // initialize MAC controller
+    if (isFirstTimeRunning)
+    {
+        macStartTime = millis();
+        isInWaitMode = false;
+        isFirstTimeRunning = false;
+    }
+
     unsigned long now = millis();
 
     // Check if current MAC has reached its 10-min run duration
@@ -42,6 +53,7 @@ void updateMacController()
 
     if (waitingForNext && (now >= switchTime))
     {
+        DEBUG_PRINTLN("MAC switched");
         waitingForNext = false;
         currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);
         macStartTime = now;

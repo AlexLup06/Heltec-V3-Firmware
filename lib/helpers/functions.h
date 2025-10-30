@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include "config.h"
+#include "definitions.h"
 
 // Simple CRC-8 implementation (polynomial 0x07)
 inline uint8_t crc8(const uint8_t *data, size_t len)
@@ -91,6 +92,29 @@ inline void dumpFilesOverSerial()
     Serial.println("ALL_DONE");
 }
 
+inline const char *msgIdToString(uint8_t msgId)
+{
+    switch (msgId)
+    {
+    case MESSAGE_TYPE_BROADCAST_CONFIG:
+        return "BROADCAST_CONFIG";
+    case MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE:
+        return "BROADCAST_NODE_ANNOUNCE";
+    case MESSAGE_TYPE_BROADCAST_RTS:
+        return "BROADCAST_RTS";
+    case MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS:
+        return "BROADCAST_CONTINUOUS_RTS";
+    case MESSAGE_TYPE_BROADCAST_CTS:
+        return "BROADCAST_CTS";
+    case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
+        return "BROADCAST_LEADER_FRAGMENT";
+    case MESSAGE_TYPE_BROADCAST_FRAGMENT:
+        return "BROADCAST_FRAGMENT";
+    default:
+        return "UNKNOWN_MESSAGE_TYPE";
+    }
+}
+
 #ifdef DEBUG_LORA_SERIAL
 #define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
 #else
@@ -98,7 +122,7 @@ inline void dumpFilesOverSerial()
 #endif
 
 #ifdef DEBUG_LORA_SERIAL
-#define DEBUG_PRINTLN(...) Serial.printf(__VA_ARGS__)
+#define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
 #else
 #define DEBUG_PRINT(...)
 #endif

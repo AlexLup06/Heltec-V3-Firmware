@@ -2,7 +2,19 @@
 
 void LoRaDisplay::init()
 {
-  Wire.setPins(4, 15); 
+  pinMode(36, OUTPUT);
+  digitalWrite(36, LOW);
+  delay(100);
+
+  pinMode(21, OUTPUT);
+  digitalWrite(21, LOW);
+  delay(20);
+  digitalWrite(21, HIGH);
+  delay(20);
+
+  Wire.begin(17, 18);
+  Wire.setClock(100000);
+
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
     DEBUG_PRINTLN("SSD1306 init failed");
@@ -10,18 +22,22 @@ void LoRaDisplay::init()
     {
     }
   }
+
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.println("OLED Ready");
   display.display();
 
   messageReceivedCount = 0;
   messageSentCount = 0;
+  pageIndex = 0;
+  lastPageSwitch = millis();
 }
 
 void LoRaDisplay::updateNode(uint16_t id, int rssi)
 {
-  // Count every received message
   messageReceivedCount++;
 
   for (uint8_t i = 0; i < nodeCount; i++)
@@ -29,7 +45,6 @@ void LoRaDisplay::updateNode(uint16_t id, int rssi)
     if (nodes[i].id == id)
     {
       nodes[i].rssi = rssi;
-      render();
       return;
     }
   }
@@ -40,18 +55,20 @@ void LoRaDisplay::updateNode(uint16_t id, int rssi)
   }
   else
   {
-    // FIFO overwrite
     for (uint8_t i = 1; i < MAX_NODES; i++)
       nodes[i - 1] = nodes[i];
     nodes[MAX_NODES - 1] = {id, rssi};
   }
-  render();
 }
 
 void LoRaDisplay::incrementSent()
 {
   messageSentCount++;
-  render();
+}
+
+void LoRaDisplay::incrementReceived()
+{
+  messageReceivedCount++;
 }
 
 void LoRaDisplay::drawHeader()
@@ -61,6 +78,13 @@ void LoRaDisplay::drawHeader()
   display.setCursor(48, 0);
   display.print("RSSI");
   display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
+
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds("Rx:0000", 0, 0, &x, &y, &w, &h);
+  display.setCursor(SCREEN_WIDTH - w - 2, 0);
+  display.printf("Rx:%lu", messageReceivedCount);
+  display.drawLine(SCREEN_WIDTH - w - 6, 0, SCREEN_WIDTH - w - 6, 10, SSD1306_WHITE);
 }
 
 void LoRaDisplay::drawRows()
@@ -71,31 +95,31 @@ void LoRaDisplay::drawRows()
 
   for (uint8_t i = start; i < end; i++)
   {
-    int y = 12 + (i - start) * 9;
+    int y = 14 + (i - start) * 9;
     display.setCursor(0, y);
     display.printf("%3d", nodes[i].id);
     display.setCursor(48, y);
     display.printf("%4d", nodes[i].rssi);
   }
 
-  // --- Bottom line ---
+  display.drawLine(0, SCREEN_HEIGHT - 12, SCREEN_WIDTH, SCREEN_HEIGHT - 12, SSD1306_WHITE);
+
   display.setCursor(0, SCREEN_HEIGHT - 8);
 
-  // RAM info (left)
   uint32_t total = ESP.getHeapSize();
   uint32_t free = ESP.getFreeHeap();
   uint32_t used = total - free;
-  display.printf("RAM:%lu/%luK", used / 1024, total / 1024);
+  display.print("RAM:");
+  display.print(used / 1024);
+  display.print("/");
+  display.print(total / 1024);
+  display.print("K");
 
-  // Message counters (right)
-  display.setCursor(SCREEN_WIDTH - 80, SCREEN_HEIGHT - 8);
-  display.printf("Rx:%lu Tx:%lu", messageReceivedCount, messageSentCount);
-
-  if (totalPages > 1)
-  {
-    display.setCursor(SCREEN_WIDTH - 30, SCREEN_HEIGHT - 8);
-    display.printf("%d/%d", pageIndex + 1, totalPages);
-  }
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds("Tx:0000", 0, 0, &x, &y, &w, &h);
+  display.setCursor(SCREEN_WIDTH - w - 2, SCREEN_HEIGHT - 8);
+  display.printf("Tx:%lu", messageSentCount);
 }
 
 void LoRaDisplay::render()
@@ -110,9 +134,17 @@ void LoRaDisplay::loop()
 {
   unsigned long now = millis();
   uint8_t totalPages = (nodeCount + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
-  if (totalPages > 1 && now - lastPageSwitch >= PAGE_INTERVAL_MS)
+
+  // --- If only one page, update every 1 second ---
+  // unsigned long interval = (totalPages > 1) ? PAGE_INTERVAL_MS : 1000;
+
+  if (now - lastPageSwitch >= PAGE_INTERVAL_MS)
   {
-    pageIndex = (pageIndex + 1) % totalPages;
+    if (totalPages > 1)
+    {
+      pageIndex = (pageIndex + 1) % totalPages;
+    }
+
     lastPageSwitch = now;
     render();
   }

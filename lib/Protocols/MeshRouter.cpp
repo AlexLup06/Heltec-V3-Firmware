@@ -15,12 +15,15 @@ void MeshRouter::handleWithFSM()
 
     sendPacket(queuedPacket->data, queuedPacket->packetSize);
 
-    if (queuedPacket->packetSize == BROADCAST_RTS_SIZE)
+    if (queuedPacket->data[0] == MESSAGE_TYPE_BROADCAST_RTS)
     {
+        DEBUG_PRINTLN("We just sent RTS");
         SenderWait(150);
     }
+
     if (dequeuedPacketWasLast())
     {
+        DEBUG_PRINTLN("We just sent last packet");
         long fullWaitTime = predictPacketSendTime(255);
         SenderWait(50 + (fullWaitTime + (rand() % 51)));
     }
@@ -43,7 +46,7 @@ void MeshRouter::onCRCerrorIR()
     DEBUG_PRINTLN("CRC error (packet corrupted)");
 }
 
-void MeshRouter::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission)
+void MeshRouter::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
 {
     preambleAdd = 0;
     switch (messageType)

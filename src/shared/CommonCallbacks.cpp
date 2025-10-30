@@ -12,9 +12,15 @@ void onDio1IR()
     }
 }
 
+void incrementCb()
+{
+    loraDisplay.incrementSent();
+}
+
 void onMacChanged(MacProtocol newMac)
 {
     DEBUG_PRINTF("Switched MAC protocol to %d\n", newMac);
+    macProtocol->initRun();
 }
 
 void onMacFinished(MacProtocol finished)
@@ -25,13 +31,13 @@ void onMacFinished(MacProtocol finished)
     switch (finished)
     {
     case MacProtocol::MESH_ROUTER:
-        // macProtocol = &cadAloha;
+        macProtocol = &cadAloha;
         break;
     case MacProtocol::CAD_ALOHA:
         macProtocol = &aloha;
         break;
     case MacProtocol::ALOHA:
-        // macProtocol = &csma;
+        macProtocol = &csma;
         break;
     case MacProtocol::CSMA:
         // macProtocol = &rsimitra;

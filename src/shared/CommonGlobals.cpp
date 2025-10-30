@@ -11,4 +11,6 @@ int currentMac = MacProtocol::MESH_ROUTER;
 MacContext macCtx;
 MacBase *macProtocol = nullptr;
 MeshRouter meshRouter;
+CadAloha cadAloha;
 Aloha aloha;
+Csma csma;

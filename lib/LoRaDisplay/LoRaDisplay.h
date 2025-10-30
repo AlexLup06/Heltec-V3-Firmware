@@ -5,11 +5,6 @@
 #include <Adafruit_SSD1306.h>
 #include "functions.h"
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-#define SCREEN_ADDRESS 0x3C
-
 struct NodeInfo
 {
   uint16_t id;
@@ -22,13 +17,14 @@ public:
   void init();
   void updateNode(uint16_t id, int rssi);
   void incrementSent();
+  void incrementReceived();
   void render();
 
   void loop();
 
 private:
   static const uint8_t MAX_NODES = 32;
-  static const uint8_t ROWS_PER_PAGE = 6;
+  static const uint8_t ROWS_PER_PAGE = 4;
   static const uint16_t PAGE_INTERVAL_MS = 5000; // 5 s
 
   unsigned long messageReceivedCount = 0;

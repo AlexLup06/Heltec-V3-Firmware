@@ -2,7 +2,7 @@
 
 void commonLoop()
 {
-    loraDisplay.loop();
+    button.update();
 
     if (configurator.isInConfigMode())
     {
@@ -10,7 +10,7 @@ void commonLoop()
         return;
     }
 
-    if (isInWaitMode)
+    if (!isInWaitMode)
     {
         macProtocol->handle();
         messageSimulator.simulateMessages();
@@ -20,7 +20,9 @@ void commonLoop()
 
     if (messageSimulator.packetReady)
     {
-        meshRouter.handleUpperPacket(messageSimulator.messageToSend);
-        messageSimulator.packetReady = false;
+        macProtocol->handleUpperPacket(messageSimulator.messageToSend);
+        messageSimulator.cleanUp();
     }
+
+    yield();
 }

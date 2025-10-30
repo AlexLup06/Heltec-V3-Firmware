@@ -56,6 +56,8 @@ bool PacketBase::doesIncompletePacketExist(const uint8_t sourceId, const uint16_
 bool PacketBase::dequeuedPacketWasLast()
 {
     auto *firstPacket = customPacketQueue.getFirstPacket();
+    if (firstPacket == nullptr)
+        return true;
     return firstPacket->isHeader || firstPacket->isNodeAnnounce;
 }
 
@@ -63,11 +65,13 @@ bool PacketBase::dequeuedPacketWasLast()
 
 void PacketBase::createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId)
 {
-    NodeIdAnnounce_t pkt;
-    memcpy(pkt.deviceMac, mac, 6);
-    pkt.nodeId = nodeId;
-    pkt.respond = 0;
-    enqueueStruct(pkt, false, false, true);
+    BroadcastNodeIdAnnounce_t *pkt = (BroadcastNodeIdAnnounce_t *)malloc(sizeof(BroadcastNodeIdAnnounce_t));
+    pkt->messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
+    pkt->nodeId = nodeId;
+    pkt->respond = 0;
+    memcpy(pkt->deviceMac, mac, 6);
+    enqueueStruct(pkt, sizeof(BroadcastNodeIdAnnounce_t), false, false, true);
+    free(pkt);
 }
 
 void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int source, bool withRTS, bool isMission)
@@ -75,22 +79,24 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int
     uint16_t msgId = isMission ? MISSION_ID_COUNT++ : NEIGHBOUR_ID_COUNT++;
     uint8_t checksum = crc8(payload, payloadSize);
 
-    bool toMissionQueue = isMission;
-    bool toNeighbourQueue = !isMission;
-
     if (withRTS)
     {
-        BroadcastRTSPacket_t rts = createRTS(msgId, source, payloadSize, checksum);
-        encapsulate(rts);
-        enqueueStruct(rts, true, toMissionQueue, toNeighbourQueue);
+        BroadcastRTSPacket_t *rts = createRTS(msgId, source, payloadSize, checksum);
+        if (isMission)
+            encapsulate(rts);
+        enqueueStruct(rts, sizeof(BroadcastRTSPacket_t), true, isMission, false);
+        free(rts);
 
         uint8_t fragmentId = 0;
         while (payloadSize > 0)
         {
             uint16_t packetPayloadSize = std::min<uint16_t>(payloadSize, LORA_MAX_FRAGMENT_PAYLOAD);
-            BroadcastFragmentPacket_t fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, false);
-            encapsulate(fragment);
-            enqueueStruct(fragment, false, toMissionQueue, toNeighbourQueue);
+            uint16_t packetSize = packetPayloadSize + BROADCAST_FRAGMENT_METADATA_SIZE;
+            BroadcastFragmentPacket_t *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, false);
+            if (isMission)
+                encapsulate(fragment);
+            enqueueStruct(fragment, packetSize, false, isMission, false);
+            free(fragment);
 
             payload += packetPayloadSize;
             payloadSize -= packetPayloadSize;
@@ -99,10 +105,12 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int
     else
     {
         uint16_t leaderPayloadSize = std::min<uint16_t>(payloadSize, LORA_MAX_FRAGMENT_LEADER_PAYLOAD);
-        BroadcastLeaderFragmentPacket_t leaderFragment =
-            createLeaderFragment(msgId, source, checksum, payload, payloadSize, leaderPayloadSize);
-        encapsulate(leaderFragment);
-        enqueueStruct(leaderFragment, true, toMissionQueue, toNeighbourQueue);
+        uint16_t leaderPacketSize = leaderPayloadSize + BROADCAST_LEADER_FRAGMENT_METADATA_SIZE;
+        BroadcastLeaderFragmentPacket_t *leaderFragment = createLeaderFragment(msgId, source, checksum, payload, payloadSize, leaderPayloadSize);
+        if (isMission)
+            encapsulate(leaderFragment);
+        enqueueStruct(leaderFragment, leaderPacketSize, true, isMission, false);
+        free(leaderFragment);
 
         payload += leaderPayloadSize;
         payloadSize -= leaderPayloadSize;
@@ -111,9 +119,12 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int
         while (payloadSize > 0)
         {
             uint16_t packetPayloadSize = std::min<uint16_t>(payloadSize, LORA_MAX_FRAGMENT_PAYLOAD);
-            BroadcastFragmentPacket_t fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, true);
-            encapsulate(fragment);
-            enqueueStruct(fragment, false, toMissionQueue, toNeighbourQueue);
+            uint16_t packetSize = packetPayloadSize + BROADCAST_FRAGMENT_METADATA_SIZE;
+            BroadcastFragmentPacket_t *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, true);
+            if (isMission)
+                encapsulate(fragment);
+            enqueueStruct(fragment, packetSize, false, isMission, false);
+            free(fragment);
 
             payload += packetPayloadSize;
             payloadSize -= packetPayloadSize;
@@ -121,44 +132,52 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, int
     }
 }
 
-BroadcastRTSPacket_t PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum)
+BroadcastRTSPacket_t *PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum)
 {
-    BroadcastRTSPacket_t pkt;
-    pkt.id = packetId;
-    pkt.source = sourceId;
-    pkt.size = payloadSize;
-    pkt.checksum = checksum;
+    BroadcastRTSPacket_t *pkt = (BroadcastRTSPacket_t *)malloc(sizeof(BroadcastRTSPacket_t));
+    pkt->messageType = MESSAGE_TYPE_BROADCAST_RTS;
+    pkt->source = sourceId;
+    pkt->id = packetId;
+    pkt->size = payloadSize;
+    pkt->checksum = checksum;
     return pkt;
 }
 
-BroadcastCTS_t PacketBase::createCTS(uint16_t size)
+BroadcastCTS_t *PacketBase::createCTS(uint16_t size)
 {
-    BroadcastCTS_t pkt;
-    pkt.sizeOfFragment = size;
+    BroadcastCTS_t *pkt = (BroadcastCTS_t *)malloc(sizeof(BroadcastCTS_t));
+    pkt->messageType = MESSAGE_TYPE_BROADCAST_CTS;
+    pkt->sizeOfFragment = size;
     return pkt;
 }
 
-BroadcastLeaderFragmentPacket_t PacketBase::createLeaderFragment(uint16_t packetId, uint16_t source, uint8_t checksum, const uint8_t *payload, uint16_t size, uint16_t leaderPayloadSize)
+BroadcastLeaderFragmentPacket_t *PacketBase::createLeaderFragment(uint16_t packetId, uint16_t source, uint8_t checksum, const uint8_t *payload, uint16_t size, uint16_t leaderPayloadSize)
 {
-    BroadcastLeaderFragmentPacket_t pkt;
-    pkt.id = packetId;
-    pkt.source = source;
-    pkt.size = size;
-    pkt.checksum = checksum;
+    BroadcastLeaderFragmentPacket_t *pkt = (BroadcastLeaderFragmentPacket_t *)malloc(sizeof(BroadcastLeaderFragmentPacket_t));
+    pkt->messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
+    pkt->source = source;
+    pkt->id = packetId;
+    pkt->size = size;
+    pkt->checksum = checksum;
 
-    memcpy(pkt.payload, payload, leaderPayloadSize);
+    // Copy only the part that is actually used
+    memcpy(pkt->payload, payload, leaderPayloadSize);
     return pkt;
 }
 
-BroadcastFragmentPacket_t PacketBase::createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, uint16_t payloadSize, bool hasLeaderFrag)
+BroadcastFragmentPacket_t *PacketBase::createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, size_t payloadSize, uint8_t source, bool hasLeaderFrag)
 {
-    BroadcastFragmentPacket_t pkt;
-    pkt.id = packetId;
-    pkt.fragment = fragmentId;
+    BroadcastFragmentPacket_t *pkt = (BroadcastFragmentPacket_t *)malloc(sizeof(BroadcastFragmentPacket_t));
+    pkt->messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
+    pkt->source = source;
+    pkt->id = packetId;
+    pkt->fragment = fragmentId;
 
+    // Compute where this fragment starts in the original payload
     uint16_t leaderFragPayloadSize = hasLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : 0;
-    uint16_t offset = (fragmentId - 1) * LORA_MAX_FRAGMENT_PAYLOAD + leaderFragPayloadSize;
-    memcpy(pkt.payload, payload + offset, payloadSize);
+    uint16_t offset = (hasLeaderFrag ? (fragmentId - 1) : fragmentId) * LORA_MAX_FRAGMENT_PAYLOAD + leaderFragPayloadSize;
+
+    memcpy(pkt->payload, payload + offset, payloadSize);
     return pkt;
 }
 
@@ -183,9 +202,9 @@ QueuedPacket *PacketBase::dequeuePacket()
 
 // ---------------------- Encapsulation / Decapsulation ----------------------
 
-void PacketBase::encapsulate(MessageTypeBase &msg)
+void PacketBase::encapsulate(MessageTypeBase *msg)
 {
-    msg.setIsMission(true);
+    msg->setIsMission();
 }
 
 bool PacketBase::decapsulate(uint8_t *packet)

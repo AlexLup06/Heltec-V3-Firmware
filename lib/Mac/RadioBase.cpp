@@ -8,22 +8,27 @@ void RadioBase::assignRadio(SX1262Public *_radio)
 void RadioBase::receiveDio1Interrupt()
 {
     uint16_t irq = radio->getIrqFlags();
-    radio->clearIrqFlags(irq);
 
     if (irq & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
     {
         isReceivingVar = true;
         onPreambleDetectedIR();
+        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED);
     }
 
     if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
     {
         onReceiveIR();
         isReceivingVar = false;
+        startReceive();
+        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_RX_DONE);
     }
 
     if (irq & RADIOLIB_SX126X_IRQ_CRC_ERR)
+    {
         onCRCerrorIR();
+        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_CRC_ERR);
+    }
 }
 
 void RadioBase::startReceive()

@@ -16,35 +16,32 @@ private:
     uint16_t MISSION_ID_COUNT = 0;
     uint16_t NEIGHBOUR_ID_COUNT = 0;
 
-    CustomPacketQueue customPacketQueue;
-
     IncompletePacketList incompleteMissionPackets;
     IncompletePacketList incompleteNeighbourPackets;
 
     template <typename T>
-    void enqueueStruct(const T &packetStruct,
-                       bool isHeader,
-                       bool isMission,
-                       bool isNodeAnnounce);
+    void enqueueStruct(const T *packetStruct, size_t packetSize, bool isHeader, bool isMission, bool isNodeAnnounce);
 
-    BroadcastRTSPacket_t createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum);
-    BroadcastLeaderFragmentPacket_t createLeaderFragment(
+    BroadcastRTSPacket_t *createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum);
+    BroadcastLeaderFragmentPacket_t *createLeaderFragment(
         uint16_t packetId,
         uint16_t source,
         uint8_t checksum,
         const uint8_t *payload,
         uint16_t size,
         uint16_t leaderPayloadSize);
-    BroadcastFragmentPacket_t createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, uint16_t payloadSize, bool hasLeaderFrag);
+    BroadcastFragmentPacket_t *createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, size_t payloadSize, uint8_t source, bool hasLeaderFrag);
 
 public:
     PacketBase();
     ~PacketBase();
 
+    CustomPacketQueue customPacketQueue;
+
     void clearQueue();
     QueuedPacket *dequeuePacket();
 
-    BroadcastCTS_t createCTS(uint16_t size);
+    BroadcastCTS_t *createCTS(uint16_t size);
     void createNodeAnnouncePacket(const uint8_t *mac, uint8_t nodeId);
     void createMessage(const uint8_t *payload, uint16_t payloadSize, int source, bool withRTS, bool isMission);
     bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id, bool isMission);
@@ -66,7 +63,7 @@ public:
         bool isMission,
         bool isLeaderFragment);
 
-    void encapsulate(MessageTypeBase &msg);
+    void encapsulate(MessageTypeBase *msg);
     bool decapsulate(uint8_t *packet);
 };
 

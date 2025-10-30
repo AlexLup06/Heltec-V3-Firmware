@@ -100,7 +100,7 @@ void test_encapsulate_and_decapsulate_roundtrip() {
     BroadcastRTSPacket_t pkt{};
     pkt.source = 10;
 
-    MessageTypeBase msg;
+    MessageTypeBase *msg;
     base.encapsulate(msg);
 
     uint8_t buffer[2] = {0x00, 0x12};

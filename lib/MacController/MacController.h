@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include "config.h"
+#include "functions.h"
 
 enum MacProtocol
 {

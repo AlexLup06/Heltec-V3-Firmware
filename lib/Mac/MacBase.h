@@ -11,7 +11,6 @@
 typedef struct ReceivedPacket
 {
     uint8_t messageType;
-    int rssi;
     uint16_t size;
     uint8_t *payload;
     bool isMission;
@@ -23,7 +22,6 @@ struct MacContext
     SX1262Public *radio = nullptr;
     LoggerManager *loggerManager = nullptr;
     LoRaDisplay *loraDisplay = nullptr;
-    bool isMaster = true;
 };
 
 class MacBase : public RadioBase, public PacketBase
@@ -48,6 +46,7 @@ public:
     virtual ~MacBase() {}
 
     void init(MacContext macCtx);
+    void initRun();
     void handle();
     void finish();
     void clearMacData();
@@ -55,10 +54,10 @@ public:
 
     void finishCurrentTransmission();
 
-    virtual void handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, const int rssi, bool isMission) = 0;
+    virtual void handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission) = 0;
     virtual void handleUpperPacket(MessageToSend_t *serialPayloadFloodPacket) = 0;
     void handlePacketResult(Result result, bool withRTS);
-    void handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, const int rssi);
+    void handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi);
     void onReceiveIR() override;
 
     virtual String getProtocolName() = 0;

@@ -1,10 +1,10 @@
-#include "Aloha.h"
+#include "CadAloha.h"
 
-String Aloha::getProtocolName() { return "aloha"; }
-void Aloha::onPreambleDetectedIR() {}
-void Aloha::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
+String CadAloha::getProtocolName() { return "cadaloha"; }
+void CadAloha::onPreambleDetectedIR() {}
+void CadAloha::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
 
-void Aloha::handleWithFSM()
+void CadAloha::handleWithFSM()
 {
     FSMA_Switch(fsm)
     {
@@ -12,11 +12,11 @@ void Aloha::handleWithFSM()
         {
             FSMA_Event_Transition(
                 detected preamble and trying to receive,
-                isReceiving() && currentTransmission == nullptr,
+                isReceiving(),
                 RECEIVING, );
             FSMA_Event_Transition(
                 we have packet to send and just send it,
-                currentTransmission != nullptr,
+                currentTransmission != nullptr && !isReceiving(),
                 TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
@@ -34,10 +34,6 @@ void Aloha::handleWithFSM()
                 isReceivedPacketReady,
                 LISTENING,
                 handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->isMission););
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr,
-                TRANSMITTING, );
         }
     }
 
@@ -47,12 +43,12 @@ void Aloha::handleWithFSM()
     }
 }
 
-void Aloha::handleUpperPacket(MessageToSend_t *msg)
+void CadAloha::handleUpperPacket(MessageToSend_t *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, false, msg->isMission);
 }
 
-void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
 {
     switch (messageType)
     {
@@ -67,14 +63,14 @@ void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packe
     }
 }
 
-void Aloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
     createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false);
 }
 
-void Aloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, false);

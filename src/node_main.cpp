@@ -2,7 +2,7 @@
 
 void setup()
 {
-    commonSetup(false); // node mode
+    commonSetup();
 }
 
 void loop()

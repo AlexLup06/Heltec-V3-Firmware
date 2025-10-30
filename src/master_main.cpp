@@ -1,9 +1,10 @@
 #include "shared/Common.h"
 #include <WiFi.h>
 #include <time.h>
+#include "esp_wifi.h"
 
-const char *WIFI_SSID = "YourHotspotName";
-const char *WIFI_PASSWORD = "YourHotspotPassword";
+const char *WIFI_SSID = "Alex Iphone";
+const char *WIFI_PASSWORD = "test123456";
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 0;
 const int daylightOffset_sec = 0;
@@ -11,20 +12,20 @@ const int daylightOffset_sec = 0;
 void connectToWiFi();
 void initTime();
 void printLocalTime();
-void sendTimeSync();
-void sendConfigMessage();
+void setStartTime();
+void disableWiFiFully();
 
 void setup()
 {
-    commonSetup(true); // master mode
+    commonSetup();
 
-    connectToWiFi();
-    initTime();
-    printLocalTime();
+    // connectToWiFi();
+    // initTime();
+    // printLocalTime();
+    // disableWiFiFully();
 
-    button.onDoubleClick(sendTimeSync);
-    button.onTripleClick(sendConfigMessage);
-    button.onQuadrupleClick(dumpFilesOverSerial);
+    button.onDoubleClick(setStartTime);
+    button.onTripleClick(dumpFilesOverSerial);
 }
 
 void loop()
@@ -32,7 +33,7 @@ void loop()
     commonLoop();
 }
 
-// --- Function Definitions ---
+// --- Function Definitions --- //
 
 void connectToWiFi()
 {
@@ -55,6 +56,16 @@ void connectToWiFi()
     Serial.println("\nWiFi connected!");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+}
+
+void disableWiFiFully()
+{
+    WiFi.disconnect(true, true);
+    delay(200);
+
+    esp_wifi_stop();
+    esp_wifi_deinit();
+    WiFi.mode(WIFI_OFF);
 }
 
 void initTime()
@@ -90,17 +101,9 @@ void printLocalTime()
     }
 }
 
-void sendTimeSync()
+void setStartTime()
 {
-    Serial.println("Double-click detected — sending time sync...");
-    printLocalTime();
-    configurator.sendTimeSync();
-}
-
-void sendConfigMessage()
-{
-    Serial.println("Triple-click detected — sending config message...");
-    time_t startTime = time(nullptr) + 60;
+    Serial.println("Double-click detected — sending config message...");
+    time_t startTime = time(nullptr) + START_DELAY_SEC;
     configurator.setStartTime(startTime);
-    configurator.sendConfigMessage(startTime);
 }

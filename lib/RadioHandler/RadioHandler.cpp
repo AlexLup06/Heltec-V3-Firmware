@@ -5,7 +5,6 @@ int16_t SX1262Public::startReceive()
     int16_t s = SX1262::startReceive();
     if (s == RADIOLIB_ERR_NONE)
     {
-        // RADIOLIB_IRQ_CRC_ERR already enabled by default
         this->setDioIrqParams(
             getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_FLAGS | RADIOLIB_IRQ_PREAMBLE_DETECTED),
             getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_MASK | RADIOLIB_IRQ_PREAMBLE_DETECTED));
@@ -13,10 +12,13 @@ int16_t SX1262Public::startReceive()
     return s;
 }
 
+void SX1262Public::setOnCallback(std::function<void()> cb)
+{
+    onSendCallback = cb;
+}
+
 void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw)
 {
-    SPI.begin();
-
     int state = this->begin(frequency);
     if (state != RADIOLIB_ERR_NONE)
     {
@@ -31,6 +33,8 @@ void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t b
     this->setCodingRate(5);
     this->setSyncWord(0x12);
     this->setPreambleLength(8);
+
+    DEBUG_PRINTLN("Radio initialized successfully!");
 }
 
 void SX1262Public::reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw)
@@ -63,7 +67,11 @@ void SX1262Public::sendRaw(const uint8_t *data, const size_t len)
     int state = this->transmit(data, len);
     if (state == RADIOLIB_ERR_NONE)
     {
-        DEBUG_PRINTLN("Packet sent!");
+        if (onSendCallback)
+            onSendCallback();
+
+        // first bit is mission or not mission
+        DEBUG_PRINTF("Sent %s\n", msgIdToString(data[0] & 0x7F));
     }
     else
     {

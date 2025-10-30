@@ -4,6 +4,8 @@
 #include <LoRaDisplay.h>
 #include <MeshRouter.h>
 #include <Aloha.h>
+#include <CadAloha.h>
+#include <Csma.h>
 #include <MacController.h>
 #include <LoggerManager.h>
 #include <MessageSimulator.h>
@@ -23,8 +25,11 @@ extern MacContext macCtx;
 extern MacBase *macProtocol;
 extern MeshRouter meshRouter;
 extern Aloha aloha;
+extern CadAloha cadAloha;
+extern Csma csma;
 
 // --- Shared callbacks ---
 void onDio1IR();
 void onMacChanged(MacProtocol newMac);
 void onMacFinished(MacProtocol finished);
+void incrementCb();
