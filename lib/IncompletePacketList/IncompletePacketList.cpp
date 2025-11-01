@@ -1,6 +1,26 @@
 #include "IncompletePacketList.h"
 
-FragmentedPacket_t *IncompletePacketList::getPacketBySource(const uint16_t source)
+void IncompletePacketList::clear()
+{
+    for (auto *pkt : packets_)
+    {
+        if (pkt)
+        {
+            if (pkt->payload)
+            {
+                free(pkt->payload);
+                pkt->payload = nullptr;
+            }
+
+            free(pkt);
+        }
+    }
+
+    packets_.clear();
+    latestIdsFromSource_.clear();
+}
+
+FragmentedPacket *IncompletePacketList::getPacketBySource(const uint16_t source)
 {
     for (auto *packet : packets_)
     {
@@ -15,7 +35,7 @@ FragmentedPacket_t *IncompletePacketList::getPacketBySource(const uint16_t sourc
 void IncompletePacketList::removePacketBySource(const uint8_t source)
 {
     auto it = remove_if(packets_.begin(), packets_.end(),
-                        [source](FragmentedPacket_t *packet)
+                        [source](FragmentedPacket *packet)
                         {
                             if (packet && packet->source == source)
                             {
@@ -29,11 +49,12 @@ void IncompletePacketList::removePacketBySource(const uint8_t source)
     packets_.erase(it, packets_.end());
 }
 
-// TODO: create checs whether we want to receive this packet
+// TODO: create checks whether we want to receive this packet
 bool IncompletePacketList::createIncompletePacket(
     const uint16_t id,
     const uint16_t messageSize,
     const uint8_t source,
+    const int16_t hopId,
     const uint8_t messageType,
     const uint8_t checksum)
 {
@@ -52,7 +73,7 @@ bool IncompletePacketList::createIncompletePacket(
 
     int numOfFragments = 1 + restMessageSize % LORA_MAX_FRAGMENT_PAYLOAD;
 
-    auto *packet = (FragmentedPacket_t *)malloc(sizeof(FragmentedPacket_t));
+    auto *packet = (FragmentedPacket *)malloc(sizeof(FragmentedPacket));
     packet->id = id;
     packet->checksum = checksum;
     packet->packetSize = messageSize;
@@ -62,6 +83,7 @@ bool IncompletePacketList::createIncompletePacket(
     packet->corrupted = false;
     packet->received = 0;
     packet->payload = nullptr;
+    packet->hopId = hopId;
 
     if (xPortGetFreeHeapSize() - packet->packetSize > packet->packetSize + 10000)
     {
@@ -85,7 +107,7 @@ Result IncompletePacketList::addToIncompletePacket(
 {
     Result result;
 
-    FragmentedPacket_t *incompletePacket = nullptr;
+    FragmentedPacket *incompletePacket = nullptr;
     for (auto *p : packets_)
     {
         if (p && p->id == id && p->source == source)
@@ -127,14 +149,14 @@ Result IncompletePacketList::addToIncompletePacket(
             incompletePacket->corrupted = true;
 
         result.isComplete = true;
-        result.sendUp = !incompletePacket->corrupted;
+        result.sendUp = !incompletePacket->corrupted && incompletePacket->isMission;
         result.completePacket = incompletePacket;
     }
 
     return result;
 }
 
-int IncompletePacketList::calcOffset(const FragmentedPacket_t *incompletePacket, const uint8_t fragment)
+int IncompletePacketList::calcOffset(const FragmentedPacket *incompletePacket, const uint8_t fragment)
 {
     if (fragment == 0)
     {
@@ -151,7 +173,7 @@ int IncompletePacketList::calcOffset(const FragmentedPacket_t *incompletePacket,
     }
 }
 
-bool IncompletePacketList::isCorrupted(const FragmentedPacket_t *incompletePacket, const uint8_t fragment, const uint16_t payloadSize)
+bool IncompletePacketList::isCorrupted(const FragmentedPacket *incompletePacket, const uint8_t fragment, const uint16_t payloadSize)
 {
     // fragment payload has a max size of 251 Bytes
     if (payloadSize > LORA_MAX_FRAGMENT_PAYLOAD)
@@ -213,18 +235,6 @@ void IncompletePacketList::updatePacketId(
     }
 
     latestIdsFromSource_.emplace_back(sourceId, newId);
-}
-
-bool IncompletePacketList::doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id)
-{
-    for (auto *p : packets_)
-    {
-        if (p && p->id == id && p->source == sourceId)
-        {
-            return true;
-        }
-    }
-    return false;
 }
 
 bool IncompletePacketList::isNewIdLower(

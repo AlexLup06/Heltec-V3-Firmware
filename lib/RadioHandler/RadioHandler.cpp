@@ -6,8 +6,15 @@ int16_t SX1262Public::startReceive()
     if (s == RADIOLIB_ERR_NONE)
     {
         this->setDioIrqParams(
-            getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_FLAGS | RADIOLIB_IRQ_PREAMBLE_DETECTED),
-            getIrqMapped(RADIOLIB_IRQ_RX_DEFAULT_MASK | RADIOLIB_IRQ_PREAMBLE_DETECTED));
+            RADIOLIB_SX126X_IRQ_RX_DONE |
+                RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
+                RADIOLIB_SX126X_IRQ_HEADER_VALID |
+                RADIOLIB_SX126X_IRQ_HEADER_ERR |
+                RADIOLIB_SX126X_IRQ_CRC_ERR,
+            RADIOLIB_SX126X_IRQ_RX_DONE |
+                RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
+                RADIOLIB_SX126X_IRQ_HEADER_ERR |
+                RADIOLIB_SX126X_IRQ_CRC_ERR);
     }
     return s;
 }

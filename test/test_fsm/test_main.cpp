@@ -28,7 +28,8 @@ static void doBaz() { didBaz = true; }
 // -----------------------------------------------------------------------------
 // Setup / teardown
 // -----------------------------------------------------------------------------
-void setUp() {
+void setUp()
+{
     didFoo = didBar = didBaz = false;
     isFoo = isBar = isBaz = false;
 }
@@ -38,9 +39,15 @@ void tearDown() {}
 // -----------------------------------------------------------------------------
 // Helper FSM runner
 // -----------------------------------------------------------------------------
-enum State { STATE_X = 0, STATE_Y, STATE_Z };
+enum State
+{
+    STATE_X = 0,
+    STATE_Y,
+    STATE_Z
+};
 
-void runSimpleFSM(cFSM &fsm) {
+void runSimpleFSM(cFSM &fsm)
+{
     FSMA_Switch(fsm)
     {
         FSMA_State(STATE_X)
@@ -63,14 +70,16 @@ void runSimpleFSM(cFSM &fsm) {
 // TESTS
 // -----------------------------------------------------------------------------
 
-void test_initial_state_and_name() {
+void test_initial_state_and_name()
+{
     cFSM fsm("TestFSM");
     TEST_ASSERT_EQUAL(0, fsm.getState());
     TEST_ASSERT_EQUAL_STRING("INIT", fsm.getStateName());
     TEST_ASSERT_EQUAL_STRING("TestFSM", fsm.getName());
 }
 
-void test_event_transition_XY() {
+void test_event_transition_XY()
+{
     cFSM fsm("fsmXY");
     fsm.setState(STATE_X, "X");
     isFoo = true;
@@ -81,7 +90,8 @@ void test_event_transition_XY() {
     TEST_ASSERT_EQUAL(STATE_Y, fsm.getState());
 }
 
-void test_event_transition_YX() {
+void test_event_transition_YX()
+{
     cFSM fsm("fsmYX");
     fsm.setState(STATE_Y, "Y");
     isBar = true;
@@ -92,7 +102,8 @@ void test_event_transition_YX() {
     TEST_ASSERT_EQUAL(STATE_X, fsm.getState());
 }
 
-void test_no_event_transition_XZ() {
+void test_no_event_transition_XZ()
+{
     cFSM fsm("fsmXZ");
     fsm.setState(STATE_X, "X");
     isBaz = true;
@@ -102,10 +113,11 @@ void test_no_event_transition_XZ() {
     bool ___exit = false;
     bool ___transition_seen = false;
     int ___c = 0;
-    cFSM& ___fsm = fsm;
+    cFSM &___fsm = fsm;
     bool ___logging = true;
 
-    while (!___exit && (___c++ < FSM_MAXT)) {
+    while (!___exit && (___c++ < FSM_MAXT))
+    {
         FSMA_State(STATE_X)
         {
             FSMA_No_Event_Transition("XZ", isBaz, STATE_Z, doBaz());
@@ -117,7 +129,8 @@ void test_no_event_transition_XZ() {
     TEST_ASSERT_EQUAL(STATE_Z, fsm.getState());
 }
 
-void test_ignore_event_does_not_transition() {
+void test_ignore_event_does_not_transition()
+{
     cFSM fsm("fsmIgnore");
     fsm.setState(STATE_X, "X");
     isFoo = true;
@@ -134,12 +147,14 @@ void test_ignore_event_does_not_transition() {
     TEST_ASSERT_FALSE(didFoo);
 }
 
-void test_fail_on_unhandled_event_throws() {
+void test_fail_on_unhandled_event_throws()
+{
     cFSM fsm("fsmFail");
     fsm.setState(STATE_X, "X");
 
     bool threw = false;
-    try {
+    try
+    {
         FSMA_Switch(fsm)
         {
             FSMA_State(STATE_X)
@@ -147,14 +162,17 @@ void test_fail_on_unhandled_event_throws() {
                 FSMA_Fail_On_Unhandled_Event();
             }
         }
-    } catch (...) {
+    }
+    catch (...)
+    {
         threw = true;
     }
 
     TEST_ASSERT_TRUE(threw);
 }
 
-void test_enter_action_executes_once() {
+void test_enter_action_executes_once()
+{
     cFSM fsm("fsmEnter");
     fsm.setState(STATE_X, "X");
 
@@ -165,10 +183,11 @@ void test_enter_action_executes_once() {
         bool ___exit = false;
         bool ___transition_seen = false;
         int ___c = 0;
-        cFSM& ___fsm = fsm;
+        cFSM &___fsm = fsm;
         bool ___logging = true;
 
-        while (!___exit && (___c++ < FSM_MAXT)) {
+        while (!___exit && (___c++ < FSM_MAXT))
+        {
             FSMA_State(STATE_X)
             {
                 FSMA_Enter(counter++);
@@ -180,13 +199,16 @@ void test_enter_action_executes_once() {
     TEST_ASSERT_EQUAL(1, counter);
 }
 
-void test_infinite_loop_protection() {
+void test_infinite_loop_protection()
+{
     cFSM fsm("fsmLoop");
     fsm.setState(STATE_X, "X");
     bool threw = false;
 
-    try {
-        for (int i = 0; i < FSM_MAXT + 2; ++i) {
+    try
+    {
+        for (int i = 0; i < FSM_MAXT + 2; ++i)
+        {
             FSMA_Switch(fsm)
             {
                 FSMA_State(STATE_X)
@@ -196,7 +218,9 @@ void test_infinite_loop_protection() {
             }
         }
         throw std::runtime_error("FSM_MAXT did not trigger");
-    } catch (...) {
+    }
+    catch (...)
+    {
         threw = true;
     }
 
@@ -207,8 +231,9 @@ void test_infinite_loop_protection() {
 // UNITY ENTRY POINT (ESP32 only)
 // -----------------------------------------------------------------------------
 
-void setup() {
-    delay(2000);  // allow serial to attach
+void setup()
+{
+    delay(2000); // allow serial to attach
     UNITY_BEGIN();
 
     RUN_TEST(test_initial_state_and_name);
@@ -221,6 +246,8 @@ void setup() {
     RUN_TEST(test_infinite_loop_protection);
 
     UNITY_END();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    esp_restart();
 }
 
 void loop() {}

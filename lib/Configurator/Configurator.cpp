@@ -1,9 +1,10 @@
 #include "Configurator.h"
 
-void Configurator::setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio)
+void Configurator::setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, uint8_t _nodeId)
 {
     loraDisplay = _loraDisplay;
     radio = _radio;
+    nodeId = _nodeId;
 }
 
 void Configurator::receiveDio1Interrupt()
@@ -11,6 +12,26 @@ void Configurator::receiveDio1Interrupt()
     uint16_t irq = radio->getIrqFlags();
 
     if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
+    {
+        irqFlag = RADIOLIB_SX126X_IRQ_RX_DONE;
+    }
+
+    const uint16_t RX_IRQ_MASK =
+        RADIOLIB_SX126X_IRQ_RX_DONE |
+        RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
+        RADIOLIB_SX126X_IRQ_HEADER_ERR |
+        RADIOLIB_SX126X_IRQ_CRC_ERR;
+
+    uint16_t relevant = irq & RX_IRQ_MASK;
+    if (relevant)
+        radio->clearIrqFlags(relevant);
+}
+
+void Configurator::handleDioInterrupt()
+{
+    uint16_t flags = irqFlag;
+    irqFlag = 0;
+    if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
     {
         radio->standby();
 
@@ -36,7 +57,6 @@ void Configurator::receiveDio1Interrupt()
         }
         free(receiveBuffer);
         radio->startReceive();
-        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_RX_DONE);
     }
 }
 
@@ -67,6 +87,7 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
 
 void Configurator::handleConfigMode()
 {
+    handleDioInterrupt();
     time_t nowUnix = time(NULL);
     if (nowUnix >= startTimeUnix && startTimeUnix != 0)
     {
@@ -97,7 +118,6 @@ void Configurator::handleConfigMode()
 
 void Configurator::turnOnOperationMode()
 {
-    DEBUG_PRINTLN("Turned on Operation Mode!");
     operationMode = OPERATIONAL;
 }
 bool Configurator::isInConfigMode()
@@ -121,11 +141,13 @@ void Configurator::setClockFromTimestamp(uint32_t unixTime)
 void Configurator::sendBroadcastConfig()
 {
     BroadcastConfig_t msg{};
-    msg.currentTime = static_cast<uint32_t>(time(NULL)) + getSendTimeByPacketSizeInUS(sizeof(BroadcastConfig_t)) / 1'000'000;
+    msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig_t)) / 1'000'000;
     msg.source = nodeId;
     msg.startTime = startTimeUnix;
 
     radio->sendRaw((uint8_t *)&msg, sizeof(msg));
 
     DEBUG_PRINTF("[CONFIG] Master sent TIME_SYNC t=%lu\n", msg.currentTime);
+
+    radio->startReceive();
 }

@@ -4,13 +4,9 @@
 #include "MacBase.h"
 #include "Messages.h"
 #include "definitions.h"
-#include "FSMA.h"
 
 class Aloha : public MacBase
 {
-protected:
-    void onCRCerrorIR() override;
-
 public:
     enum State
     {
@@ -19,16 +15,9 @@ public:
         TRANSMITTING
     };
 
-    cFSM fsm;
-
     void handleWithFSM();
-    void onPreambleDetectedIR() override;
     void handleUpperPacket(MessageToSend_t *msg) override;
-    void handleProtocolPacket(
-        const uint8_t messageType,
-        const uint8_t *packet,
-        const size_t packetSize,
-        bool isMission) override;
+    void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
     void handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission);
     void handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission);
     String getProtocolName();

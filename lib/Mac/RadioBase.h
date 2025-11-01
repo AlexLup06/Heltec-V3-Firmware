@@ -13,6 +13,8 @@ private:
     bool isTransmittingVar = false;
     SX1262Public *radio;
 
+    volatile uint16_t irqFlag = 0b0000000000000000;
+
 public:
     void assignRadio(SX1262Public *_radio);
     void sendPacket(const uint8_t *data, const size_t len);
@@ -27,8 +29,11 @@ public:
     size_t getPacketLength();
     int readData(uint8_t *data, size_t len);
 
+    void finishRadioBase();
+
 protected:
     virtual void onReceiveIR() {};
     virtual void onPreambleDetectedIR() {};
-    virtual void onCRCerrorIR() {};
+
+    void handleDio1Interrupt();
 };

@@ -186,6 +186,8 @@ void setup()
     RUN_TEST(test_node_announce_goes_after_fragment_if_header_gone);
 
     UNITY_END();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    esp_restart();
 }
 
 void loop() {}

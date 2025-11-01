@@ -5,29 +5,61 @@ void RadioBase::assignRadio(SX1262Public *_radio)
     radio = _radio;
 }
 
+void RadioBase::finishRadioBase()
+{
+    isReceivingVar = false;
+    isTransmittingVar = false;
+    irqFlag = 0b0;
+}
+
 void RadioBase::receiveDio1Interrupt()
 {
     uint16_t irq = radio->getIrqFlags();
 
     if (irq & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
+        irqFlag |= RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED;
+
+    if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
+        irqFlag |= RADIOLIB_SX126X_IRQ_RX_DONE;
+
+    if (irq & RADIOLIB_SX126X_IRQ_CRC_ERR)
+        irqFlag |= RADIOLIB_SX126X_IRQ_CRC_ERR;
+
+    if (irq & RADIOLIB_SX126X_IRQ_HEADER_ERR)
+        irqFlag |= RADIOLIB_SX126X_IRQ_HEADER_ERR;
+
+    const uint16_t RX_IRQ_MASK =
+        RADIOLIB_SX126X_IRQ_RX_DONE |
+        RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
+        RADIOLIB_SX126X_IRQ_HEADER_ERR |
+        RADIOLIB_SX126X_IRQ_CRC_ERR;
+
+    uint16_t relevant = irq & RX_IRQ_MASK;
+    if (relevant)
+        radio->clearIrqFlags(relevant);
+}
+
+void RadioBase::handleDio1Interrupt()
+{
+    uint16_t flags = irqFlag;
+    irqFlag = 0;
+    if (flags & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
     {
         isReceivingVar = true;
         onPreambleDetectedIR();
-        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED);
     }
 
-    if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
+    if (flags & (RADIOLIB_SX126X_IRQ_RX_DONE |
+                 RADIOLIB_SX126X_IRQ_HEADER_ERR |
+                 RADIOLIB_SX126X_IRQ_CRC_ERR))
     {
-        onReceiveIR();
         isReceivingVar = false;
-        startReceive();
-        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_RX_DONE);
-    }
+        if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
+        {
+            onReceiveIR();
+        }
 
-    if (irq & RADIOLIB_SX126X_IRQ_CRC_ERR)
-    {
-        onCRCerrorIR();
-        radio->clearIrqFlags(RADIOLIB_SX126X_IRQ_CRC_ERR);
+        startReceive();
     }
 }
 

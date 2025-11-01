@@ -13,7 +13,8 @@ static uint8_t dummyPayload[600] = {0};
 void setUp() {}
 void tearDown() {}
 
-static uint8_t makeChecksum(const uint8_t *payload, uint16_t size) {
+static uint8_t makeChecksum(const uint8_t *payload, uint16_t size)
+{
     return crc8(payload, size);
 }
 
@@ -21,12 +22,13 @@ static uint8_t makeChecksum(const uint8_t *payload, uint16_t size) {
 // Tests
 // -----------------------------------------------------------------------------
 
-void test_createNodeAnnounce_adds_to_queue() {
-    PacketBase base;
-    uint8_t mac[6] = {1,2,3,4,5,6};
+void test_createNodeAnnounce_adds_to_queue()
+{
+    PacketBase base(7);
+    uint8_t mac[6] = {1, 2, 3, 4, 5, 6};
 
     base.createNodeAnnouncePacket(mac, 7);
-    const QueuedPacket* pkt = base.dequeuedPacketWasLast() ? base.dequeuePacket() : nullptr;
+    const QueuedPacket *pkt = base.dequeuedPacketWasLast() ? base.dequeuePacket() : nullptr;
 
     TEST_ASSERT_NOT_NULL(pkt);
     TEST_ASSERT_TRUE(pkt->isNodeAnnounce);
@@ -34,15 +36,16 @@ void test_createNodeAnnounce_adds_to_queue() {
     TEST_ASSERT_FALSE(pkt->isMission);
 }
 
-void test_createMessage_withRTS_creates_multiple_packets() {
-    PacketBase base;
+void test_createMessage_withRTS_creates_multiple_packets()
+{
+    PacketBase base(7);
     uint8_t payload[400];
     memset(payload, 0xAB, sizeof(payload));
 
-    base.createMessage(payload, sizeof(payload), 5, true, true);
+    base.createMessage(payload, sizeof(payload), 5, true, true, false);
 
     // First should be RTS
-    const QueuedPacket* first = base.dequeuePacket();
+    const QueuedPacket *first = base.dequeuePacket();
     TEST_ASSERT_NOT_NULL(first);
     TEST_ASSERT_TRUE(first->isHeader);
     TEST_ASSERT_TRUE(first->isMission);
@@ -50,58 +53,64 @@ void test_createMessage_withRTS_creates_multiple_packets() {
 
     // There should still be fragments queued
     int count = 1;
-    while (base.dequeuePacket() != nullptr) count++;
+    while (base.dequeuePacket() != nullptr)
+        count++;
     TEST_ASSERT_GREATER_THAN(1, count);
 }
 
-void test_createMessage_withoutRTS_creates_leader_and_fragments() {
-    PacketBase base;
+void test_createMessage_withoutRTS_creates_leader_and_fragments()
+{
+    PacketBase base(7);
     uint8_t payload[600];
     memset(payload, 0xCD, sizeof(payload));
 
-    base.createMessage(payload, sizeof(payload), 3, false, false);
+    base.createMessage(payload, sizeof(payload), 3, false, false, false);
 
-    const QueuedPacket* first = base.dequeuePacket();
+    const QueuedPacket *first = base.dequeuePacket();
     TEST_ASSERT_NOT_NULL(first);
     TEST_ASSERT_TRUE(first->isHeader);
     TEST_ASSERT_FALSE(first->isMission);
     TEST_ASSERT_FALSE(first->isNodeAnnounce);
 
     int count = 1;
-    while (base.dequeuePacket() != nullptr) count++;
+    while (base.dequeuePacket() != nullptr)
+        count++;
     TEST_ASSERT_GREATER_THAN(1, count);
 }
 
-void test_doesIncompletePacketExist_returns_correct_value() {
-    PacketBase base;
-    base.createIncompletePacket(1, 100, 1, 0, 0x11, true);
-    base.createIncompletePacket(2, 120, 2, 0, 0x22, false);
+void test_doesIncompletePacketExist_returns_correct_value()
+{
+    PacketBase base(7);
+    base.createIncompletePacket(1, 100, 1, 1, 0, 0x11, true);
+    base.createIncompletePacket(2, 120, 2, 1, 0, 0x22, false);
 
     TEST_ASSERT_TRUE(base.doesIncompletePacketExist(1, 1, true));
     TEST_ASSERT_TRUE(base.doesIncompletePacketExist(2, 2, false));
     TEST_ASSERT_FALSE(base.doesIncompletePacketExist(3, 3, true));
 }
 
-void test_addToIncompletePacket_uses_correct_list() {
-    PacketBase base;
+void test_addToIncompletePacket_uses_correct_list()
+{
+    PacketBase base(7);
     memset(dummyPayload, 0x44, 251);
 
-    base.createIncompletePacket(10, 251, 8, 0, 0x33, true);
+    base.createIncompletePacket(10, 251, 8, 1, 0, 0x33, true);
     auto res1 = base.addToIncompletePacket(10, 8, 0, 251, dummyPayload, true, false);
     TEST_ASSERT_TRUE(res1.isComplete || !res1.isComplete);
 
-    base.createIncompletePacket(20, 251, 9, 0, 0x44, false);
+    base.createIncompletePacket(20, 251, 9, 1, 0, 0x44, false);
     auto res2 = base.addToIncompletePacket(20, 9, 0, 251, dummyPayload, false, false);
     TEST_ASSERT_TRUE(res2.isComplete || !res2.isComplete);
 }
 
-void test_encapsulate_and_decapsulate_roundtrip() {
-    PacketBase base;
+void test_encapsulate_and_decapsulate_roundtrip()
+{
+    PacketBase base(7);
     BroadcastRTSPacket_t pkt{};
     pkt.source = 10;
 
     MessageTypeBase *msg;
-    base.encapsulate(msg);
+    base.encapsulate(msg, true);
 
     uint8_t buffer[2] = {0x00, 0x12};
     buffer[0] |= 0x80; // simulate mission bit
@@ -110,9 +119,10 @@ void test_encapsulate_and_decapsulate_roundtrip() {
     TEST_ASSERT_EQUAL(0x00, buffer[0]);
 }
 
-void test_clearQueue_frees_packets() {
-    PacketBase base;
-    uint8_t mac[6] = {9,8,7,6,5,4};
+void test_clearQueue_frees_packets()
+{
+    PacketBase base(7);
+    uint8_t mac[6] = {9, 8, 7, 6, 5, 4};
     base.createNodeAnnouncePacket(mac, 9);
 
     base.clearQueue();
@@ -120,9 +130,10 @@ void test_clearQueue_frees_packets() {
     TEST_ASSERT_NULL(p);
 }
 
-void test_dequeuedPacketWasLast_logic() {
-    PacketBase base;
-    uint8_t mac[6] = {1,2,3,4,5,6};
+void test_dequeuedPacketWasLast_logic()
+{
+    PacketBase base(7);
+    uint8_t mac[6] = {1, 2, 3, 4, 5, 6};
     base.createNodeAnnouncePacket(mac, 2);
     TEST_ASSERT_TRUE(base.dequeuedPacketWasLast());
 }
@@ -131,8 +142,9 @@ void test_dequeuedPacketWasLast_logic() {
 // UNITY ENTRY POINT for ESP32
 // -----------------------------------------------------------------------------
 
-void setup() {
-    delay(2000);  // Give serial monitor time to attach
+void setup()
+{
+    delay(2000); // Give serial monitor time to attach
     UNITY_BEGIN();
 
     RUN_TEST(test_createNodeAnnounce_adds_to_queue);
@@ -145,6 +157,8 @@ void setup() {
     RUN_TEST(test_dequeuedPacketWasLast_logic);
 
     UNITY_END();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    esp_restart();
 }
 
 void loop() {}

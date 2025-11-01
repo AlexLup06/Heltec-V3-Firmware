@@ -20,6 +20,10 @@ void commonSetup()
     SPI.setFrequency(4000000);
     delay(1000);
 
+    uint8_t macAdress[6];
+    esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
+    nodeId = macAdress[5];
+
     loggerManager.init();
     loraDisplay.init();
 
@@ -37,8 +41,8 @@ void commonSetup()
     radio.startReceive();
     radio.setOnCallback(incrementCb);
 
-    setMacSwitchCallback(onMacChanged);
-    setMacFinishCallback(onMacFinished);
+    macController.setSwitchCallback(onMacChanged);
+    macController.setFinishCallback(onMacFinished);
 
     button.begin();
     button.onTripleClick(dumpFilesOverSerial);
@@ -48,15 +52,18 @@ void commonSetup()
     macCtx.loggerManager = &loggerManager;
     macCtx.loraDisplay = &loraDisplay;
 
-    // macProtocol = &meshRouter;
-    macProtocol = &csma;
+    macProtocol = &aloha;
+    macController.setMac(macProtocol);
 
-    configurator.setCtx(&loraDisplay, &radio);
+    configurator.setCtx(&loraDisplay, &radio, nodeId);
 
-    meshRouter.init(macCtx);
-    aloha.init(macCtx);
-    cadAloha.init(macCtx);
-    csma.init(macCtx);
+    meshRouter.init(macCtx, nodeId);
+    aloha.init(macCtx, nodeId);
+    cadAloha.init(macCtx, nodeId);
+    csma.init(macCtx, nodeId);
+    rsmitra.init(macCtx, nodeId);
+    irsmitra.init(macCtx, nodeId);
+    mirs.init(macCtx, nodeId);
 }
 
 void displayTask(void *pvParameters)

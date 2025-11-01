@@ -26,20 +26,22 @@ inline uint8_t crc8(const uint8_t *data, size_t len)
     return crc;
 }
 
-inline uint32_t getSendTimeByPacketSizeInUS(int packetBytes)
+inline uint32_t getToAByPacketSizeInUS(int packetBytes)
 {
     constexpr bool CRC_ON = true;
     constexpr bool IMPLICIT_HEADER = false;
     constexpr double PREAMBLE_SYMB = 12.0;
 
+    long bw = LORA_BANDWIDTH * 1000;
+
     // Derived parameters
-    const bool lowDataRateOptimize = (LORA_SPREADINGFACTOR >= 11 && LORA_BANDWIDTH == 125000);
+    const bool lowDataRateOptimize = (LORA_SPREADINGFACTOR >= 11 && bw == 125000);
     const double DE = lowDataRateOptimize ? 1.0 : 0.0;
     const double H = IMPLICIT_HEADER ? 1.0 : 0.0;
     const double CRC = CRC_ON ? 1.0 : 0.0;
 
     // Symbol time in microseconds
-    const double Tsym_us = (std::pow(2.0, LORA_SPREADINGFACTOR) * 1e6) / LORA_BANDWIDTH;
+    const double Tsym_us = (std::pow(2.0, LORA_SPREADINGFACTOR) * 1e6) / bw;
 
     // Payload symbol calculation (from SX1262 datasheet)
     const double numerator = 8.0 * packetBytes - 4.0 * LORA_SPREADINGFACTOR + 28.0 + 16.0 * CRC - 20.0 * H;
@@ -54,6 +56,23 @@ inline uint32_t getSendTimeByPacketSizeInUS(int packetBytes)
 
     const uint64_t result = static_cast<uint64_t>(std::round(duration_us));
     return static_cast<uint32_t>(result > 0xFFFFFFFF ? 0xFFFFFFFF : result);
+}
+
+template <typename T>
+inline T *tryCastMessage(uint8_t *buffer, size_t bufferSize = sizeof(T))
+{
+    if (!buffer)
+        return nullptr;
+    if (bufferSize < sizeof(T))
+        return nullptr; // safety check
+
+    const uint8_t *typePtr = buffer; // first byte in your structs
+    const uint8_t expectedType = T{}.messageType;
+
+    if (*typePtr != expectedType)
+        return nullptr; // not the same message type
+
+    return reinterpret_cast<T *>(buffer);
 }
 
 inline void dumpFilesOverSerial()
@@ -94,6 +113,7 @@ inline void dumpFilesOverSerial()
 
 inline const char *msgIdToString(uint8_t msgId)
 {
+    msgId = msgId & 0x7F;
     switch (msgId)
     {
     case MESSAGE_TYPE_BROADCAST_CONFIG:

@@ -1,65 +1,106 @@
 #include "MacController.h"
 
-bool isInWaitMode = false;
-
-static MacProtocol currentMac = MESH_ROUTER;
-static MacSwitchCallback onMacSwitch = nullptr;
-static MacFinishCallback onMacFinish = nullptr;
-
-static bool waitingForNext = false;
-static unsigned long switchTime = 0;
-static unsigned long macStartTime = 0;
-static bool isFirstTimeRunning = true;
-
-static const unsigned long RUN_DURATION_MS = SIMULATION_DURATION_MIN * 60UL * 1000UL;
-static const unsigned long SWITCH_DELAY_MS = MAC_PROTOCOL_SWITCH_DELAY_MIN * 60UL * 1000UL;
-
-MacProtocol getCurrentMac() { return currentMac; }
-
-void setMacSwitchCallback(MacSwitchCallback cb) { onMacSwitch = cb; }
-void setMacFinishCallback(MacFinishCallback cb) { onMacFinish = cb; }
-
-void markMacFinished()
+MacController::MacController()
+    : currentMac(ALOHA),
+      onMacSwitch(nullptr),
+      onMacFinish(nullptr),
+      waitingForNext(false),
+      firstRun(true),
+      waitMode(false),
+      switchTime(0),
+      macStartTime(0)
 {
+}
 
+void MacController::setMac(MacBase *m)
+{
+    mac = m;
+}
+
+void MacController::setSwitchCallback(MacSwitchCallback cb)
+{
+    onMacSwitch = cb;
+}
+
+void MacController::setFinishCallback(MacFinishCallback cb)
+{
+    onMacFinish = cb;
+}
+
+MacProtocol MacController::getCurrent() const
+{
+    return currentMac;
+}
+
+bool MacController::isInWaitMode() const
+{
+    return waitMode;
+}
+
+void MacController::markFinished()
+{
     if (waitingForNext)
-        return; // already waiting
+        return;
+
     DEBUG_PRINTLN("MAC finished");
     waitingForNext = true;
     switchTime = millis() + SWITCH_DELAY_MS;
-    isInWaitMode = true;
+    waitMode = true;
 
     if (onMacFinish)
         onMacFinish(currentMac);
 }
 
-void updateMacController()
+void MacController::update()
 {
-    // initialize MAC controller
-    if (isFirstTimeRunning)
-    {
-        macStartTime = millis();
-        isInWaitMode = false;
-        isFirstTimeRunning = false;
-    }
-
     unsigned long now = millis();
 
-    // Check if current MAC has reached its 10-min run duration
-    if (!waitingForNext && (now - macStartTime >= RUN_DURATION_MS))
+    if (firstRun)
     {
-        markMacFinished();
+        DEBUG_PRINTLN("First MACController update");
+        macStartTime = now;
+        waitMode = false;
+        firstRun = false;
+        mac->initRun();
     }
 
-    if (waitingForNext && (now >= switchTime))
+    if (!waitingForNext && (now - macStartTime >= RUN_DURATION_MS))
+    {
+        markFinished();
+    }
+
+    if (waitingForNext && now >= switchTime)
     {
         DEBUG_PRINTLN("MAC switched");
         waitingForNext = false;
         currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);
         macStartTime = now;
-        isInWaitMode = false;
+        waitMode = false;
 
         if (onMacSwitch)
             onMacSwitch(currentMac);
+    }
+}
+
+String MacController::macIdToString(MacProtocol macProtocol) const
+{
+    switch (macProtocol)
+    {
+    case MESH_ROUTER:
+        return "LoRaMeshRouter";
+    case CAD_ALOHA:
+        return "LoRaCADAloha";
+    case ALOHA:
+        return "LoRaAloha";
+    case CSMA:
+        return "LoRaCSMA";
+    case RS_MITRA:
+        return "LoRaRSMitra";
+    case IRS_MITRA:
+        return "LoRaIRSMitra";
+    case MIRS:
+        return "LoRaMIRS";
+    default:
+        return "InvalidMAC";
     }
 }

@@ -14,7 +14,7 @@ public:
 
     void handleWithFSM() override;
 
-    void handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission) override;
+    void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
     void OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packetSize, bool isMission);
     void OnFloodFragmentPacket(BroadcastFragmentPacket_t *packet, size_t packetSize, bool isMission);
 
@@ -23,7 +23,6 @@ public:
 
 protected:
     void onPreambleDetectedIR() override;
-    void onCRCerrorIR() override;
 
 private:
     long predictPacketSendTime(uint8_t size);

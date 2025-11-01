@@ -1,8 +1,6 @@
 #include "CadAloha.h"
 
 String CadAloha::getProtocolName() { return "cadaloha"; }
-void CadAloha::onPreambleDetectedIR() {}
-void CadAloha::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
 
 void CadAloha::handleWithFSM()
 {
@@ -33,11 +31,11 @@ void CadAloha::handleWithFSM()
                 got - message,
                 isReceivedPacketReady,
                 LISTENING,
-                handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->isMission););
+                handleProtocolPacket(receivedPacket););
         }
     }
 
-    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty())
+    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)
     {
         currentTransmission = dequeuePacket();
     }
@@ -45,11 +43,16 @@ void CadAloha::handleWithFSM()
 
 void CadAloha::handleUpperPacket(MessageToSend_t *msg)
 {
-    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission);
+    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission, false);
 }
 
-void CadAloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    uint8_t messageType = receivedPacket->messageType;
+    uint8_t *packet = receivedPacket->payload;
+    size_t packetSize = receivedPacket->size;
+    bool isMission = receivedPacket->isMission;
+
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
@@ -65,13 +68,13 @@ void CadAloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *pa
 
 void CadAloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
+    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
-    handlePacketResult(result, false);
+    handlePacketResult(result, false, false);
 }
 
 void CadAloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
-    handlePacketResult(result, false);
+    handlePacketResult(result, false, false);
 }

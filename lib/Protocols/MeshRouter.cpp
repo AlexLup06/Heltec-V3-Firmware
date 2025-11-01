@@ -4,6 +4,11 @@ String MeshRouter::getProtocolName() { return "meshrouter"; }
 
 void MeshRouter::handleWithFSM()
 {
+    if (isReceivedPacketReady)
+    {
+        handleProtocolPacket(receivedPacket);
+    }
+
     if (blockSendUntil + preambleAdd > millis())
     {
         return;
@@ -17,13 +22,11 @@ void MeshRouter::handleWithFSM()
 
     if (queuedPacket->data[0] == MESSAGE_TYPE_BROADCAST_RTS)
     {
-        DEBUG_PRINTLN("We just sent RTS");
         SenderWait(150);
     }
 
     if (dequeuedPacketWasLast())
     {
-        DEBUG_PRINTLN("We just sent last packet");
         long fullWaitTime = predictPacketSendTime(255);
         SenderWait(50 + (fullWaitTime + (rand() % 51)));
     }
@@ -41,14 +44,14 @@ void MeshRouter::onPreambleDetectedIR()
     preambleAdd = 1000 + predictPacketSendTime(255);
 }
 
-void MeshRouter::onCRCerrorIR()
-{
-    DEBUG_PRINTLN("CRC error (packet corrupted)");
-}
-
-void MeshRouter::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
+void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
     preambleAdd = 0;
+    uint8_t messageType = receivedPacket->messageType;
+    uint8_t *packet = receivedPacket->payload;
+    size_t packetSize = receivedPacket->size;
+    bool isMission = receivedPacket->isMission;
+
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
@@ -78,7 +81,7 @@ void MeshRouter::SenderWait(unsigned long waitTime)
 
 void MeshRouter::handleUpperPacket(MessageToSend_t *messageToSend)
 {
-    createMessage(messageToSend->payload, messageToSend->size, nodeId, true, messageToSend->isMission);
+    createMessage(messageToSend->payload, messageToSend->size, nodeId, true, messageToSend->isMission, false);
 }
 
 void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packetSize, bool isMission)
@@ -89,7 +92,7 @@ void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packet
         return;
     }
 
-    bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
+    bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
     if (!createdPacket)
         return;
     uint16_t nextFragLength = (uint16_t)packet->size > 255 ? 255 : packet->size;
@@ -110,7 +113,7 @@ void MeshRouter::OnFloodFragmentPacket(BroadcastFragmentPacket_t *packet, size_t
     if (result.completePacket == nullptr)
         return;
 
-    handlePacketResult(result, true);
+    handlePacketResult(result, true, false);
 
     if (result.sendUp)
     {

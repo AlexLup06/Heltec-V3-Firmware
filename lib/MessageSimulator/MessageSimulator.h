@@ -15,11 +15,14 @@ private:
     uint16_t timeToNextMission = 5000;
     uint16_t timeToNextNeighbour = 8000;
 
-    bool isFirstTimeRunning = true;
+    bool initRun = true;
 
 public:
     MessageSimulator();
     ~MessageSimulator();
+
+    void init();
+    void finish();
 
     void simulateMessages();
     void cleanUp();

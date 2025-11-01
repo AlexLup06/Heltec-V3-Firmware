@@ -10,9 +10,12 @@ struct QueuedPacket
     size_t packetSize;
     uint8_t source;
     uint16_t id;
+    uint8_t sendTrys;
+    uint8_t fullMsgChecksum;
     bool isHeader;
     bool isMission;
     bool isNodeAnnounce;
+    bool hasContinuousRTS;
 };
 
 class CustomPacketQueue

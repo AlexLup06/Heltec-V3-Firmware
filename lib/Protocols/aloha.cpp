@@ -1,8 +1,6 @@
 #include "Aloha.h"
 
 String Aloha::getProtocolName() { return "aloha"; }
-void Aloha::onPreambleDetectedIR() {}
-void Aloha::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
 
 void Aloha::handleWithFSM()
 {
@@ -33,7 +31,7 @@ void Aloha::handleWithFSM()
                 got - message,
                 isReceivedPacketReady,
                 LISTENING,
-                handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->isMission););
+                handleProtocolPacket(receivedPacket););
             FSMA_Event_Transition(
                 we have packet to send and just send it,
                 currentTransmission != nullptr,
@@ -41,7 +39,7 @@ void Aloha::handleWithFSM()
         }
     }
 
-    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty())
+    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)
     {
         currentTransmission = dequeuePacket();
     }
@@ -49,11 +47,18 @@ void Aloha::handleWithFSM()
 
 void Aloha::handleUpperPacket(MessageToSend_t *msg)
 {
-    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission);
+    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission, false);
 }
 
-void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
+void Aloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    DEBUG_PRINTLN("[RadioBase] handleProtocolPacket");
+
+    uint8_t messageType = receivedPacket->messageType;
+    uint8_t *packet = receivedPacket->payload;
+    size_t packetSize = receivedPacket->size;
+    bool isMission = receivedPacket->isMission;
+
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
@@ -69,13 +74,13 @@ void Aloha::handleProtocolPacket(const uint8_t messageType, const uint8_t *packe
 
 void Aloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
+    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
-    handlePacketResult(result, false);
+    handlePacketResult(result, false, false);
 }
 
 void Aloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
-    handlePacketResult(result, false);
+    handlePacketResult(result, false, false);
 }

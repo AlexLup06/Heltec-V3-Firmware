@@ -1,8 +1,6 @@
 #include "Csma.h"
 
 String Csma::getProtocolName() { return "csma"; }
-void Csma::onPreambleDetectedIR() {}
-void Csma::onCRCerrorIR() { DEBUG_PRINTLN("CRC error (packet corrupted)"); }
 
 void Csma::handleWithFSM()
 {
@@ -22,16 +20,16 @@ void Csma::handleWithFSM()
         FSMA_State(BACKOFF)
         {
 
-            FSMA_Enter(scheduleBackoffTimer());
+            FSMA_Enter(backoff.schedule());
             FSMA_Event_Transition(Start - Transmit,
-                                  backoffFinished(),
+                                  backoff.finished(),
                                   TRANSMITTING,
-                                  invalidateBackoffPeriod(););
+                                  backoff.invalidate(););
             FSMA_Event_Transition(Start - Receive,
                                   isReceiving(),
                                   RECEIVING,
-                                  cancelBackoffTimer();
-                                  decreaseBackoffPeriod(););
+                                  backoff.cancel();
+                                  backoff.decrease(););
         }
         FSMA_State(TRANSMITTING)
         {
@@ -47,11 +45,11 @@ void Csma::handleWithFSM()
                 got - message,
                 isReceivedPacketReady,
                 LISTENING,
-                handleProtocolPacket(receivedPacket->messageType, receivedPacket->payload, receivedPacket->size, receivedPacket->isMission););
+                handleProtocolPacket(receivedPacket););
         }
     }
 
-    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty())
+    if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)
     {
         currentTransmission = dequeuePacket();
     }
@@ -59,11 +57,16 @@ void Csma::handleWithFSM()
 
 void Csma::handleUpperPacket(MessageToSend_t *msg)
 {
-    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission);
+    createMessage(msg->payload, msg->size, nodeId, false, msg->isMission, false);
 }
 
-void Csma::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet, const size_t packetSize, bool isMission)
+void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    uint8_t messageType = receivedPacket->messageType;
+    uint8_t *packet = receivedPacket->payload;
+    size_t packetSize = receivedPacket->size;
+    bool isMission = receivedPacket->isMission;
+
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
@@ -79,81 +82,13 @@ void Csma::handleProtocolPacket(const uint8_t messageType, const uint8_t *packet
 
 void Csma::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, packet->messageType, packet->checksum, isMission);
+    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
-    handlePacketResult(result, false);
+    handlePacketResult(result, false, false);
 }
 
 void Csma::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
-    handlePacketResult(result, false);
-}
-
-// --------------- Backoff helper functions ---------------
-
-bool Csma::backoffFinished()
-{
-    if (backoffPeriodMs < 0 || !backoffRunning)
-        return false;
-
-    int now = millis();
-    int elapsed = now - backoffStartMs;
-
-    if (elapsed >= backoffPeriodMs)
-    {
-        backoffRunning = false;
-        backoffPeriodMs = -1;
-        return true;
-    }
-
-    return false;
-}
-
-void Csma::invalidateBackoffPeriod()
-{
-    backoffPeriodMs = -1;
-    backoffRunning = false;
-}
-
-void Csma::cancelBackoffTimer()
-{
-    backoffRunning = false;
-    backoffStartMs = 0;
-
-    DEBUG_PRINTLN("[CSMA] Backoff timer cancelled");
-}
-
-void Csma::decreaseBackoffPeriod()
-{
-    if (backoffPeriodMs <= 0 || !backoffRunning)
-        return;
-
-    int now = millis();
-    int elapsed = now - backoffStartMs;
-
-    int slotsElapsed = (int)(elapsed / slotTimeMS);
-    backoffPeriodMs -= slotsElapsed * slotTimeMS;
-
-    if (backoffPeriodMs < 0)
-        backoffPeriodMs = 0;
-
-    DEBUG_PRINTF("[CSMA] Backoff decreased, remaining=%ld ms\n", backoffPeriodMs);
-}
-
-void Csma::scheduleBackoffTimer()
-{
-    if (backoffPeriodMs < 0)
-    {
-        int slots = random(1, cw + 1);
-        backoffPeriodMs = slots * slotTimeMS;
-        DEBUG_PRINTF("[CSMA] New backoff generated: slots=%d -> %ld ms\n", slots, backoffPeriodMs);
-    }
-    else
-    {
-        DEBUG_PRINTF("[CSMA] Resuming backoff: remaining=%ld ms\n", backoffPeriodMs);
-    }
-
-    backoffStartMs = millis();
-    backoffRunning = true;
+    handlePacketResult(result, false, false);
 }

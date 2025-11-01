@@ -1,24 +1,40 @@
 #include "MessageSimulator.h"
 
+void MessageSimulator::init()
+{
+    uint32_t currentTime = millis();
+    nextMission = currentTime + timeToNextMission;
+    nextNeighbour = currentTime + timeToNextNeighbour;
+}
+
+void MessageSimulator::finish()
+{
+    packetReady = false;
+    if (messageToSend != nullptr)
+    {
+        free(messageToSend->payload);
+        free(messageToSend);
+        messageToSend = nullptr;
+    }
+}
+
 void MessageSimulator::simulateMessages()
 {
     uint32_t currentTime = millis();
 
-    if (isFirstTimeRunning)
+    if (initRun)
     {
-        nextMission = currentTime + timeToNextMission;
-        nextNeighbour = currentTime + timeToNextNeighbour;
-        isFirstTimeRunning = false;
+        init();
+        initRun = false;
     }
 
     if (currentTime > nextMission)
     {
-        uint16_t size = random(50, 247);
+        uint16_t size = random(50, 245);
         uint8_t *dummyPayload = (uint8_t *)malloc(size);
 
         for (int i = 0; i < size; i++)
         {
-            // TODO: check if correct generation
             dummyPayload[i] = random(0, 256);
         }
 
@@ -30,7 +46,7 @@ void MessageSimulator::simulateMessages()
         messageToSend = msg;
         packetReady = true;
 
-        nextMission = currentTime + timeToNextMission;
+        nextMission = currentTime + random(timeToNextMission - timeToNextMission / 10, timeToNextMission - timeToNextMission / 10);
         return;
     }
 
@@ -41,7 +57,6 @@ void MessageSimulator::simulateMessages()
 
         for (int i = 0; i < size; i++)
         {
-            // TODO: check if correct generation
             dummyPayload[i] = random(0, 256);
         }
 
@@ -53,7 +68,7 @@ void MessageSimulator::simulateMessages()
         messageToSend = msg;
         packetReady = true;
 
-        nextNeighbour = currentTime + timeToNextNeighbour;
+        nextNeighbour = currentTime + random(timeToNextNeighbour - timeToNextNeighbour / 10, timeToNextNeighbour - timeToNextNeighbour / 10);
         return;
     }
 }

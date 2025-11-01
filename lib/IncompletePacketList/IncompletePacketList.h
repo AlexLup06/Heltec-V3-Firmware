@@ -20,22 +20,22 @@ extern "C" size_t xPortGetFreeHeapSize()
 }
 #endif
 
-#pragma pack(1)
-typedef struct FragmentedPacket
+struct FragmentedPacket
 {
     uint16_t id;
     uint16_t packetSize;
     uint8_t checksum;
     uint8_t source;
+    int16_t hopId;
     uint8_t numOfFragments;
 
+    bool isMission;
     bool withLeaderFrag;
     bool receivedFragments[16] = {false};
     bool corrupted = false;
     uint16_t received = 0;
     uint8_t *payload;
-} FragmentedPacket_t;
-#pragma pack()
+};
 
 struct Result
 {
@@ -43,7 +43,7 @@ struct Result
     bool sendUp = false;
     bool isMission = false;
     uint16_t bytesLeft = 0;
-    FragmentedPacket_t *completePacket = nullptr;
+    FragmentedPacket *completePacket = nullptr;
 };
 
 class IncompletePacketList
@@ -56,12 +56,15 @@ public:
 
     ~IncompletePacketList() = default;
 
-    FragmentedPacket_t *getPacketBySource(const uint16_t source);
+    void clear();
+
+    FragmentedPacket *getPacketBySource(const uint16_t source);
     void removePacketBySource(const uint8_t source);
     bool createIncompletePacket(
         const uint16_t id,
         const uint16_t packetSize,
         const uint8_t source,
+        const int16_t hopId,
         const uint8_t messageType,
         const uint8_t checksum);
     Result addToIncompletePacket(
@@ -72,16 +75,15 @@ public:
         const uint8_t *payload);
 
     void updatePacketId(const uint8_t sourceId, const uint16_t newId);
-    bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id);
     bool isNewIdLower(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdSame(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdHigher(const uint8_t sourceId, const uint16_t newId) const;
 
-    bool isCorrupted(const FragmentedPacket_t *incompletePacket, const uint8_t fragment, const uint16_t payloadSize);
-    int calcOffset(const FragmentedPacket_t *incompletePacket, const uint8_t fragment);
+    bool isCorrupted(const FragmentedPacket *incompletePacket, const uint8_t fragment, const uint16_t payloadSize);
+    int calcOffset(const FragmentedPacket *incompletePacket, const uint8_t fragment);
 
 private:
-    vector<FragmentedPacket_t *> packets_;
+    vector<FragmentedPacket *> packets_;
     vector<pair<uint8_t, uint16_t>> latestIdsFromSource_;
     bool isMissionList_;
 };

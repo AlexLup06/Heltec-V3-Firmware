@@ -11,7 +11,8 @@ static uint8_t dummyPayload[300] = {0};
 void setUp() {}
 void tearDown() {}
 
-static uint8_t makeChecksum(uint16_t id, uint16_t size, uint8_t src) {
+static uint8_t makeChecksum(uint16_t id, uint16_t size, uint8_t src)
+{
     return (id + size + src) & 0xFF;
 }
 
@@ -19,10 +20,11 @@ static uint8_t makeChecksum(uint16_t id, uint16_t size, uint8_t src) {
 // Tests
 // -----------------------------------------------------------------------------
 
-void test_create_and_get_packet() {
+void test_create_and_get_packet()
+{
     IncompletePacketList list;
 
-    list.createIncompletePacket(1, 300, 7, 0, makeChecksum(1, 300, 7));
+    list.createIncompletePacket(1, 300, 7, 1, 0, makeChecksum(1, 300, 7));
     auto *pkt = list.getPacketBySource(7);
     TEST_ASSERT_NOT_NULL(pkt);
     TEST_ASSERT_EQUAL(1, pkt->id);
@@ -30,11 +32,12 @@ void test_create_and_get_packet() {
     TEST_ASSERT_FALSE(pkt->corrupted);
 }
 
-void test_remove_packet_by_source() {
+void test_remove_packet_by_source()
+{
     IncompletePacketList list;
-    list.createIncompletePacket(1, 100, 1, 0, 0xAA);
-    list.createIncompletePacket(2, 100, 2, 0, 0xBB);
-    list.createIncompletePacket(3, 100, 3, 0, 0xCC);
+    list.createIncompletePacket(1, 100, 1, 1, 0, 0xAA);
+    list.createIncompletePacket(2, 100, 2, 1, 0, 0xBB);
+    list.createIncompletePacket(3, 100, 3, 1, 0, 0xCC);
 
     list.removePacketBySource(2);
     auto *p1 = list.getPacketBySource(1);
@@ -46,17 +49,19 @@ void test_remove_packet_by_source() {
     TEST_ASSERT_NOT_NULL(p3);
 }
 
-void test_create_replaces_existing() {
+void test_create_replaces_existing()
+{
     IncompletePacketList list;
-    list.createIncompletePacket(1, 100, 1, 0, 0xAA);
-    list.createIncompletePacket(2, 120, 1, 0, 0xBB);
+    list.createIncompletePacket(1, 100, 1, 1, 0, 0xAA);
+    list.createIncompletePacket(2, 120, 1, 1, 0, 0xBB);
     auto *pkt = list.getPacketBySource(1);
     TEST_ASSERT_EQUAL(2, pkt->id);
 }
 
-void test_calc_offset_nonleader() {
+void test_calc_offset_nonleader()
+{
     IncompletePacketList list;
-    FragmentedPacket_t pkt{};
+    FragmentedPacket pkt{};
     pkt.withLeaderFrag = false;
 
     int off0 = list.calcOffset(&pkt, 0);
@@ -68,9 +73,10 @@ void test_calc_offset_nonleader() {
     TEST_ASSERT_EQUAL(2 * LORA_MAX_FRAGMENT_PAYLOAD, off2);
 }
 
-void test_calc_offset_leader() {
+void test_calc_offset_leader()
+{
     IncompletePacketList list;
-    FragmentedPacket_t pkt{};
+    FragmentedPacket pkt{};
     pkt.withLeaderFrag = true;
 
     int off0 = list.calcOffset(&pkt, 0);
@@ -82,9 +88,10 @@ void test_calc_offset_leader() {
     TEST_ASSERT_EQUAL(LORA_MAX_FRAGMENT_LEADER_PAYLOAD + LORA_MAX_FRAGMENT_PAYLOAD, off2);
 }
 
-void test_is_corrupted_rules() {
+void test_is_corrupted_rules()
+{
     IncompletePacketList list;
-    FragmentedPacket_t pkt{};
+    FragmentedPacket pkt{};
 
     // single fragment - must match
     pkt.numOfFragments = 1;
@@ -95,14 +102,15 @@ void test_is_corrupted_rules() {
     // leader fragment
     pkt.numOfFragments = 2;
     pkt.withLeaderFrag = true;
-    pkt.packetSize = 247 + 80; // 327 bytes total
+    pkt.packetSize = 247 + 80;                         // 327 bytes total
     TEST_ASSERT_TRUE(list.isCorrupted(&pkt, 0, 200));  // leader frag wrong
     TEST_ASSERT_FALSE(list.isCorrupted(&pkt, 0, 247)); // leader frag ok
 }
 
-void test_add_to_incomplete_completes() {
+void test_add_to_incomplete_completes()
+{
     IncompletePacketList list;
-    list.createIncompletePacket(1, 251, 10, 0, 0x11);
+    list.createIncompletePacket(1, 251, 10, 1, 0, 0x11);
 
     auto *pkt = list.getPacketBySource(10);
     TEST_ASSERT_NOT_NULL(pkt);
@@ -114,9 +122,10 @@ void test_add_to_incomplete_completes() {
     TEST_ASSERT_EQUAL(pkt, res.completePacket);
 }
 
-void test_add_duplicate_fragment_ignored() {
+void test_add_duplicate_fragment_ignored()
+{
     IncompletePacketList list;
-    list.createIncompletePacket(1, 500, 9, 0, 0x22);
+    list.createIncompletePacket(1, 500, 9, 1, 0, 0x22);
     auto *pkt = list.getPacketBySource(9);
     memset(dummyPayload, 0x66, 251);
 
@@ -129,7 +138,8 @@ void test_add_duplicate_fragment_ignored() {
     TEST_ASSERT_EQUAL(251, pkt->received); // unchanged
 }
 
-void test_update_packet_id_comparisons() {
+void test_update_packet_id_comparisons()
+{
     IncompletePacketList list;
     list.updatePacketId(1, 10);
     TEST_ASSERT_TRUE(list.isNewIdHigher(1, 11));
@@ -141,7 +151,8 @@ void test_update_packet_id_comparisons() {
 // UNITY ENTRY POINT (ESP32 version)
 // -----------------------------------------------------------------------------
 
-void setup() {
+void setup()
+{
     delay(2000); // allow serial monitor to attach
     UNITY_BEGIN();
 
@@ -156,6 +167,8 @@ void setup() {
     RUN_TEST(test_update_packet_id_comparisons);
 
     UNITY_END();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    esp_restart();
 }
 
 void loop() {}

@@ -2,6 +2,11 @@
 
 void commonLoop()
 {
+    if (macController.finishedAllRuns())
+    {
+        return;
+    }
+
     button.update();
 
     if (configurator.isInConfigMode())
@@ -10,13 +15,13 @@ void commonLoop()
         return;
     }
 
-    if (!isInWaitMode)
+    if (!macController.isInWaitMode())
     {
         macProtocol->handle();
         messageSimulator.simulateMessages();
     }
 
-    updateMacController();
+    macController.update();
 
     if (messageSimulator.packetReady)
     {
