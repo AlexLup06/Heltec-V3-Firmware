@@ -28,6 +28,7 @@ public:
     void standby();
     size_t getPacketLength();
     int readData(uint8_t *data, size_t len);
+    void setReceivingVar(bool s);
 
     void finishRadioBase();
 

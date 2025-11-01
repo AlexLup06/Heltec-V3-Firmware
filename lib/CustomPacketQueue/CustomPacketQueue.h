@@ -1,8 +1,10 @@
 #pragma once
+#include <Arduino.h>
 #include <deque>
 #include <cstdint>
 #include <stdlib.h>
 #include <algorithm>
+#include <functions.h>
 
 struct QueuedPacket
 {
@@ -33,6 +35,7 @@ public:
     void removePacket(QueuedPacket *pkt);
     bool isEmpty() const;
     int size() const;
+    void printQueue();
 
 private:
     std::deque<QueuedPacket *> packetQueue;

@@ -37,11 +37,6 @@ void Configurator::handleDioInterrupt()
 
         size_t len = radio->getPacketLength();
         uint8_t *receiveBuffer = (uint8_t *)malloc(len);
-        if (!receiveBuffer)
-        {
-            DEBUG_PRINTLN("ERROR: malloc failed!");
-            return;
-        }
 
         int state = radio->readData(receiveBuffer, len);
         float rssi = radio->getRSSI();
@@ -66,7 +61,7 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
     {
     case MESSAGE_TYPE_BROADCAST_CONFIG:
     {
-        BroadcastConfig_t *packet = (BroadcastConfig_t *)rawPacket;
+        BroadcastConfig *packet = (BroadcastConfig *)rawPacket;
 
         startTimeUnix = packet->startTime;
 
@@ -140,8 +135,8 @@ void Configurator::setClockFromTimestamp(uint32_t unixTime)
 
 void Configurator::sendBroadcastConfig()
 {
-    BroadcastConfig_t msg{};
-    msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig_t)) / 1'000'000;
+    BroadcastConfig msg{};
+    msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig)) / 1'000'000;
     msg.source = nodeId;
     msg.startTime = startTimeUnix;
 

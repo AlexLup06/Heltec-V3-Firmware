@@ -24,6 +24,8 @@ void commonSetup()
     esp_read_mac(macAdress, ESP_MAC_WIFI_STA);
     nodeId = macAdress[5];
 
+    randomSeed(nodeId);
+
     loggerManager.init();
     loraDisplay.init();
 

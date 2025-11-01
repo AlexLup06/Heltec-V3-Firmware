@@ -4,8 +4,8 @@ void MacBase::finish()
 {
     clearMacData();
     finishRadioBase();
-    fsm.setState(0);
-    DEBUG_PRINTLN("Cleared Data and ready for next run");
+    finishProtocol();
+    DEBUG_PRINTLN("Cleared Data and ready for next run\n");
 }
 
 void MacBase::clearMacData()
@@ -24,18 +24,20 @@ void MacBase::clearMacData()
 
 void MacBase::initRun()
 {
+    initProtocol();
     nodeAnnounceTime = millis();
 }
 
 void MacBase::handle()
 {
     handleDio1Interrupt();
-    if (nodeAnnounceTime < millis())
+    if (millis() > nodeAnnounceTime)
     {
         createNodeAnnouncePacket(nodeId);
         nodeAnnounceTime = millis() + 5000;
     }
-    handleWithFSM();
+    SelfMessage *msg = msgScheduler.popNextReady();
+    handleWithFSM(msg);
 }
 
 void MacBase::init(MacContext macCtx, uint8_t _nodeId)
@@ -60,6 +62,7 @@ void MacBase::finishCurrentTransmission()
 
 void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi)
 {
+    DEBUG_PRINTF("[MacBase] Received %s\n", msgIdToString(messageType));
     if (messageType == MESSAGE_TYPE_BROADCAST_CONFIG)
     {
         return;
@@ -68,7 +71,6 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
     if (messageType == MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE)
     {
         loraDisplay->updateNode(packet[1], rssi);
-        return;
     }
 
     isReceivedPacketReady = true;
@@ -76,24 +78,33 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
 
     receivedPacket = (ReceivedPacket *)malloc(sizeof(ReceivedPacket));
     receivedPacket->isMission = isMission;
-    receivedPacket->messageType = messageType;
+    receivedPacket->messageType = packet[0];
     receivedPacket->size = packetSize;
     receivedPacket->payload = (uint8_t *)malloc(packetSize);
 
     memcpy(receivedPacket->payload, packet, packetSize);
 
     handleWithFSM();
+}
+
+void MacBase::finishReceiving()
+{
+    customPacketQueue.printQueue();
 
     isReceivedPacketReady = false;
     free(receivedPacket->payload);
     free(receivedPacket);
     receivedPacket = nullptr;
+    setReceivingVar(false);
 }
 
 void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuousRTS)
 {
+    customPacketQueue.printQueue();
+
     if (result.isComplete)
     {
+        DEBUG_PRINTLN("[Mac Base] packet complete");
         if (result.sendUp)
         {
             FragmentedPacket *fragmentedPacket = result.completePacket;
@@ -101,7 +112,15 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
             {
                 return;
             }
-            createMessage(fragmentedPacket->payload, fragmentedPacket->packetSize, fragmentedPacket->source, withRTS, true, withContinuousRTS);
+            DEBUG_PRINTLN("[Mac Base] Packet is mission so propagate");
+            createMessage(
+                fragmentedPacket->payload,
+                fragmentedPacket->packetSize,
+                fragmentedPacket->source,
+                withRTS,
+                true,
+                withContinuousRTS,
+                fragmentedPacket->id);
         }
 
         removeIncompletePacket(result.completePacket->source, result.isMission);
@@ -110,7 +129,6 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
 
 void MacBase::onReceiveIR()
 {
-    DEBUG_PRINTLN("[MacBase] onReceiveIR");
     standby();
 
     size_t len = getPacketLength();

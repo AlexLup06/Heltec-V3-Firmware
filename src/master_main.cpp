@@ -19,10 +19,10 @@ void setup()
 {
     commonSetup();
 
-    // connectToWiFi();
-    // initTime();
-    // printLocalTime();
-    // disableWiFiFully();
+    connectToWiFi();
+    initTime();
+    printLocalTime();
+    disableWiFiFully();
 
     button.onDoubleClick(setStartTime);
     button.onTripleClick(dumpFilesOverSerial);

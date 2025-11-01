@@ -1,43 +1,65 @@
 #include "RSMiTra.h"
 
-String RSMiTra::getProtocolName() { return "rsmitra"; }
-
-void RSMiTra::handleWithFSM()
+inline bool weAreWaitingLog()
 {
+    DEBUG_PRINTLN("Waiting for CTS");
+    return true;
+}
+
+String RSMiTra::getProtocolName()
+{
+    return "rsmitra";
+}
+
+void RSMiTra::finishProtocol()
+{
+    finishRTSCTS();
+    fsm.setState(0);
+}
+
+void RSMiTra::handleWithFSM(SelfMessage *msg)
+{
+    if (msg == nullptr)
+    {
+        static SelfMessage defaultMsg{"default"};
+        msg = &defaultMsg;
+    }
+
     FSMA_Switch(fsm)
     {
         FSMA_State(LISTENING)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered LISTENING"););
-            FSMA_Event_Transition(
-                detected preamble and trying to receive,
-                isReceiving(),
-                RECEIVING, );
-            FSMA_Event_Transition(
-                we got rts now send cts,
-                initiateCTSTimer.triggered() && isFreeToSend(),
-                CW_CTS, );
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr && !isReceiving() && !shortWaitTimer.isScheduled() && isFreeToSend(), // !shortWaitTimer.isScheduled() instaed of SWITCHING state
-                BACKOFF, );
+            FSMA_Event_Transition(we got rts now send cts,
+                                  initiateCTS && isFreeToSend(),
+                                  CW_CTS, );
+            FSMA_Event_Transition(we have packet to send and just send it,
+                                  currentTransmission != nullptr &&
+                                      !isReceiving() &&
+                                      !shortWaitTimer.isScheduled() &&
+                                      !initiateCTS &&
+                                      isFreeToSend(),
+                                  BACKOFF, );
+            FSMA_Event_Transition(detected preamble and trying to receive,
+                                  isReceiving(),
+                                  RECEIVING, );
         }
         FSMA_State(BACKOFF)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered BACKOFF"); regularBackoff.schedule(););
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered BACKOFF"); regularBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(backoff finished send rts,
-                                  regularBackoff.finished() && withRTS(),
+                                  regularBackoff == *msg && withRTS(),
                                   SEND_RTS,
-                                  regularBackoff.invalidate());
+                                  regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(backoff finished message without rts - only NodeAnnounce in th1s protocol,
-                                  regularBackoff.finished() && !withRTS(),
+                                  regularBackoff == *msg && !withRTS(),
                                   TRANSMITTING,
-                                  regularBackoff.invalidate());
+                                  regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(receiving msg - cancle backoff - listen now,
                                   isReceiving(),
                                   RECEIVING,
-                                  regularBackoff.cancel();
-                                  regularBackoff.decrease(););
+                                  regularBackoffHandler.cancelBackoffTimer();
+                                  regularBackoffHandler.decreaseBackoffPeriod(););
         }
         FSMA_State(SEND_RTS)
         {
@@ -50,25 +72,23 @@ void RSMiTra::handleWithFSM()
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered WAIT_CTS"););
             FSMA_Event_Transition(we didnt get cts go back to listening,
-                                  waitForCTSTimer.triggered(),
+                                  waitForCTSTimer == *msg && weAreWaitingLog(),
                                   LISTENING,
                                   handleCTSTimeout();
-                                  shortWaitTimer.schedule(sifs_MS);
-
-            );
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
             FSMA_Event_Transition(received a CTS meant f0r us,
-                                  isOurCTS(),
+                                  isOurCTS() && weAreWaitingLog(),
                                   READY_TO_SEND, );
         }
         FSMA_State(READY_TO_SEND)
         {
-            FSMA_Event_Transition(we - didnt - get - cts - go - back - to - listening,
-                                  waitForCTSTimer.triggered(),
+            FSMA_Event_Transition(we didnt get cts go back to listening,
+                                  waitForCTSTimer == *msg,
                                   TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTINF"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTIN"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
             FSMA_Event_Transition(
                 finished transmitting,
                 !isTransmitting(),
@@ -76,17 +96,17 @@ void RSMiTra::handleWithFSM()
         }
         FSMA_State(CW_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] CW_CTS"); ctsBackoff.schedule(););
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] CW_CTS"); initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(cts backoff finished and we send cts,
-                                  ctsBackoff.finished(),
+                                  ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
-                                  ctsBackoff.invalidate());
+                                  ctsBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(got packet from rts source,
                                   isPacketFromRTSSource(receivedPacket),
                                   RECEIVING,
-                                  ctsBackoff.invalidate();
-                                  ctsBackoff.cancel();
-                                  shortWaitTimer.schedule(sifs_MS););
+                                  ctsBackoffHandler.invalidateBackoffPeriod();
+                                  ctsBackoffHandler.cancelBackoffTimer();
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
         }
         FSMA_State(SEND_CTS)
         {
@@ -99,23 +119,21 @@ void RSMiTra::handleWithFSM()
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered AWAIT_TRANSMISSION"););
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
-                                  transmissionStartTimer.triggered() && !isReceiving(),
+                                  transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
                                   clearRTSsource();
-                                  transmissionEndTimer.cancel();
-                                  shortWaitTimer.schedule(sifs_MS););
+                                  msgScheduler.cancel(&transmissionEndTimer);
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
             FSMA_Event_Transition(received packet from RTS source - we waited f0r that,
                                   isPacketFromRTSSource(receivedPacket),
                                   RECEIVING,
-                                  transmissionStartTimer.cancel();
-                                  transmissionEndTimer.cancel();
-                                  shortWaitTimer.schedule(sifs_MS);
-
-            );
+                                  msgScheduler.cancel(&transmissionStartTimer);
+                                  msgScheduler.cancel(&transmissionEndTimer);
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
             FSMA_Event_Transition(did not receive message from RTS source - just go back to listen,
-                                  transmissionEndTimer.triggered(),
+                                  transmissionEndTimer == *msg,
                                   LISTENING,
-                                  shortWaitTimer.schedule(sifs_MS););
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
         }
         FSMA_State(RECEIVING)
         {
@@ -134,13 +152,17 @@ void RSMiTra::handleWithFSM()
     }
 }
 
-void RSMiTra::handleUpperPacket(MessageToSend_t *msg)
+void RSMiTra::handleUpperPacket(MessageToSend *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, true, msg->isMission, true);
+    DEBUG_PRINTF("Got packet. Now enqueing. Is Mission: %d\n", msg->isMission);
+    customPacketQueue.printQueue();
 }
 
 void RSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+
+    DEBUG_PRINTF("[Protocol] handleProtocolPacket: %s\n", msgIdToString(receivedPacket->messageType));
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
     size_t packetSize = receivedPacket->size;
@@ -149,55 +171,67 @@ void RSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
-        handleRTS((BroadcastRTSPacket_t *)packet, packetSize, isMission);
+        handleRTS((BroadcastRTSPacket *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS:
-        handleContinuousRTS((BroadcastContinuousRTSPacket_t *)packet, packetSize, isMission);
+        handleContinuousRTS((BroadcastContinuousRTSPacket *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment((BroadcastFragmentPacket_t *)packet, packetSize, isMission);
+        handleFragment((BroadcastFragmentPacket *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CTS:
-        handleCTS((BroadcastCTS_t *)packet, packetSize, isMission);
+        handleCTS((BroadcastCTS *)packet, packetSize, isMission);
         break;
     default:
+        DEBUG_PRINTF("[Protocol] received unkown packet: %s\n", msgIdToString(receivedPacket->messageType));
         break;
     }
+
+    finishReceiving();
 }
 
-void RSMiTra::handleRTS(const BroadcastRTSPacket_t *packet, const size_t packetSize, bool isMission)
+void RSMiTra::handleRTS(const BroadcastRTSPacket *packet, const size_t packetSize, bool isMission)
 {
+    // TODO: check this logic here. There is something up with ctsData.rtsSource = packet->hopId; I think we just dont get to the setting of ctsData.rtsSource. it does not create the incomplete packet
+    DEBUG_PRINTLN("[Protocol] handleRTS");
     bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
     if (!createdPacket)
+    {
+        DEBUG_PRINTLN("[Protocol] Incomplete Packet was not created");
         return;
+    }
 
     uint16_t sizeOfFragment = packet->size > LORA_MAX_FRAGMENT_PAYLOAD ? 255 : packet->size + BROADCAST_FRAGMENT_METADATA_SIZE;
     ctsData.fragmentSize = sizeOfFragment;
     ctsData.rtsSource = packet->hopId;
     rtsSource = packet->hopId;
-    initiateCTSTimer.schedule(0);
+    DEBUG_PRINTLN("[Protocol] Initiate CTS Timer");
+    initiateCTS = true;
 }
 
-void RSMiTra::handleContinuousRTS(const BroadcastContinuousRTSPacket_t *packet, const size_t packetSize, bool isMission)
+void RSMiTra::handleContinuousRTS(const BroadcastContinuousRTSPacket *packet, const size_t packetSize, bool isMission)
 {
+    DEBUG_PRINTLN("[Protocol] handleContinuousRTS");
     if (!doesIncompletePacketExist(packet->source, packet->id, isMission))
         return;
 
     ctsData.fragmentSize = packet->fragmentSize;
     ctsData.rtsSource = packet->hopId;
     rtsSource = packet->hopId;
-    initiateCTSTimer.schedule(0);
+    initiateCTS = true;
 }
 
-void RSMiTra::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void RSMiTra::handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
+    DEBUG_PRINTLN("[Protocol] handleFragment");
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, true, true);
 }
 
-void RSMiTra::handleCTS(const BroadcastCTS_t *packet, const size_t packetSize, bool isMission)
+void RSMiTra::handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission)
 {
+    DEBUG_PRINTLN("[Protocol] handleCTS");
     // we are only here if we did not request the CTS. Just wait for the time that the transmission
     uint32_t endOngoingTransmission = millis() + getToAByPacketSizeInUS(packet->fragmentSize) / 1000 + sifs_MS;
-    ongoingTransmissionTimer.schedule(endOngoingTransmission);
+    msgScheduler.schedule(&ongoingTransmissionTimer, endOngoingTransmission);
 }

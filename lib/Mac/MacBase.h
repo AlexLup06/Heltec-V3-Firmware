@@ -7,6 +7,7 @@
 #include "RadioBase.h"
 #include "PacketBase.h"
 #include "FSMA.h"
+#include "SelfMessageScheduler.h"
 
 struct ReceivedPacket
 {
@@ -33,26 +34,28 @@ protected:
     bool isReceivedPacketReady = false;
     ReceivedPacket *receivedPacket;
 
-    cFSM fsm;
-
 public:
     LoggerManager *loggerManager;
     LoRaDisplay *loraDisplay;
+    SelfMessageScheduler msgScheduler;
 
     MacBase() : PacketBase(nodeId) {}
     virtual ~MacBase() {}
 
-    void init(MacContext macCtx,uint8_t nodeId);
+    void init(MacContext macCtx, uint8_t nodeId);
     void initRun();
     void handle();
     void finish();
     void clearMacData();
-    virtual void handleWithFSM() = 0;
+    virtual void initProtocol() {};
+    virtual void finishProtocol() {};
+    virtual void handleWithFSM(SelfMessage *msg = nullptr) = 0;
 
     void finishCurrentTransmission();
+    void finishReceiving();
 
     virtual void handleProtocolPacket(ReceivedPacket *receivedPacket) = 0;
-    virtual void handleUpperPacket(MessageToSend_t *serialPayloadFloodPacket) = 0;
+    virtual void handleUpperPacket(MessageToSend *serialPayloadFloodPacket) = 0;
     void handlePacketResult(Result result, bool withRTS, bool withContinuousRTS);
     void handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi);
     void onReceiveIR() override;

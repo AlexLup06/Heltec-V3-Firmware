@@ -1,8 +1,17 @@
 #include "MeshRouter.h"
 
-String MeshRouter::getProtocolName() { return "meshrouter"; }
+String MeshRouter::getProtocolName()
+{
+    return "meshrouter";
+}
 
-void MeshRouter::handleWithFSM()
+void MeshRouter::finishProtocol()
+{
+    blockSendUntil = 0;
+    preambleAdd = 0;
+}
+
+void MeshRouter::handleWithFSM(SelfMessage *msg)
 {
     if (isReceivedPacketReady)
     {
@@ -55,16 +64,18 @@ void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
-        MeshRouter::OnFloodHeaderPacket((BroadcastRTSPacket_t *)packet, packetSize, isMission);
+        MeshRouter::OnFloodHeaderPacket((BroadcastRTSPacket *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        MeshRouter::OnFloodFragmentPacket((BroadcastFragmentPacket_t *)packet, packetSize, isMission);
+        MeshRouter::OnFloodFragmentPacket((BroadcastFragmentPacket *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     default:
         break;
     }
+
+    finishReceiving();
 }
 
 /**
@@ -79,12 +90,12 @@ void MeshRouter::SenderWait(unsigned long waitTime)
     }
 }
 
-void MeshRouter::handleUpperPacket(MessageToSend_t *messageToSend)
+void MeshRouter::handleUpperPacket(MessageToSend *messageToSend)
 {
     createMessage(messageToSend->payload, messageToSend->size, nodeId, true, messageToSend->isMission, false);
 }
 
-void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packetSize, bool isMission)
+void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket *packet, size_t packetSize, bool isMission)
 {
     if (doesIncompletePacketExist(packet->id, packet->source, isMission))
     {
@@ -99,7 +110,7 @@ void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packet
     SenderWait((unsigned long)20 + predictPacketSendTime(nextFragLength));
 }
 
-void MeshRouter::OnFloodFragmentPacket(BroadcastFragmentPacket_t *packet, size_t packetSize, bool isMission)
+void MeshRouter::OnFloodFragmentPacket(BroadcastFragmentPacket *packet, size_t packetSize, bool isMission)
 {
     if (doesIncompletePacketExist(packet->source, packet->id, isMission))
     {

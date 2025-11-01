@@ -38,7 +38,7 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto msg = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
+        auto msg = (MessageToSend *)malloc(sizeof(MessageToSend));
         msg->payload = dummyPayload;
         msg->size = size;
         msg->isMission = true;
@@ -60,7 +60,7 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto msg = (MessageToSend_t *)malloc(sizeof(MessageToSend_t));
+        auto msg = (MessageToSend *)malloc(sizeof(MessageToSend));
         msg->payload = dummyPayload;
         msg->size = size;
         msg->isMission = false;

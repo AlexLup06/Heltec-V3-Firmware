@@ -6,6 +6,7 @@
 #include "definitions.h"
 #include "FSMA.h"
 #include "BackoffHandler.h"
+#include "SelfMessage.h"
 
 class Csma : public MacBase
 {
@@ -18,15 +19,18 @@ public:
         TRANSMITTING
     };
 
-    void handleWithFSM();
-    void handleUpperPacket(MessageToSend_t *msg) override;
+    void initProtocol() override;
+    void finishProtocol() override;
+
+    void handleWithFSM(SelfMessage *msg = nullptr) override;
+    void handleUpperPacket(MessageToSend *msg) override;
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
-    void handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission);
-    void handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission);
+    void handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
     String getProtocolName();
 
-protected:
-
 private:
-    Backoff backoff{200, 8};
+    cFSM fsm;
+    SelfMessage backoff;
+    BackoffHandler backoffHandler{200, 8, &msgScheduler, &backoff};
 };

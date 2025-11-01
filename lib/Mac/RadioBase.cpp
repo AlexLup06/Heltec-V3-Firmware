@@ -45,6 +45,7 @@ void RadioBase::handleDio1Interrupt()
     irqFlag = 0;
     if (flags & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
     {
+        DEBUG_PRINTLN("[Radio Base] got preamble");
         isReceivingVar = true;
         onPreambleDetectedIR();
     }
@@ -53,14 +54,20 @@ void RadioBase::handleDio1Interrupt()
                  RADIOLIB_SX126X_IRQ_HEADER_ERR |
                  RADIOLIB_SX126X_IRQ_CRC_ERR))
     {
-        isReceivingVar = false;
         if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
         {
+            DEBUG_PRINTLN("[Radio Base] RADIOLIB_SX126X_IRQ_RX_DONE");
             onReceiveIR();
         }
+        isReceivingVar = false;
 
         startReceive();
     }
+}
+
+void RadioBase::setReceivingVar(bool s)
+{
+    isReceivingVar = false;
 }
 
 void RadioBase::startReceive()

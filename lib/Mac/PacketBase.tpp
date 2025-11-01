@@ -5,6 +5,7 @@ template <typename T>
 void PacketBase::enqueueStruct(
     const T *packetStruct,
     size_t packetSize,
+    int id,
     bool isHeader,
     bool isMission,
     bool isNodeAnnounce,
@@ -16,6 +17,7 @@ void PacketBase::enqueueStruct(
 
     QueuedPacket *pkt = (QueuedPacket *)malloc(sizeof(QueuedPacket));
 
+    pkt->id=id;
     pkt->data = buffer;
     pkt->packetSize = packetSize;
     pkt->isHeader = isHeader;

@@ -18,20 +18,21 @@ private:
 
     uint8_t nodeId;
 
-    IncompletePacketList incompleteMissionPackets;
+    IncompletePacketList incompleteMissionPackets{true};
     IncompletePacketList incompleteNeighbourPackets;
 
     template <typename T>
     void enqueueStruct(
         const T *packetStruct,
         size_t packetSize,
+        int id,
         bool isHeader,
         bool isMission,
         bool isNodeAnnounce,
         uint8_t fullMsgChecksum,
         bool hasContinuousRTS = false);
 
-    BroadcastLeaderFragmentPacket_t *createLeaderFragment(
+    BroadcastLeaderFragmentPacket *createLeaderFragment(
         uint16_t packetId,
         uint16_t source,
         uint8_t checksum,
@@ -39,7 +40,7 @@ private:
         uint16_t size,
         uint16_t leaderPayloadSize,
         bool isMission);
-    BroadcastFragmentPacket_t *createFragment(
+    BroadcastFragmentPacket *createFragment(
         uint16_t packetId,
         uint8_t fragmentId,
         const uint8_t *payload,
@@ -58,11 +59,11 @@ public:
     void clearIncompletePacketLists();
     QueuedPacket *dequeuePacket();
 
-    BroadcastRTSPacket_t *createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission);
-    BroadcastContinuousRTSPacket_t *createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission);
-    BroadcastCTS_t *createCTS(uint8_t fragmentSize, uint8_t rtsSource);
+    BroadcastRTSPacket *createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission);
+    BroadcastContinuousRTSPacket *createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission);
+    BroadcastCTS *createCTS(uint8_t fragmentSize, uint8_t rtsSource);
     void createNodeAnnouncePacket(uint8_t nodeId);
-    void createMessage(const uint8_t *payload, uint16_t payloadSize, uint8_t source, bool withRTS, bool isMission, bool withContinuousRTS);
+    void createMessage(const uint8_t *payload, uint16_t payloadSize, uint8_t source, bool withRTS, bool isMission, bool withContinuousRTS, int id = -1);
     bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id, bool isMission);
     bool dequeuedPacketWasLast();
     QueuedPacket *createNewContinuousRTS(QueuedPacket *queuedPacket);
@@ -83,7 +84,7 @@ public:
         const uint16_t id,
         const uint16_t source,
         const uint8_t fragment,
-        const uint16_t payloadSize,
+        const uint16_t packetSize,
         const uint8_t *payload,
         bool isMission,
         bool isLeaderFragment);

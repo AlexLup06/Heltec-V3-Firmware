@@ -12,13 +12,15 @@ public:
     unsigned long blockSendUntil = 0; // Blocks senders until previous message sent
     unsigned long preambleAdd = 0;    // Increases blocking time causing the other senders to wait
 
-    void handleWithFSM() override;
+    void handleWithFSM(SelfMessage *msg = nullptr) override;
+
+    void finishProtocol() override;
 
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
-    void OnFloodHeaderPacket(BroadcastRTSPacket_t *packet, size_t packetSize, bool isMission);
-    void OnFloodFragmentPacket(BroadcastFragmentPacket_t *packet, size_t packetSize, bool isMission);
+    void OnFloodHeaderPacket(BroadcastRTSPacket *packet, size_t packetSize, bool isMission);
+    void OnFloodFragmentPacket(BroadcastFragmentPacket *packet, size_t packetSize, bool isMission);
 
-    void handleUpperPacket(MessageToSend_t *serialPayloadFloodPacket) override;
+    void handleUpperPacket(MessageToSend *serialPayloadFloodPacket) override;
     String getProtocolName() override;
 
 protected:

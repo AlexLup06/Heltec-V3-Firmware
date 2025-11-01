@@ -8,7 +8,6 @@
 #include "definitions.h"
 #include "FSMA.h"
 #include "BackoffHandler.h"
-#include "OneShotTimer.h"
 #include "RtsCtsBase.h"
 
 class MiRS : public RtsCtsBase
@@ -26,22 +25,21 @@ public:
         AWAIT_TRANSMISSION,
         TRANSMITTING
     };
+    void finishProtocol() override;
 
-    void handleWithFSM();
+    void handleWithFSM(SelfMessage *msg = nullptr) override;
 
-    void handleUpperPacket(MessageToSend_t *msg) override;
+    void handleUpperPacket(MessageToSend *msg) override;
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
 
-    void handleRTS(const BroadcastRTSPacket_t *packet, const size_t packetSize, bool isMission);
-    void handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission);
-    void handleContinuousRTS(const BroadcastContinuousRTSPacket_t *packet, const size_t packetSize, bool isMission);
-    void handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission);
-    void handleCTS(const BroadcastCTS_t *packet, const size_t packetSize, bool isMission);
-    
+    void handleRTS(const BroadcastRTSPacket *packet, const size_t packetSize, bool isMission);
+    void handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission);
+    void handleContinuousRTS(const BroadcastContinuousRTSPacket *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
+    void handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission);
+
     String getProtocolName();
 
 private:
-    uint8_t backoffFS_MS = 21;
-    uint8_t backoffCW = 8;
-    Backoff regularBackoff{backoffFS_MS, backoffCW};
+    cFSM fsm;
 };

@@ -1,8 +1,23 @@
 #include "Csma.h"
 
-String Csma::getProtocolName() { return "csma"; }
+String Csma::getProtocolName()
+{
+    return "csma";
+}
 
-void Csma::handleWithFSM()
+void Csma::initProtocol()
+{
+    backoff = SelfMessage("backoff");
+}
+
+void Csma::finishProtocol()
+{
+    backoffHandler.invalidateBackoffPeriod();
+    backoffHandler.cancelBackoffTimer();
+    fsm.setState(0);
+}
+
+void Csma::handleWithFSM(SelfMessage *msg)
 {
     FSMA_Switch(fsm)
     {
@@ -20,16 +35,16 @@ void Csma::handleWithFSM()
         FSMA_State(BACKOFF)
         {
 
-            FSMA_Enter(backoff.schedule());
+            FSMA_Enter(backoffHandler.scheduleBackoffTimer());
             FSMA_Event_Transition(Start - Transmit,
-                                  backoff.finished(),
+                                  backoff == *msg,
                                   TRANSMITTING,
-                                  backoff.invalidate(););
+                                  backoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(Start - Receive,
                                   isReceiving(),
                                   RECEIVING,
-                                  backoff.cancel();
-                                  backoff.decrease(););
+                                  backoffHandler.cancelBackoffTimer();
+                                  backoffHandler.decreaseBackoffPeriod(););
         }
         FSMA_State(TRANSMITTING)
         {
@@ -55,7 +70,7 @@ void Csma::handleWithFSM()
     }
 }
 
-void Csma::handleUpperPacket(MessageToSend_t *msg)
+void Csma::handleUpperPacket(MessageToSend *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, false, msg->isMission, false);
 }
@@ -70,24 +85,26 @@ void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
-        handleLeaderFragment((BroadcastLeaderFragmentPacket_t *)packet, packetSize, isMission);
+        handleLeaderFragment((BroadcastLeaderFragmentPacket *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment((BroadcastFragmentPacket_t *)packet, packetSize, isMission);
+        handleFragment((BroadcastFragmentPacket *)packet, packetSize, isMission);
         break;
     default:
         break;
     }
+
+    finishReceiving();
 }
 
-void Csma::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void Csma::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
     createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }
 
-void Csma::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void Csma::handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, false, false);

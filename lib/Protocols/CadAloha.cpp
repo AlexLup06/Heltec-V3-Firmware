@@ -1,8 +1,16 @@
 #include "CadAloha.h"
 
-String CadAloha::getProtocolName() { return "cadaloha"; }
+String CadAloha::getProtocolName()
+{
+    return "cadaloha";
+}
 
-void CadAloha::handleWithFSM()
+void CadAloha::finishProtocol()
+{
+    fsm.setState(0);
+}
+
+void CadAloha::handleWithFSM(SelfMessage *msg)
 {
     FSMA_Switch(fsm)
     {
@@ -41,7 +49,7 @@ void CadAloha::handleWithFSM()
     }
 }
 
-void CadAloha::handleUpperPacket(MessageToSend_t *msg)
+void CadAloha::handleUpperPacket(MessageToSend *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, false, msg->isMission, false);
 }
@@ -56,24 +64,26 @@ void CadAloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
-        handleLeaderFragment((BroadcastLeaderFragmentPacket_t *)packet, packetSize, isMission);
+        handleLeaderFragment((BroadcastLeaderFragmentPacket *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment((BroadcastFragmentPacket_t *)packet, packetSize, isMission);
+        handleFragment((BroadcastFragmentPacket *)packet, packetSize, isMission);
         break;
     default:
         break;
     }
+
+    finishReceiving();
 }
 
-void CadAloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
     createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }
 
-void CadAloha::handleFragment(const BroadcastFragmentPacket_t *packet, const size_t packetSize, bool isMission)
+void CadAloha::handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, false, false);

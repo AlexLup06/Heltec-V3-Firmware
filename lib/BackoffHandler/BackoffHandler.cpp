@@ -1,49 +1,42 @@
 #include "BackoffHandler.h"
+#include <assert.h>
 
-bool Backoff::finished()
+void BackoffHandler::invalidateBackoffPeriod()
 {
-    if (done)
-        return true;
-    if (backoffTimer.triggered())
-    {
-        done = true;
-        return true;
-    }
-    return false;
-}
-
-void Backoff::invalidate()
-{
-    done = false;
     backoffPeriod_MS = -1;
 }
 
-bool Backoff::isValidBackoffPeriod()
+bool BackoffHandler::isInvalidBackoffPeriod() const
 {
-    return backoffPeriod_MS != -1;
+    return backoffPeriod_MS == -1;
 }
 
-void Backoff::generateBackoffPeriod()
+void BackoffHandler::generateBackoffPeriod()
 {
-    int slots = random(1, cw + 1);
-    backoffPeriod_MS = slots * backoffFS_MS;
+    int slots = random(1, cwBackoff + 1);    // random in [1, cw]
+    backoffPeriod_MS = slots * backoffFS_MS; // total delay
 }
 
-void Backoff::schedule()
+void BackoffHandler::scheduleBackoffTimer()
 {
-    if (!isValidBackoffPeriod())
+    if (isInvalidBackoffPeriod())
         generateBackoffPeriod();
-    backoffTimer.schedule(backoffPeriod_MS);
+
+    scheduler_->schedule(endBackoff, backoffPeriod_MS);
 }
 
-void Backoff::decrease()
+void BackoffHandler::decreaseBackoffPeriod()
 {
-    long elapsedBackoffTime = millis() - backoffTimer.getTriggerTime();
-    backoffPeriod_MS -= ((int)(elapsedBackoffTime / backoffFS_MS)) * backoffFS_MS;
+    unsigned long elapsed = millis() - endBackoff->getTriggerTime();
+    backoffPeriod_MS -= ((int)(elapsed / backoffFS_MS)) * backoffFS_MS;
+
+    if (backoffPeriod_MS < 0)
+        backoffPeriod_MS = 0;
+
     assert(backoffPeriod_MS >= 0);
 }
 
-void Backoff::cancel()
+void BackoffHandler::cancelBackoffTimer()
 {
-    backoffTimer.cancel();
+    scheduler_->cancel(endBackoff);
 }

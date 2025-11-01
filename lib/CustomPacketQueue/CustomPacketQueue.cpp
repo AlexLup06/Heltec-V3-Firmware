@@ -2,6 +2,24 @@
 
 CustomPacketQueue::CustomPacketQueue() {}
 
+void CustomPacketQueue::printQueue() {
+    if (packetQueue.size()==0) {
+        DEBUG_PRINTLN("[Queue empty]");
+        return;
+    }
+
+    Serial.print("Queue: ");
+    for (int i = 0; i < packetQueue.size(); ++i) {
+        const QueuedPacket* pkt = packetQueue.at(i);
+        if (!pkt) continue;
+
+        DEBUG_PRINTF("%s(id=%u)", msgIdToString(pkt->data[0]), pkt->id);
+        if (i < packetQueue.size() - 1)
+            DEBUG_PRINTF(", ");
+    }
+    DEBUG_PRINTLN();
+}
+
 CustomPacketQueue::~CustomPacketQueue() {
     while (!packetQueue.empty()) {
         auto pkt = packetQueue.front();

@@ -12,14 +12,6 @@
 using std::pair;
 using std::vector;
 
-// mock xPortGetFreeHeapSize for native builds
-#ifndef ARDUINO
-extern "C" size_t xPortGetFreeHeapSize()
-{
-    return 200000; // simulate large heap for malloc
-}
-#endif
-
 struct FragmentedPacket
 {
     uint16_t id;
@@ -49,8 +41,9 @@ struct Result
 class IncompletePacketList
 {
 public:
-    explicit IncompletePacketList()
+    explicit IncompletePacketList(bool isMissionList = false)
     {
+        isMissionList_ = isMissionList;
         packets_.reserve(10); // We do not have more than 10 nodes in the network
     }
 

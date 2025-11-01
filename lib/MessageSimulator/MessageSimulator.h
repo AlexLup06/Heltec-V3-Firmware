@@ -28,5 +28,5 @@ public:
     void cleanUp();
 
     bool packetReady = false;
-    MessageToSend_t *messageToSend;
+    MessageToSend *messageToSend;
 };

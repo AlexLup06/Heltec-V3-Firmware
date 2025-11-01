@@ -2,7 +2,7 @@
 
 #include "MacBase.h"
 #include "BackoffHandler.h"
-#include "OneShotTimer.h"
+#include "SelfMessageScheduler.h"
 
 struct CTSData
 {
@@ -17,18 +17,25 @@ protected:
     CTSData ctsData;
     int rtsSource;
 
-    OneShotTimer shortWaitTimer;
-    OneShotTimer waitForCTSTimer;
-    OneShotTimer initiateCTSTimer;
-    OneShotTimer transmissionStartTimer;
-    OneShotTimer transmissionEndTimer;
-    OneShotTimer ongoingTransmissionTimer;
+    SelfMessage shortWaitTimer;
+    SelfMessage waitForCTSTimer;
+    SelfMessage transmissionStartTimer;
+    SelfMessage transmissionEndTimer;
+    SelfMessage ongoingTransmissionTimer;
+    SelfMessage ctsBackoff;
+    SelfMessage regularBackoff;
+
+    bool initiateCTS = false;
 
     uint8_t ctsFS_MS = 18;
     uint8_t ctsCW = 16;
+    BackoffHandler ctsBackoffHandler{ctsFS_MS, ctsCW, &msgScheduler, &ctsBackoff};
 
-    uint16_t sifs_MS = 2;
-    Backoff ctsBackoff{ctsFS_MS, ctsCW};
+    uint8_t backoffFS_MS = 21;
+    uint8_t backoffCW = 8;
+    BackoffHandler regularBackoffHandler{backoffFS_MS, backoffCW, &msgScheduler, &regularBackoff};
+
+    uint16_t sifs_MS = 9;
 
     bool isPacketFromRTSSource(ReceivedPacket *receivedPacket);
     bool isCTSForSameRTSSource(ReceivedPacket *receivedPacket);
@@ -39,4 +46,7 @@ protected:
     bool isOurCTS();
     bool withRTS(bool neighbourWithRTS = true);
     bool isFreeToSend();
+
+    void finishRTSCTS();
+    void initRTSCTS();
 };

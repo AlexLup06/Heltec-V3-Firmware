@@ -106,7 +106,7 @@ void test_addToIncompletePacket_uses_correct_list()
 void test_encapsulate_and_decapsulate_roundtrip()
 {
     PacketBase base(7);
-    BroadcastRTSPacket_t pkt{};
+    BroadcastRTSPacket pkt{};
     pkt.source = 10;
 
     MessageTypeBase *msg;

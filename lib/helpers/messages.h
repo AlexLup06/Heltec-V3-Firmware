@@ -29,7 +29,7 @@ public:
 };
 
 #pragma pack(push, 1)
-struct BroadcastConfig_t
+struct BroadcastConfig
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
     uint8_t source;
@@ -39,7 +39,7 @@ struct BroadcastConfig_t
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastNodeIdAnnounce_t : public MessageTypeBase
+struct BroadcastNodeIdAnnounce : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
     uint8_t nodeId;
@@ -48,7 +48,7 @@ struct BroadcastNodeIdAnnounce_t : public MessageTypeBase
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastRTSPacket_t : public MessageTypeBase
+struct BroadcastRTSPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_RTS;
     uint8_t source;
@@ -60,7 +60,7 @@ struct BroadcastRTSPacket_t : public MessageTypeBase
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastContinuousRTSPacket_t : public MessageTypeBase
+struct BroadcastContinuousRTSPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS;
     uint8_t source;
@@ -71,7 +71,7 @@ struct BroadcastContinuousRTSPacket_t : public MessageTypeBase
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastCTS_t : public MessageTypeBase
+struct BroadcastCTS : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CTS;
     uint8_t rtsSource;
@@ -80,7 +80,7 @@ struct BroadcastCTS_t : public MessageTypeBase
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastLeaderFragmentPacket_t : public MessageTypeBase
+struct BroadcastLeaderFragmentPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
     uint8_t source;
@@ -92,7 +92,7 @@ struct BroadcastLeaderFragmentPacket_t : public MessageTypeBase
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct BroadcastFragmentPacket_t : public MessageTypeBase
+struct BroadcastFragmentPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
     uint8_t source;
@@ -104,7 +104,7 @@ struct BroadcastFragmentPacket_t : public MessageTypeBase
 
 // This struct contains information on the serially transmitted payload packet.
 #pragma pack(1)
-struct MessageToSend_t
+struct MessageToSend
 {
     bool isMission;
     uint16_t size;
