@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <algorithm> // for std::lower_bound
+#include "functions.h"
 
 class SelfMessage
 {

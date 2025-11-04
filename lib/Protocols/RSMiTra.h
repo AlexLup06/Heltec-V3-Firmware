@@ -26,6 +26,8 @@ public:
         READY_TO_SEND,
         TRANSMITTING
     };
+
+    void initProtocol() override;
     void finishProtocol() override;
 
     void handleWithFSM(SelfMessage *msg = nullptr) override;

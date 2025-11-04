@@ -28,7 +28,7 @@ void RtsCtsBase::finishRTSCTS()
 
 bool RtsCtsBase::isFreeToSend()
 {
-    DEBUG_PRINTF("Isfree to send: %d\n", !ongoingTransmissionTimer.isScheduled() && !transmissionStartTimer.isScheduled());
+    // DEBUG_PRINTF("Isfree to send: %d\n", !ongoingTransmissionTimer.isScheduled() && !transmissionStartTimer.isScheduled());
     return !ongoingTransmissionTimer.isScheduled() && !transmissionStartTimer.isScheduled();
 }
 
@@ -48,41 +48,49 @@ bool RtsCtsBase::isPacketFromRTSSource(ReceivedPacket *receivedPacket)
     if (!isReceivedPacketReady)
         return false;
 
+    DEBUG_PRINTLN("[RtsCts] Check isPacketFromRTSSource");
     BroadcastFragmentPacket *fragment = tryCastMessage<BroadcastFragmentPacket>(receivedPacket->payload);
     if (fragment == nullptr)
     {
-        finishReceiving();
+        DEBUG_PRINTLN("[RtsCts] Packet NOT fragment");
         return false;
     }
 
     FragmentedPacket *incompletePacket = getIncompletePacketBySource(fragment->source, receivedPacket->isMission);
     if (incompletePacket == nullptr)
     {
-        finishReceiving();
+        DEBUG_PRINTLN("[RtsCts] Did not receive header");
         return false;
     }
 
     if (incompletePacket->hopId == rtsSource)
     {
+        DEBUG_PRINTLN("[RtsCts] Received packet from rts source");
         rtsSource = -1;
         return true;
     }
-    finishReceiving();
+    DEBUG_PRINTLN("[RtsCts] DID NOT receive packet from rts source");
     return false;
 }
 
-void RtsCtsBase::sendCTS()
+void RtsCtsBase::sendCTS(bool waitForCTStimeout)
 {
     customPacketQueue.printQueue();
 
-    DEBUG_PRINTLN("Send CTS");
     BroadcastCTS *cts = createCTS(ctsData.fragmentSize, ctsData.rtsSource);
     sendPacket((uint8_t *)cts, sizeof(cts));
     free(cts);
 
     // After we send CTS, we need to receive message within ctsFS + sifs otherwise we assume there will be no message
-    msgScheduler.schedule(&transmissionStartTimer, ctsFS_MS + sifs_MS);
-    msgScheduler.schedule(&transmissionEndTimer, ctsFS_MS + sifs_MS + getToAByPacketSizeInUS(ctsData.fragmentSize) / 1000);
+    // if we are RSMiTra then we need to wait for the remainder of the CTS cw window because the transmitter waits until the end
+    uint16_t startSend = ctsFS_MS + sifs_MS;
+    if (waitForCTStimeout)
+    {
+        startSend += ctsBackoffHandler.getRemainderCW() * ctsFS_MS;
+    }
+
+    msgScheduler.schedule(&transmissionStartTimer, startSend);
+    msgScheduler.schedule(&transmissionEndTimer, startSend + getToAByPacketSizeInUS(ctsData.fragmentSize) / 1000);
 
     ctsData.fragmentSize = -1;
     ctsData.rtsSource = -1;
@@ -96,11 +104,12 @@ void RtsCtsBase::sendRTS()
 
     sendPacket(currentTransmission->data, currentTransmission->packetSize);
 
-    int scheduleCTSTimerTime = ctsFS_MS * ctsCW + sifs_MS + getToAByPacketSizeInUS(currentTransmission->packetSize) / 1000 + ctsFS_MS;
+    unsigned long scheduleCTSTimerTime = ctsFS_MS * ctsCW + sifs_MS + (getToAByPacketSizeInUS(currentTransmission->packetSize) / 1000UL) + ctsFS_MS;
     msgScheduler.schedule(&waitForCTSTimer, scheduleCTSTimerTime);
 
     finishCurrentTransmission();
     DEBUG_PRINTF("[RtsBase] CTS timeout in %d ms\n", scheduleCTSTimerTime);
+    DEBUG_PRINTF("[RtsBase] we sent rts and scheduled cts timeout at millis:  %lu\n", millis());
 }
 
 void RtsCtsBase::clearRTSsource()
@@ -111,6 +120,7 @@ void RtsCtsBase::clearRTSsource()
 // Put packet back to queue at front and currentTransmission is the header again, to try once again. After 3 tries delete the packet
 void RtsCtsBase::handleCTSTimeout()
 {
+    DEBUG_PRINTF("[RtsBase] CTS cw timeout at millis:  %lu\n", millis());
     currentTransmission->sendTrys++;
     if (currentTransmission->sendTrys >= 3)
     {
@@ -132,15 +142,15 @@ bool RtsCtsBase::isOurCTS()
     if (!isReceivedPacketReady)
         return false;
 
-    DEBUG_PRINTLN("Before casitng");
     BroadcastCTS *cts = tryCastMessage<BroadcastCTS>(receivedPacket->payload);
-    DEBUG_PRINTLN("After casting");
+
     if (cts == nullptr)
+    {
         return false;
-    DEBUG_PRINTLN("Before sourcing");
+    }
+
     uint8_t rs = cts->rtsSource;
-    DEBUG_PRINTLN("After sourcing");
-    return nodeId == cts->rtsSource;
+    return nodeId == rs;
 }
 
 // In this protocol all messages except NodeAnnounce are send with RTS

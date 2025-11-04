@@ -103,7 +103,7 @@ void printLocalTime()
 
 void setStartTime()
 {
-    Serial.println("Double-click detected — sending config message...");
+    Serial.println("Double-click detected setting start time");
     time_t startTime = time(nullptr) + START_DELAY_SEC;
     configurator.setStartTime(startTime);
 }

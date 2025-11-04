@@ -31,12 +31,13 @@ void Aloha::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(
                 finished transmitting,
                 !isTransmitting(),
-                LISTENING, finishCurrentTransmission());
+                LISTENING,
+                finishCurrentTransmission());
         }
         FSMA_State(RECEIVING)
         {
             FSMA_Event_Transition(
-                got - message,
+                received message,
                 isReceivedPacketReady,
                 LISTENING,
                 handleProtocolPacket(receivedPacket););
@@ -45,6 +46,11 @@ void Aloha::handleWithFSM(SelfMessage *msg)
                 currentTransmission != nullptr,
                 TRANSMITTING, );
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)

@@ -15,6 +15,7 @@ void BackoffHandler::generateBackoffPeriod()
 {
     int slots = random(1, cwBackoff + 1);    // random in [1, cw]
     backoffPeriod_MS = slots * backoffFS_MS; // total delay
+    remainderCW = cwBackoff - slots;
 }
 
 void BackoffHandler::scheduleBackoffTimer()

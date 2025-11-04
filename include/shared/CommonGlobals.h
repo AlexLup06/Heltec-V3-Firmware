@@ -37,7 +37,6 @@ extern IRSMiTra irsmitra;
 extern MiRS mirs;
 
 // --- Shared callbacks ---
-void onDio1IR();
 void onMacChanged(MacProtocol newMac);
 void onMacFinished(MacProtocol finished);
 void incrementCb();

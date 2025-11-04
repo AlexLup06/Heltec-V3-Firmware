@@ -9,44 +9,33 @@ void RadioBase::finishRadioBase()
 {
     isReceivingVar = false;
     isTransmittingVar = false;
-    irqFlag = 0b0;
+    radio->irqFlag = 0;
 }
 
-void RadioBase::receiveDio1Interrupt()
+void RadioBase::setOnSendCallback(std::function<void()> cb)
 {
-    uint16_t irq = radio->getIrqFlags();
-
-    if (irq & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
-        irqFlag |= RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED;
-
-    if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
-        irqFlag |= RADIOLIB_SX126X_IRQ_RX_DONE;
-
-    if (irq & RADIOLIB_SX126X_IRQ_CRC_ERR)
-        irqFlag |= RADIOLIB_SX126X_IRQ_CRC_ERR;
-
-    if (irq & RADIOLIB_SX126X_IRQ_HEADER_ERR)
-        irqFlag |= RADIOLIB_SX126X_IRQ_HEADER_ERR;
-
-    const uint16_t RX_IRQ_MASK =
-        RADIOLIB_SX126X_IRQ_RX_DONE |
-        RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
-        RADIOLIB_SX126X_IRQ_HEADER_ERR |
-        RADIOLIB_SX126X_IRQ_CRC_ERR;
-
-    uint16_t relevant = irq & RX_IRQ_MASK;
-    if (relevant)
-        radio->clearIrqFlags(relevant);
+    onSendCallback = cb;
 }
 
 void RadioBase::handleDio1Interrupt()
 {
-    uint16_t flags = irqFlag;
-    irqFlag = 0;
+    uint16_t flags = radio->irqFlag;
+    radio->irqFlag = 0;
+
+    if (flags & RADIOLIB_SX126X_IRQ_TX_DONE)
+    {
+        DEBUG_PRINTLN("[RadioBase] RADIOLIB_SX126X_IRQ_TX_DONE");
+        isTransmittingVar = false;
+        onSendCallback();
+        startReceive();
+        return;
+    }
+
     if (flags & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
     {
-        DEBUG_PRINTLN("[Radio Base] got preamble");
+        DEBUG_PRINTLN("[RadioBase] got preamble");
         isReceivingVar = true;
+        lastPreambleTime = millis();
         onPreambleDetectedIR();
     }
 
@@ -56,11 +45,24 @@ void RadioBase::handleDio1Interrupt()
     {
         if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
         {
-            DEBUG_PRINTLN("[Radio Base] RADIOLIB_SX126X_IRQ_RX_DONE");
+            DEBUG_PRINTLN("[RadioBase] RADIOLIB_SX126X_IRQ_RX_DONE");
             onReceiveIR();
         }
-        isReceivingVar = false;
+        else if (flags & (RADIOLIB_SX126X_IRQ_HEADER_ERR | RADIOLIB_SX126X_IRQ_CRC_ERR))
+        {
+            if (lastPreambleTime && (millis() - lastPreambleTime) < 250)
+            {
+                float snr = radio->getSNR();
+                if (snr > -5)
+                {
+                    // TODO: handle Collision
+                    DEBUG_PRINTLN("[RadioBase] Possible collision detected!");
+                }
+            }
+        }
 
+        isReceivingVar = false;
+        lastPreambleTime = 0;
         startReceive();
     }
 }
@@ -111,7 +113,12 @@ int RadioBase::readData(uint8_t *data, size_t len)
 void RadioBase::sendPacket(const uint8_t *data, const size_t len)
 {
     isTransmittingVar = true;
-    radio->sendRaw(data, len);
-    isTransmittingVar = false;
-    startReceive();
+    int state = radio->sendRaw(data, len);
+
+    if (state != RADIOLIB_ERR_NONE)
+    {
+        DEBUG_PRINTF("[RadioBase] Send failed: %d\n", state);
+        isTransmittingVar = false;
+        startReceive();
+    }
 }

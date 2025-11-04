@@ -5,7 +5,7 @@ void MacBase::finish()
     clearMacData();
     finishRadioBase();
     finishProtocol();
-    DEBUG_PRINTLN("Cleared Data and ready for next run\n");
+    DEBUG_PRINTLN("[Mac Base] Cleared Data and ready for next run\n");
 }
 
 void MacBase::clearMacData()
@@ -45,6 +45,8 @@ void MacBase::init(MacContext macCtx, uint8_t _nodeId)
     assignRadio(macCtx.radio);
     loggerManager = macCtx.loggerManager;
     loraDisplay = macCtx.loraDisplay;
+    setOnSendCallback([this]()
+                      { loraDisplay->incrementSent(); });
     nodeId = _nodeId;
 
     nodeAnnounceTime = millis();
@@ -73,6 +75,13 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
         loraDisplay->updateNode(packet[1], rssi);
     }
 
+    if (isReceivedPacketReady)
+    {
+        DEBUG_PRINTF("[Mac Base] We are currently handeling another packet: %s\n", msgIdToString(messageType));
+
+        return;
+    }
+
     isReceivedPacketReady = true;
     bool isMission = decapsulate(packet);
 
@@ -83,19 +92,21 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
     receivedPacket->payload = (uint8_t *)malloc(packetSize);
 
     memcpy(receivedPacket->payload, packet, packetSize);
-
-    handleWithFSM();
 }
 
 void MacBase::finishReceiving()
 {
-    customPacketQueue.printQueue();
 
-    isReceivedPacketReady = false;
-    free(receivedPacket->payload);
-    free(receivedPacket);
-    receivedPacket = nullptr;
-    setReceivingVar(false);
+    if (isReceivedPacketReady)
+    {
+        DEBUG_PRINTF("[Mac Base] Delete recived packet: %s\n", msgIdToString(receivedPacket->payload[0]));
+        customPacketQueue.printQueue();
+        isReceivedPacketReady = false;
+        free(receivedPacket->payload);
+        free(receivedPacket);
+        receivedPacket = nullptr;
+        setReceivingVar(false);
+    }
 }
 
 void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuousRTS)
@@ -135,7 +146,7 @@ void MacBase::onReceiveIR()
     uint8_t *receiveBuffer = (uint8_t *)malloc(len);
     if (!receiveBuffer)
     {
-        DEBUG_PRINTLN("ERROR: malloc failed!");
+        DEBUG_PRINTLN("[Mac Base] ERROR: malloc failed!");
         return;
     }
 
@@ -149,7 +160,7 @@ void MacBase::onReceiveIR()
     }
     else
     {
-        DEBUG_PRINTF("Receive failed: %d\n", state);
+        DEBUG_PRINTF("[Mac Base] Receive failed: %d\n", state);
     }
     free(receiveBuffer);
     startReceive();

@@ -25,5 +25,5 @@
 // simulation runs configs
 #define SIMULATION_DURATION_SEC 10ul
 #define MAC_PROTOCOL_SWITCH_DELAY_SEC 5ul
-#define START_DELAY_SEC 5
+#define START_DELAY_SEC 10
 #define NUMBER_OF_RUNS 5

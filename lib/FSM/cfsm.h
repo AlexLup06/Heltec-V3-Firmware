@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-#define FSM_MAXT 64
+#define FSM_MAXT 128
 
 class cFSM {
 private:

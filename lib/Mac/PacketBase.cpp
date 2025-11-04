@@ -36,6 +36,12 @@ bool PacketBase::createIncompletePacket(
     bool isMission)
 {
 
+    if (source == nodeId)
+    {
+        DEBUG_PRINTF("[PacketBase] We received a packet that was from us: id=%u, source=%u\n", id, source);
+        return;
+    }
+
     if (isMission && incompleteMissionPackets.isNewIdHigher(source, id))
     {
         return incompleteMissionPackets.createIncompletePacket(id, size, source, hopId, messageType, checksum);
@@ -186,6 +192,7 @@ BroadcastRTSPacket *PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, u
     pkt->id = packetId;
     pkt->size = payloadSize;
     pkt->hopId = nodeId;
+    DEBUG_PRINTF("[PacketBase] Create RTS with hopdId %d\n", pkt->hopId);
     pkt->checksum = checksum;
 
     encapsulate(pkt, isMission);
@@ -283,12 +290,14 @@ QueuedPacket *PacketBase::createNewRTS(QueuedPacket *queuedPacket)
     QueuedPacket *pkt = (QueuedPacket *)malloc(sizeof(QueuedPacket));
     pkt->data = (uint8_t *)rts;
     pkt->packetSize = sizeof(BroadcastRTSPacket);
+    pkt->source = nodeId;
+    pkt->id = rts->id;
+    pkt->sendTrys = 0;
+    pkt->fullMsgChecksum = queuedPacket->fullMsgChecksum;
     pkt->isHeader = true;
     pkt->isMission = queuedPacket->isMission;
     pkt->isNodeAnnounce = false;
-    pkt->sendTrys = 0;
     pkt->hasContinuousRTS = false;
-    pkt->fullMsgChecksum = queuedPacket->fullMsgChecksum;
 
     return pkt;
 }

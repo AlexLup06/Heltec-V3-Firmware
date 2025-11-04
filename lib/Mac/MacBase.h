@@ -27,7 +27,6 @@ struct MacContext
 class MacBase : public RadioBase, public PacketBase
 {
 protected:
-    uint8_t nodeId;
     QueuedPacket *currentTransmission;
 
     uint32_t nodeAnnounceTime = -1;
@@ -39,7 +38,7 @@ public:
     LoRaDisplay *loraDisplay;
     SelfMessageScheduler msgScheduler;
 
-    MacBase() : PacketBase(nodeId) {}
+    MacBase() {}
     virtual ~MacBase() {}
 
     void init(MacContext macCtx, uint8_t nodeId);

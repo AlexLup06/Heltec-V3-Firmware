@@ -32,7 +32,6 @@ public:
     bool isInConfigMode();
     void handleConfigMode(); // runs in main handle()
     void handleDioInterrupt();
-    void receiveDio1Interrupt();
     void setStartTime(time_t startTime);
     void sendBroadcastConfig();
 
@@ -40,8 +39,6 @@ private:
     LoRaDisplay *loraDisplay;
     LoggerManager *loggerManager;
     SX1262Public *radio;
-
-    uint16_t irqFlag = 0b0000000000000000;
 
     bool hasSentConfigMessage = false;
 

@@ -57,7 +57,7 @@ void MacController::update()
 
     if (firstRun)
     {
-        DEBUG_PRINTLN("First MACController update");
+        DEBUG_PRINTLN("First MACController update\n\n");
         macStartTime = now;
         waitMode = false;
         firstRun = false;

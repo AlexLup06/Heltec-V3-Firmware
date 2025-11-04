@@ -5,6 +5,11 @@ String MiRS::getProtocolName()
     return "mirs";
 }
 
+void MiRS::initProtocol()
+{
+    initRTSCTS();
+}
+
 void MiRS::finishProtocol()
 {
     finishRTSCTS();
@@ -78,10 +83,9 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         FSMA_State(TRANSMITTING)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTINF"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
-            FSMA_Event_Transition(
-                finished transmitting,
-                !isTransmitting(),
-                LISTENING, finishCurrentTransmission());
+            FSMA_Event_Transition(finished transmitting,
+                                  !isTransmitting(),
+                                  LISTENING, finishCurrentTransmission());
         }
         FSMA_State(CW_CTS)
         {
@@ -134,12 +138,16 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         FSMA_State(RECEIVING)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered RECEIVING"););
-            FSMA_Event_Transition(
-                got - message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket));
+            FSMA_Event_Transition(got - message,
+                                  isReceivedPacketReady,
+                                  LISTENING,
+                                  handleProtocolPacket(receivedPacket));
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)

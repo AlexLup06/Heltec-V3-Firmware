@@ -23,24 +23,22 @@ void Csma::handleWithFSM(SelfMessage *msg)
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Event_Transition(
-                detected preamble and trying to receive,
-                isReceiving(),
-                RECEIVING, );
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr && !isReceiving(),
-                BACKOFF, );
+            FSMA_Event_Transition(detected preamble and trying to receive,
+                                  isReceiving(),
+                                  RECEIVING, );
+            FSMA_Event_Transition(we have packet to send and just send it,
+                                  currentTransmission != nullptr && !isReceiving(),
+                                  BACKOFF, );
         }
         FSMA_State(BACKOFF)
         {
 
             FSMA_Enter(backoffHandler.scheduleBackoffTimer());
-            FSMA_Event_Transition(Start - Transmit,
+            FSMA_Event_Transition(Backoff done - start transmitting,
                                   backoff == *msg,
                                   TRANSMITTING,
                                   backoffHandler.invalidateBackoffPeriod(););
-            FSMA_Event_Transition(Start - Receive,
+            FSMA_Event_Transition(Received Preamble - start receiving,
                                   isReceiving(),
                                   RECEIVING,
                                   backoffHandler.cancelBackoffTimer();
@@ -49,19 +47,22 @@ void Csma::handleWithFSM(SelfMessage *msg)
         FSMA_State(TRANSMITTING)
         {
             FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
-            FSMA_Event_Transition(
-                finished transmitting,
-                !isTransmitting(),
-                LISTENING, finishCurrentTransmission());
+            FSMA_Event_Transition(finished transmitting,
+                                  !isTransmitting(),
+                                  LISTENING, finishCurrentTransmission());
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Event_Transition(
-                got - message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket););
+            FSMA_Event_Transition(received message,
+                                  isReceivedPacketReady,
+                                  LISTENING,
+                                  handleProtocolPacket(receivedPacket););
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)

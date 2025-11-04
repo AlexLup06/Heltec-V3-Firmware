@@ -31,10 +31,9 @@ void LoggerManager::init()
 
     DEBUG_PRINTLN("LittleFS mounted successfully");
 
-    registerLogger<ToAData>(Metric::ToA);
-    registerLogger<CollisionData>(Metric::Collisions);
-    registerLogger<DelayData>(Metric::Delay);
-    registerLogger<EnergyData>(Metric::Energy);
+    registerLogger<ReceivedCompleteMission_data>(Metric::ReceivedCompleteMission_V);
+    registerLogger<SentMissionRTS_data>(Metric::SentMissionRTS_V);
+    registerLogger<SentMissionFragment_data>(Metric::SentMissionFragment_V);
 }
 
 void LoggerManager::saveAll()

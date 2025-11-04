@@ -39,9 +39,7 @@ void commonSetup()
         0);
 
     radio.init(LORA_FREQUENCY, LORA_SPREADINGFACTOR, LORA_OUTPUT_POWER, LORA_BANDWIDTH);
-    radio.setDio1Action(onDio1IR);
     radio.startReceive();
-    radio.setOnCallback(incrementCb);
 
     macController.setSwitchCallback(onMacChanged);
     macController.setFinishCallback(onMacFinished);
@@ -54,7 +52,7 @@ void commonSetup()
     macCtx.loggerManager = &loggerManager;
     macCtx.loraDisplay = &loraDisplay;
 
-    macProtocol = &aloha;
+    macProtocol = &rsmitra;
     macController.setMac(macProtocol);
 
     configurator.setCtx(&loraDisplay, &radio, nodeId);

@@ -49,7 +49,6 @@ void IncompletePacketList::removePacketBySource(const uint8_t source)
     packets_.erase(it, packets_.end());
 }
 
-// TODO: create checks whether we want to receive this packet
 bool IncompletePacketList::createIncompletePacket(
     const uint16_t id,
     const uint16_t messageSize,

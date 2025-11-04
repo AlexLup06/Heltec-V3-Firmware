@@ -25,6 +25,8 @@ public:
         AWAIT_TRANSMISSION,
         TRANSMITTING
     };
+
+    void initProtocol() override;
     void finishProtocol() override;
 
     void handleWithFSM(SelfMessage *msg = nullptr) override;

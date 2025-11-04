@@ -16,8 +16,6 @@ private:
     uint16_t MISSION_ID_COUNT = 0;
     uint16_t NEIGHBOUR_ID_COUNT = 0;
 
-    uint8_t nodeId;
-
     IncompletePacketList incompleteMissionPackets{true};
     IncompletePacketList incompleteNeighbourPackets;
 
@@ -50,8 +48,10 @@ private:
         bool isMission);
 
 public:
-    PacketBase(uint8_t _nodeId) : nodeId(_nodeId) {}
+    PacketBase() {}
     ~PacketBase();
+
+    uint8_t nodeId;
 
     CustomPacketQueue customPacketQueue;
 

@@ -13,12 +13,13 @@ private:
     bool isTransmittingVar = false;
     SX1262Public *radio;
 
-    volatile uint16_t irqFlag = 0b0000000000000000;
+    unsigned long lastPreambleTime = 0;
 
 public:
+    std::function<void()> onSendCallback = nullptr;
+
     void assignRadio(SX1262Public *_radio);
     void sendPacket(const uint8_t *data, const size_t len);
-    void receiveDio1Interrupt();
 
     void startReceive();
     bool isReceiving();
@@ -29,6 +30,7 @@ public:
     size_t getPacketLength();
     int readData(uint8_t *data, size_t len);
     void setReceivingVar(bool s);
+    void setOnSendCallback(std::function<void()> cb);
 
     void finishRadioBase();
 

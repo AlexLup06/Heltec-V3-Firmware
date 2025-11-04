@@ -1,17 +1,5 @@
 #include "shared/CommonGlobals.h"
 
-void onDio1IR()
-{
-    if (configurator.isInConfigMode())
-    {
-        configurator.receiveDio1Interrupt();
-    }
-    else
-    {
-        macProtocol->receiveDio1Interrupt();
-    }
-}
-
 void incrementCb()
 {
     loraDisplay.incrementSent();

@@ -16,31 +16,32 @@ void CadAloha::handleWithFSM(SelfMessage *msg)
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Event_Transition(
-                detected preamble and trying to receive,
-                isReceiving(),
-                RECEIVING, );
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr && !isReceiving(),
-                TRANSMITTING, );
+            FSMA_Event_Transition(detected preamble and trying to receive,
+                                  isReceiving(),
+                                  RECEIVING, );
+            FSMA_Event_Transition(we have packet to send and just send it,
+                                  currentTransmission != nullptr && !isReceiving(),
+                                  TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
         {
             FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
-            FSMA_Event_Transition(
-                finished transmitting,
-                !isTransmitting(),
-                LISTENING, finishCurrentTransmission());
+            FSMA_Event_Transition(finished transmitting,
+                                  !isTransmitting(),
+                                  LISTENING, finishCurrentTransmission());
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Event_Transition(
-                got - message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket););
+            FSMA_Event_Transition(received message,
+                                  isReceivedPacketReady,
+                                  LISTENING,
+                                  handleProtocolPacket(receivedPacket););
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)

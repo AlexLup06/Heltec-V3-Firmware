@@ -11,6 +11,11 @@ String RSMiTra::getProtocolName()
     return "rsmitra";
 }
 
+void RSMiTra::initProtocol()
+{
+    initRTSCTS();
+}
+
 void RSMiTra::finishProtocol()
 {
     finishRTSCTS();
@@ -31,18 +36,18 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered LISTENING"););
             FSMA_Event_Transition(we got rts now send cts,
-                                  initiateCTS && isFreeToSend(),
-                                  CW_CTS, );
+                                     initiateCTS && isFreeToSend(),
+                                     CW_CTS, );
             FSMA_Event_Transition(we have packet to send and just send it,
-                                  currentTransmission != nullptr &&
-                                      !isReceiving() &&
-                                      !shortWaitTimer.isScheduled() &&
-                                      !initiateCTS &&
-                                      isFreeToSend(),
-                                  BACKOFF, );
+                                     currentTransmission != nullptr &&
+                                         !isReceiving() &&
+                                         !shortWaitTimer.isScheduled() &&
+                                         !initiateCTS &&
+                                         isFreeToSend(),
+                                     BACKOFF, );
             FSMA_Event_Transition(detected preamble and trying to receive,
-                                  isReceiving(),
-                                  RECEIVING, );
+                                     isReceiving(),
+                                     RECEIVING, );
         }
         FSMA_State(BACKOFF)
         {
@@ -82,17 +87,17 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(READY_TO_SEND)
         {
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered READY_TO_SEND"););
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTIN"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
-            FSMA_Event_Transition(
-                finished transmitting,
-                !isTransmitting(),
-                LISTENING, finishCurrentTransmission());
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTING"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
+            FSMA_Event_Transition(finished transmitting,
+                                  !isTransmitting(),
+                                  LISTENING, finishCurrentTransmission());
         }
         FSMA_State(CW_CTS)
         {
@@ -110,7 +115,7 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(SEND_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_CTS"); sendCTS(););
+            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_CTS"); sendCTS(true););
             FSMA_Event_Transition(finished sending CTS now listen f0r packet,
                                   !isTransmitting(),
                                   AWAIT_TRANSMISSION, );
@@ -128,8 +133,7 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
                                   isPacketFromRTSSource(receivedPacket),
                                   RECEIVING,
                                   msgScheduler.cancel(&transmissionStartTimer);
-                                  msgScheduler.cancel(&transmissionEndTimer);
-                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
+                                  msgScheduler.cancel(&transmissionEndTimer););
             FSMA_Event_Transition(did not receive message from RTS source - just go back to listen,
                                   transmissionEndTimer == *msg,
                                   LISTENING,
@@ -138,12 +142,16 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
         FSMA_State(RECEIVING)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered RECEIVING"););
-            FSMA_Event_Transition(
-                got - message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket));
+            FSMA_Event_Transition(got - message,
+                                     isReceivedPacketReady,
+                                     LISTENING,
+                                     handleProtocolPacket(receivedPacket));
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)
@@ -155,7 +163,6 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
 void RSMiTra::handleUpperPacket(MessageToSend *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, true, msg->isMission, true);
-    DEBUG_PRINTF("Got packet. Now enqueing. Is Mission: %d\n", msg->isMission);
     customPacketQueue.printQueue();
 }
 
@@ -186,7 +193,6 @@ void RSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
         DEBUG_PRINTF("[Protocol] received unkown packet: %s\n", msgIdToString(receivedPacket->messageType));
         break;
     }
-
     finishReceiving();
 }
 
@@ -232,6 +238,6 @@ void RSMiTra::handleCTS(const BroadcastCTS *packet, const size_t packetSize, boo
 {
     DEBUG_PRINTLN("[Protocol] handleCTS");
     // we are only here if we did not request the CTS. Just wait for the time that the transmission
-    uint32_t endOngoingTransmission = millis() + getToAByPacketSizeInUS(packet->fragmentSize) / 1000 + sifs_MS;
+    uint32_t endOngoingTransmission = getToAByPacketSizeInUS(packet->fragmentSize) / 1000 + sifs_MS;
     msgScheduler.schedule(&ongoingTransmissionTimer, endOngoingTransmission);
 }

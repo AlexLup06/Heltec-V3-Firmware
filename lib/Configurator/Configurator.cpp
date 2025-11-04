@@ -7,30 +7,18 @@ void Configurator::setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, uint8
     nodeId = _nodeId;
 }
 
-void Configurator::receiveDio1Interrupt()
-{
-    uint16_t irq = radio->getIrqFlags();
-
-    if (irq & RADIOLIB_SX126X_IRQ_RX_DONE)
-    {
-        irqFlag = RADIOLIB_SX126X_IRQ_RX_DONE;
-    }
-
-    const uint16_t RX_IRQ_MASK =
-        RADIOLIB_SX126X_IRQ_RX_DONE |
-        RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED |
-        RADIOLIB_SX126X_IRQ_HEADER_ERR |
-        RADIOLIB_SX126X_IRQ_CRC_ERR;
-
-    uint16_t relevant = irq & RX_IRQ_MASK;
-    if (relevant)
-        radio->clearIrqFlags(relevant);
-}
-
 void Configurator::handleDioInterrupt()
 {
-    uint16_t flags = irqFlag;
-    irqFlag = 0;
+    uint16_t flags = radio->irqFlag;
+    radio->irqFlag = 0;
+
+    if (flags & RADIOLIB_SX126X_IRQ_TX_DONE)
+    {
+        loraDisplay->incrementSent();
+        radio->startReceive();
+        return;
+    }
+
     if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
     {
         radio->standby();
@@ -140,9 +128,12 @@ void Configurator::sendBroadcastConfig()
     msg.source = nodeId;
     msg.startTime = startTimeUnix;
 
-    radio->sendRaw((uint8_t *)&msg, sizeof(msg));
+    int state = radio->sendRaw((uint8_t *)&msg, sizeof(msg));
+    DEBUG_PRINTF("[CONFIG] Master sending TIME_SYNC t=%lu\n", msg.currentTime);
 
-    DEBUG_PRINTF("[CONFIG] Master sent TIME_SYNC t=%lu\n", msg.currentTime);
-
-    radio->startReceive();
+    if (state != RADIOLIB_ERR_NONE)
+    {
+        DEBUG_PRINTF("[RadioBase] Send failed: %d\n", state);
+        radio->startReceive();
+    }
 }

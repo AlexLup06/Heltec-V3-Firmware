@@ -5,6 +5,11 @@ String IRSMiTra::getProtocolName()
     return "irsmitra";
 }
 
+void IRSMiTra::initProtocol()
+{
+    initRTSCTS();
+}
+
 void IRSMiTra::finishProtocol()
 {
     finishRTSCTS();
@@ -18,6 +23,7 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         static SelfMessage defaultMsg{"default"};
         msg = &defaultMsg;
     }
+    
     FSMA_Switch(fsm)
     {
         FSMA_State(LISTENING)
@@ -48,7 +54,7 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
                                   regularBackoff == *msg && !withRTS(),
                                   TRANSMITTING,
                                   regularBackoffHandler.invalidateBackoffPeriod(););
-            FSMA_Event_Transition(receiving msg - cancle backoff - listen now,
+            FSMA_Event_Transition(receiving message - cancle backoff - listen now,
                                   isReceiving(),
                                   RECEIVING,
                                   regularBackoffHandler.cancelBackoffTimer();
@@ -136,12 +142,16 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         FSMA_State(RECEIVING)
         {
             FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered RECEIVING"););
-            FSMA_Event_Transition(
-                got - message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket));
+            FSMA_Event_Transition(received message,
+                                  isReceivedPacketReady,
+                                  LISTENING,
+                                  handleProtocolPacket(receivedPacket));
         }
+    }
+
+    if (fsm.getState() != RECEIVING)
+    {
+        finishReceiving();
     }
 
     if (fsm.getState() == LISTENING && !customPacketQueue.isEmpty() && currentTransmission == nullptr)

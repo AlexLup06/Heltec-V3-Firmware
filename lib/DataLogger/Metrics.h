@@ -3,51 +3,97 @@
 
 enum class Metric : uint8_t
 {
-    ToA,
-    Collisions,
-    Delay,
-    Energy,
+    ReceivedCompleteMission_V,
+    SentMissionRTS_V,
+    SentMissionFragment_V,
+    TimeToLastTrajectory_V,
+    ReceivedEfectiveBytes_V,
+    ReceivedBytes_V,
+    SentEfectiveBytes_V,
+    SentBytes_V,
+    Collisions_S,
+    TimeOnAir_S,
     SingleValues,
     COUNT
 };
 
-// Convert enum to readable string (for filenames, printing, etc.)
 inline const char *metricToString(Metric m)
 {
     switch (m)
     {
-    case Metric::ToA:
-        return "toa";
-    case Metric::Collisions:
+    case Metric::ReceivedCompleteMission_V:
+        return "received_complete_mission";
+    case Metric::SentMissionRTS_V:
+        return "sent_mission_rts";
+    case Metric::SentMissionFragment_V:
+        return "sent_mission_fragment";
+    case Metric::TimeToLastTrajectory_V:
+        return "time_of_last_trajectory";
+    case Metric::ReceivedEfectiveBytes_V:
+        return "received_effective_bytes";
+    case Metric::ReceivedBytes_V:
+        return "received_bytes";
+    case Metric::SentEfectiveBytes_V:
+        return "sent_effective_bytes";
+    case Metric::SentBytes_V:
+        return "sent_bytes";
+    case Metric::TimeOnAir_S:
+        return "time_on_air";
+    case Metric::Collisions_S:
         return "collisions";
-    case Metric::Delay:
-        return "delay";
-    case Metric::Energy:
-        return "energy";
     case Metric::SingleValues:
-        return "singlevalues";
+        return "single_values";
+    case Metric::COUNT:
+        return "count";
     default:
         return "unknown";
     }
 }
 
-struct ToAData
+#pragma pack(push, 1)
+struct SentEffectiveBytes_data
 {
-    uint32_t timestamp;
-    float timeOnAir;
+    uint16_t bytes;
 };
-struct CollisionData
+
+struct SentBytes_data
 {
-    uint32_t timestamp;
-    uint8_t collided;
+    uint16_t bytes;
 };
-struct DelayData
+
+struct ReceivedEffectiveBytes_data
 {
-    uint32_t timestamp;
-    float delay;
+    uint16_t bytes;
 };
-struct EnergyData
+
+struct ReceivedBytes_data
 {
-    uint32_t timestamp;
-    float mA;
+    uint16_t bytes;
 };
+
+struct ReceivedCompleteMission_data
+{
+    uint32_t time;
+    uint8_t source;
+    uint16_t missionId;
+};
+
+struct SentMissionRTS_data
+{
+    uint32_t time;
+    uint8_t source;
+    uint16_t missionId;
+};
+
+struct SentMissionFragment_data
+{
+    uint32_t time;
+    uint8_t source;
+    uint16_t missionId;
+};
+
+struct TimeToLastTrajecotory
+{
+    uint16_t time; // hundedth of second: 600 => 6s ; 1 => 0.01
+};
+#pragma pack(pop)

@@ -39,7 +39,7 @@ protected:
 
     bool isPacketFromRTSSource(ReceivedPacket *receivedPacket);
     bool isCTSForSameRTSSource(ReceivedPacket *receivedPacket);
-    void sendCTS();
+    void sendCTS(bool waitForCTStimeout = false);
     void sendRTS();
     void clearRTSsource();
     void handleCTSTimeout();
