@@ -1,6 +1,6 @@
 #include "MiRS.h"
 
-String MiRS::getProtocolName()
+const char *MiRS::getProtocolName()
 {
     return "mirs";
 }
@@ -28,7 +28,6 @@ void MiRS::handleWithFSM(SelfMessage *msg)
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered LISTENING"););
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
                                   CW_CTS, );
@@ -45,7 +44,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(BACKOFF)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered BACKOFF"); regularBackoffHandler.scheduleBackoffTimer(););
+            FSMA_Enter(regularBackoffHandler.scheduleBackoffTimer());
             FSMA_Event_Transition(backoff finished send rts,
                                   regularBackoff == *msg && withRTS(false),
                                   SEND_RTS,
@@ -62,14 +61,13 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(SEND_RTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_RTS"); sendRTS(););
+            FSMA_Enter(sendRTS());
             FSMA_Event_Transition(rts is sent now wait f0r cts,
                                   !isTransmitting(),
                                   WAIT_CTS, );
         }
         FSMA_State(WAIT_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered WAIT_CTS"););
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   LISTENING,
@@ -82,14 +80,14 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(TRANSMITTING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTINF"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
+            FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
             FSMA_Event_Transition(finished transmitting,
                                   !isTransmitting(),
                                   LISTENING, finishCurrentTransmission());
         }
         FSMA_State(CW_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] CW_CTS"); initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
+            FSMA_Enter(initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(cts backoff finished and we send cts,
                                   ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
@@ -110,14 +108,13 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(SEND_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_CTS"); sendCTS(););
+            FSMA_Enter(sendCTS());
             FSMA_Event_Transition(finished sending CTS now listen f0r packet,
                                   !isTransmitting(),
                                   AWAIT_TRANSMISSION, );
         }
         FSMA_State(AWAIT_TRANSMISSION)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered AWAIT_TRANSMISSION"););
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
                                   transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
@@ -137,7 +134,6 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered RECEIVING"););
             FSMA_Event_Transition(got - message,
                                   isReceivedPacketReady,
                                   LISTENING,
@@ -170,6 +166,8 @@ void MiRS::handleUpperPacket(MessageToSend *msg)
 
 void MiRS::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
     size_t packetSize = receivedPacket->size;
@@ -214,7 +212,9 @@ void MiRS::handleRTS(const BroadcastRTSPacket *packet, const size_t packetSize, 
 
 void MiRS::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    bool created = createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    if (!created)
+        return;
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }

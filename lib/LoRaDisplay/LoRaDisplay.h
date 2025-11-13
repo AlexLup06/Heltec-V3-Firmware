@@ -20,12 +20,17 @@ public:
   void incrementReceived();
   void render();
 
+  void suspend();
+  void resume();
+
   void loop();
 
 private:
   static const uint8_t MAX_NODES = 32;
   static const uint8_t ROWS_PER_PAGE = 4;
-  static const uint16_t PAGE_INTERVAL_MS = 5000; // 5 s
+  bool displayAvailable = false;
+
+  bool displaySuspended = false;
 
   unsigned long messageReceivedCount = 0;
   unsigned long messageSentCount = 0;

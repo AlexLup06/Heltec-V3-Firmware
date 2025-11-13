@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include "LoggerManager.h"
 #include "LoRaDisplay.h"
 #include "config.h"
 #include "RadioBase.h"
@@ -26,15 +25,22 @@ struct MacContext
 
 class MacBase : public RadioBase, public PacketBase
 {
+private:
+    std::map<uint16_t, unsigned long> lastTrajectoryTime;
+
+    void recordTrajectory(uint16_t nodeId);
+    uint16_t timeSinceLastTrajectory(uint16_t nodeId) const;
+    void logTimeToLastTrajectory(uint8_t source);
+
 protected:
     QueuedPacket *currentTransmission;
 
-    uint32_t nodeAnnounceTime = -1;
+    uint32_t nodeAnnounceTime = 0;
     bool isReceivedPacketReady = false;
     ReceivedPacket *receivedPacket;
+    void logReceivedStatistics(const uint8_t *data, const size_t len);
 
 public:
-    LoggerManager *loggerManager;
     LoRaDisplay *loraDisplay;
     SelfMessageScheduler msgScheduler;
 
@@ -59,5 +65,5 @@ public:
     void handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi);
     void onReceiveIR() override;
 
-    virtual String getProtocolName() = 0;
+    virtual const char *getProtocolName() = 0;
 };

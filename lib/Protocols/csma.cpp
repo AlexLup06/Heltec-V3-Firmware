@@ -1,6 +1,6 @@
 #include "Csma.h"
 
-String Csma::getProtocolName()
+const char *Csma::getProtocolName()
 {
     return "csma";
 }
@@ -19,6 +19,12 @@ void Csma::finishProtocol()
 
 void Csma::handleWithFSM(SelfMessage *msg)
 {
+    if (msg == nullptr)
+    {
+        static SelfMessage defaultMsg{"default"};
+        msg = &defaultMsg;
+    }
+
     FSMA_Switch(fsm)
     {
         FSMA_State(LISTENING)
@@ -78,6 +84,8 @@ void Csma::handleUpperPacket(MessageToSend *msg)
 
 void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
     size_t packetSize = receivedPacket->size;
@@ -100,7 +108,9 @@ void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
 
 void Csma::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    bool created = createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    if (!created)
+        return;
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }

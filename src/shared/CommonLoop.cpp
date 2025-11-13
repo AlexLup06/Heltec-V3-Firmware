@@ -2,12 +2,17 @@
 
 void commonLoop()
 {
-    if (macController.finishedAllRuns())
+    button.update();
+
+    if (button.inputActive)
     {
         return;
     }
 
-    button.update();
+    if (macController.finishedAllRuns())
+    {
+        return;
+    }
 
     if (configurator.isInConfigMode())
     {

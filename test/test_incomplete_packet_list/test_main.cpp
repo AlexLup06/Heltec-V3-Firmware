@@ -144,7 +144,6 @@ void test_update_packet_id_comparisons()
     list.updatePacketId(1, 10);
     TEST_ASSERT_TRUE(list.isNewIdHigher(1, 11));
     TEST_ASSERT_TRUE(list.isNewIdSame(1, 10));
-    TEST_ASSERT_TRUE(list.isNewIdLower(1, 9));
 }
 
 // -----------------------------------------------------------------------------

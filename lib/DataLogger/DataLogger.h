@@ -10,7 +10,7 @@ template <typename T>
 class DataLogger
 {
 public:
-    DataLogger(const char *filename = nullptr, const FileHeader *header = nullptr);
+    DataLogger(const char *filename = "", const FileHeader &header = FileHeader());
 
     void addDataPoint(const T &dp);
     bool saveToDisk();
@@ -21,8 +21,9 @@ public:
 
 private:
     std::vector<T> buffer;
-    String filename;
+    char filename[128];
     FileHeader header;
     bool headerWritten = false;
 };
+
 #include "DataLogger.tpp"

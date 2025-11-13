@@ -1,10 +1,11 @@
 #include "Configurator.h"
 
-void Configurator::setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, uint8_t _nodeId)
+void Configurator::setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, LoggerManager *_loggerManager, uint8_t _nodeId)
 {
     loraDisplay = _loraDisplay;
     radio = _radio;
     nodeId = _nodeId;
+    loggerManager = _loggerManager;
 }
 
 void Configurator::handleDioInterrupt()
@@ -51,8 +52,6 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
     {
         BroadcastConfig *packet = (BroadcastConfig *)rawPacket;
 
-        startTimeUnix = packet->startTime;
-
         time_t now = time(NULL);
         if (now < 946684800)
         {
@@ -60,7 +59,16 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
             setClockFromTimestamp(packet->currentTime);
         }
 
-        DEBUG_PRINTF("[CONFIG] Received CONFIG message: startTime=%lu (UTC)\n", packet->startTime);
+        if (packet->numberOfNodes > 0)
+        {
+
+            startTimeUnix = packet->startTime;
+            networkId = packet->networkId;
+            numberOfNodes = packet->numberOfNodes;
+            DEBUG_PRINTF("[CONFIG] Received CONFIG message: startTime=%lu (UTC)\n", packet->startTime);
+        }
+
+        loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
         break;
     }
     default:
@@ -87,7 +95,6 @@ void Configurator::handleConfigMode()
         cycleStartMs = nowMs;
         chosenSlot = random(0, maxCW);
         hasSentConfigMessage = false;
-        DEBUG_PRINTF("[CONFIG] New indicator cycle -> slot %d\n", chosenSlot);
         cycleElapsed = 0;
     }
 
@@ -108,11 +115,6 @@ bool Configurator::isInConfigMode()
     return operationMode == CONFIG;
 }
 
-void Configurator::setStartTime(time_t startTime)
-{
-    startTimeUnix = startTime;
-}
-
 void Configurator::setClockFromTimestamp(uint32_t unixTime)
 {
     struct timeval tv;
@@ -126,14 +128,64 @@ void Configurator::sendBroadcastConfig()
     BroadcastConfig msg{};
     msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig)) / 1'000'000;
     msg.source = nodeId;
-    msg.startTime = startTimeUnix;
+    msg.startTime = static_cast<uint32_t>(config.startTimeUnix);
+    msg.networkId = config.networkId;
+    msg.numberOfNodes = config.numberOfNodes;
 
     int state = radio->sendRaw((uint8_t *)&msg, sizeof(msg));
-    DEBUG_PRINTF("[CONFIG] Master sending TIME_SYNC t=%lu\n", msg.currentTime);
 
     if (state != RADIOLIB_ERR_NONE)
     {
         DEBUG_PRINTF("[RadioBase] Send failed: %d\n", state);
         radio->startReceive();
     }
+}
+
+void Configurator::setNetworkTopology(bool forward)
+{
+    if (forward)
+    {
+        numberOfNodes++;
+        if (numberOfNodes >= MAX_NUMBER_OF_NODES)
+        {
+            numberOfNodes = 0;
+            networkId++;
+            if (networkId >= MAX_NETWORK_ID)
+            {
+                networkId = 0;
+                numberOfNodes = 0;
+            }
+        }
+    }
+    else
+    {
+        if (numberOfNodes == 0)
+        {
+            if (networkId == 0)
+            {
+                networkId = MAX_NETWORK_ID - 1;
+                numberOfNodes = MAX_NUMBER_OF_NODES - 1;
+            }
+            else
+            {
+                networkId--;
+                numberOfNodes = MAX_NUMBER_OF_NODES - 1;
+            }
+        }
+        else
+        {
+            numberOfNodes--;
+        }
+    }
+    loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
+}
+
+void Configurator::confirmSetup(time_t startTime)
+{
+    config.networkId = networkId;
+    config.numberOfNodes = numberOfNodes;
+    config.startTimeUnix = startTime;
+
+    startTimeUnix = startTime;
+    loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
 }

@@ -40,7 +40,7 @@ public:
     void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
     void handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission);
 
-    String getProtocolName();
+    const char *getProtocolName() override;
 
 private:
     cFSM fsm;

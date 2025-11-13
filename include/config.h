@@ -1,5 +1,7 @@
+#include "definitions.h"
+
 // Enables serial debug outputs to the Lora network
-#define DEBUG_LORA_SERIAL
+#undef DEBUG_LORA_SERIAL
 
 // LoRa parameters of the node
 #define LORA_OUTPUT_POWER 20
@@ -21,9 +23,10 @@
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
+#define PAGE_INTERVAL_MS 5000
 
 // simulation runs configs
-#define SIMULATION_DURATION_SEC 10ul
-#define MAC_PROTOCOL_SWITCH_DELAY_SEC 5ul
-#define START_DELAY_SEC 10
-#define NUMBER_OF_RUNS 5
+#define SIMULATION_DURATION_SEC 300ul
+#define MAC_PROTOCOL_SWITCH_DELAY_SEC 60ul
+#define START_DELAY_SEC 60
+#define NUMBER_OF_RUNS 6

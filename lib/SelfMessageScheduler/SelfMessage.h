@@ -1,23 +1,24 @@
 #pragma once
 #include <Arduino.h>
-#include <algorithm> // for std::lower_bound
+#include <cstring>
+#include <algorithm>
 #include "functions.h"
 
 class SelfMessage
 {
 public:
-    explicit SelfMessage(const String &name = "default")
+    explicit SelfMessage(const char *name = "default")
         : name_(name), triggerTime(0), scheduled(false) {}
 
-    bool isName(const String &n) const { return name_ == n; }
-    const String &getName() const { return name_; }
+    bool isName(const char *n) const { return strcmp(name_, n) == 0; }
+    const char *getName() const { return name_; }
 
     unsigned long getTriggerTime() const { return triggerTime; }
     bool isScheduled() const { return scheduled; }
 
     bool operator==(const SelfMessage &other) const
     {
-        return name_ == other.name_;
+        return strcmp(name_, other.name_) == 0;
     }
 
     bool operator!=(const SelfMessage &other) const
@@ -27,7 +28,7 @@ public:
 
 private:
     friend class SelfMessageScheduler;
-    String name_;
+    const char *name_;
     unsigned long triggerTime;
     bool scheduled;
 };

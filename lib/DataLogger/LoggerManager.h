@@ -7,19 +7,19 @@
 #include "DataLogger.tpp"
 #include "Metrics.h"
 #include "FileHeader.h"
-#include "functions.h"
+#include "filesystemOperations.h"
 
 class LoggerManager
 {
 public:
-    LoggerManager(const String &topology, int startRun = 0);
+    LoggerManager() : networkName(""), currentMac(""), missionMessagesPerMin(0), numberOfNodes(0), runNumber(0) {}
+    void init(uint8_t _nodeId);
 
-    void init();
     void clearAll();
     void saveAll();
-    void nextRun();
-    void setTopology(const String &topo);
-    int getRunNumber() const { return runNumber; }
+    void updateFilename();
+    void setNetworkTopology(const char *_networkId, int _numberOfNodes);
+    void setMetadata(int _runNumber, const char *_newMac, int _missionMessagesPerMin);
 
     void increment(Metric metric, double value = 1.0);
     void setValue(Metric metric, double value);
@@ -30,16 +30,22 @@ public:
     template <typename T>
     void log(Metric metric, const T &data);
 
-private:
-    String topology;
+    char currentMac[16];
     int runNumber;
+    int missionMessagesPerMin;
 
+    int numberOfNodes;
+    char networkName[32];
+
+    uint8_t nodeId;
+
+private:
     struct BaseLogger
     {
         virtual void add(void *data) = 0;
         virtual void save() = 0;
         virtual void clear() = 0;
-        virtual void updateFilename(const String &filename, const FileHeader &header) = 0;
+        virtual void updateFilename(const char *filename, const FileHeader &header) = 0;
         virtual ~BaseLogger() {}
     };
 
@@ -47,17 +53,25 @@ private:
     struct TypedLogger : BaseLogger
     {
         DataLogger<T> logger;
-        String currentFile;
-        TypedLogger(const String &filename, const FileHeader &header)
-            : logger(filename.c_str(), &header), currentFile(filename) {}
+        char currentFile[128];
+
+        TypedLogger(const char *filename, const FileHeader &header)
+            : logger(filename, header)
+        {
+            // Safely copy filename into local buffer
+            strncpy(currentFile, filename, sizeof(currentFile) - 1);
+            currentFile[sizeof(currentFile) - 1] = '\0';
+        }
 
         void add(void *data) override { logger.addDataPoint(*reinterpret_cast<T *>(data)); }
         void save() override { logger.saveToDisk(); }
         void clear() override { logger.clear(); }
-        void updateFilename(const String &filename, const FileHeader &header) override
+        void updateFilename(const char *filename, const FileHeader &header) override
         {
-            currentFile = filename;
-            logger = DataLogger<T>(filename.c_str(), &header);
+            strncpy(currentFile, filename, sizeof(currentFile) - 1);
+            currentFile[sizeof(currentFile) - 1] = '\0';
+            // Reinitialize DataLogger with new file
+            logger = DataLogger<T>(filename, header);
         }
     };
 
@@ -67,7 +81,8 @@ private:
     template <typename T>
     void registerLogger(Metric metric);
 
-    String makeFilename(Metric metric);
+    void makeFilename(Metric metric, char *out, size_t len);
     FileHeader makeHeader(Metric metric);
 };
+
 #include "LoggerManager.tpp"

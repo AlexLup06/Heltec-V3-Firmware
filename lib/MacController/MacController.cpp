@@ -8,13 +8,22 @@ MacController::MacController()
       firstRun(true),
       waitMode(false),
       switchTime(0),
-      macStartTime(0)
+      macStartTime(0),
+      nodeId(0)
 {
 }
 
 void MacController::setMac(MacBase *m)
 {
     mac = m;
+}
+
+void MacController::setCtx(LoggerManager *_loggerManager, MessageSimulator *_messageSimulator, LoRaDisplay *_loraDisplay, uint8_t _nodeId)
+{
+    loggerManager = _loggerManager;
+    messageSimulator = _messageSimulator;
+    loraDisplay = _loraDisplay;
+    nodeId = _nodeId;
 }
 
 void MacController::setSwitchCallback(MacSwitchCallback cb)
@@ -37,18 +46,58 @@ bool MacController::isInWaitMode() const
     return waitMode;
 }
 
+void MacController::collectData()
+{
+    loraDisplay->suspend();
+
+    loggerManager->saveAll();
+    loggerManager->clearAll();
+    loggerManager->saveCounters();
+    loggerManager->resetCounters();
+
+    loraDisplay->resume();
+}
+
 void MacController::markFinished()
 {
     if (waitingForNext)
         return;
 
-    DEBUG_PRINTLN("MAC finished");
+    DEBUG_PRINTF("\n\nFinished MAC %s — cooling down for 2 minutes\n\n", macIdToString(currentMac));
+
     waitingForNext = true;
     switchTime = millis() + SWITCH_DELAY_MS;
     waitMode = true;
 
+    if ((currentMac + 1) % MAC_COUNT == 0)
+    {
+        int nextMission = 60 / missionMessagesPerMin[runCount];
+        messageSimulator->setTimeToNextMission(nextMission);
+    }
+
     if (onMacFinish)
         onMacFinish(currentMac);
+}
+
+void MacController::init()
+{
+    DEBUG_PRINTLN("[MacController] First MACController update");
+
+    missionMessagesPerMin[0] = 10;
+    missionMessagesPerMin[1] = 15;
+    missionMessagesPerMin[2] = 30;
+    missionMessagesPerMin[3] = 60;
+    missionMessagesPerMin[4] = 120;
+    missionMessagesPerMin[5] = 240;
+
+    unsigned long now = millis();
+    macStartTime = now;
+    waitMode = false;
+    firstRun = false;
+    mac->initRun();
+    loggerManager->setMetadata(runCount, mac->getProtocolName(), missionMessagesPerMin[0]);
+    messageSimulator->setTimeToNextMission(missionMessagesPerMin[0]);
+    loggerManager->init(nodeId);
 }
 
 void MacController::update()
@@ -57,11 +106,7 @@ void MacController::update()
 
     if (firstRun)
     {
-        DEBUG_PRINTLN("First MACController update\n\n");
-        macStartTime = now;
-        waitMode = false;
-        firstRun = false;
-        mac->initRun();
+        init();
     }
 
     if (!waitingForNext && (now - macStartTime >= RUN_DURATION_MS))
@@ -69,20 +114,35 @@ void MacController::update()
         markFinished();
     }
 
-    if (waitingForNext && now >= switchTime)
+    if (waitingForNext)
     {
-        DEBUG_PRINTLN("MAC switched");
-        waitingForNext = false;
-        currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);
-        macStartTime = now;
-        waitMode = false;
 
-        if (onMacSwitch)
-            onMacSwitch(currentMac);
+        unsigned long startDataCollection = switchTime - (SWITCH_DELAY_MS - 3000);
+
+        if (!collectedMidWait && now >= startDataCollection)
+        {
+            DEBUG_PRINTLN("Mid-wait: collecting data...");
+            collectData();
+            collectedMidWait = true;
+        }
+
+        if (now >= switchTime)
+        {
+            waitingForNext = false;
+            currentMac = static_cast<MacProtocol>((currentMac + 1) % MAC_COUNT);
+            macStartTime = now;
+            waitMode = false;
+            collectedMidWait = false;
+            loggerManager->setMetadata(runCount, mac->getProtocolName(), missionMessagesPerMin[runCount]);
+            loggerManager->updateFilename();
+
+            if (onMacSwitch)
+                onMacSwitch(currentMac);
+        }
     }
 }
 
-String MacController::macIdToString(MacProtocol macProtocol) const
+const char *MacController::macIdToString(MacProtocol macProtocol) const
 {
     switch (macProtocol)
     {

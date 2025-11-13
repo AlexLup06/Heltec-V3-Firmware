@@ -1,12 +1,23 @@
 #pragma once
 #include <Arduino.h>
-#include <LittleFS.h>
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include "config.h"
 #include "definitions.h"
+
+#ifdef DEBUG_LORA_SERIAL
+#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINTF(...)
+#endif
+
+#ifdef DEBUG_LORA_SERIAL
+#define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
+#else
+#define DEBUG_PRINTLN(...)
+#endif
 
 // Simple CRC-8 implementation (polynomial 0x07)
 inline uint8_t crc8(const uint8_t *data, size_t len)
@@ -75,40 +86,20 @@ inline T *tryCastMessage(uint8_t *buffer, size_t bufferSize = sizeof(T))
     return reinterpret_cast<T *>(buffer);
 }
 
-inline void dumpFilesOverSerial()
+
+inline const char *networkIdToString(uint8_t networkId)
 {
-    File root = LittleFS.open("/");
-    if (!root)
+    switch (networkId)
     {
-        Serial.println("Failed to open LittleFS root");
-        return;
+    case TOPOLOGY_FULLY_MESHED:
+        return "TOPOLOGY_FULLY_MESHED";
+    case TOPOLOGY_LINE:
+        return "TOPOLOGY_LINE";
+    case TOPOLOGY_COMPLEX:
+        return "TOPOLOGY_COMPLEX";
+    default:
+        return "UNKNOWN_TOPOLOGY";
     }
-
-    File file = root.openNextFile();
-    while (file)
-    {
-        String name = file.name();
-        size_t size = file.size();
-
-        // --- Send file header over Serial ---
-        Serial.printf("BEGIN_FILE:%s:%u\n", name.c_str(), (unsigned)size);
-        delay(50); // small delay to help PC sync
-
-        // --- Send file contents ---
-        uint8_t buffer[128];
-        while (file.available())
-        {
-            size_t bytesRead = file.read(buffer, sizeof(buffer));
-            Serial.write(buffer, bytesRead);
-        }
-
-        Serial.println(); // flush line break
-        Serial.printf("END_FILE:%s\n", name.c_str());
-        file = root.openNextFile();
-        delay(100);
-    }
-
-    Serial.println("ALL_DONE");
 }
 
 inline const char *msgIdToString(uint8_t msgId)
@@ -134,15 +125,3 @@ inline const char *msgIdToString(uint8_t msgId)
         return "UNKNOWN_MESSAGE_TYPE";
     }
 }
-
-#ifdef DEBUG_LORA_SERIAL
-#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
-#else
-#define DEBUG_PRINT(...)
-#endif
-
-#ifdef DEBUG_LORA_SERIAL
-#define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
-#else
-#define DEBUG_PRINT(...)
-#endif

@@ -4,6 +4,7 @@
 #include <RadioLib.h>
 #include <RadioHandler.h>
 #include "functions.h"
+#include "LoggerManager.h"
 
 class RadioBase
 {
@@ -11,9 +12,12 @@ class RadioBase
 private:
     bool isReceivingVar = false;
     bool isTransmittingVar = false;
+    unsigned long lastPreambleTime = 0;
+
     SX1262Public *radio;
 
-    unsigned long lastPreambleTime = 0;
+protected:
+    LoggerManager *loggerManager = nullptr;
 
 public:
     std::function<void()> onSendCallback = nullptr;
@@ -31,6 +35,7 @@ public:
     int readData(uint8_t *data, size_t len);
     void setReceivingVar(bool s);
     void setOnSendCallback(std::function<void()> cb);
+    void logSendStatistics(const uint8_t *data, const size_t len);
 
     void finishRadioBase();
 

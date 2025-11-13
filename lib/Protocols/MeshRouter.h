@@ -21,7 +21,7 @@ public:
     void OnFloodFragmentPacket(BroadcastFragmentPacket *packet, size_t packetSize, bool isMission);
 
     void handleUpperPacket(MessageToSend *serialPayloadFloodPacket) override;
-    String getProtocolName() override;
+    const char *getProtocolName() override;
 
 protected:
     void onPreambleDetectedIR() override;

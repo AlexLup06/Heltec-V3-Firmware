@@ -1,6 +1,6 @@
 #include "Aloha.h"
 
-String Aloha::getProtocolName()
+const char *Aloha::getProtocolName()
 {
     return "aloha";
 }
@@ -66,7 +66,7 @@ void Aloha::handleUpperPacket(MessageToSend *msg)
 
 void Aloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    DEBUG_PRINTLN("[RadioBase] handleProtocolPacket");
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
 
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
@@ -90,7 +90,9 @@ void Aloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
 
 void Aloha::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
 {
-    createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    bool created = createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    if (!created)
+        return;
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }

@@ -17,12 +17,12 @@ void LoRaDisplay::init()
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
-    DEBUG_PRINTLN("SSD1306 init failed");
-    for (;;)
-    {
-    }
+    DEBUG_PRINTLN("SSD1306 init failed – continuing without display");
+    displayAvailable = false;
+    return; // <-- don’t crash, just continue
   }
 
+  displayAvailable = true;
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
@@ -122,8 +122,24 @@ void LoRaDisplay::drawRows()
   display.printf("Tx:%lu", messageSentCount);
 }
 
+void LoRaDisplay::suspend()
+{
+  displaySuspended = true;
+}
+
+void LoRaDisplay::resume()
+{
+  displaySuspended = false;
+}
+
 void LoRaDisplay::render()
 {
+  if (displaySuspended)
+    return;
+
+  if (!displayAvailable)
+    return;
+
   display.clearDisplay();
   drawHeader();
   drawRows();
@@ -134,9 +150,6 @@ void LoRaDisplay::loop()
 {
   unsigned long now = millis();
   uint8_t totalPages = (nodeCount + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE;
-
-  // --- If only one page, update every 1 second ---
-  // unsigned long interval = (totalPages > 1) ? PAGE_INTERVAL_MS : 1000;
 
   if (now - lastPageSwitch >= PAGE_INTERVAL_MS)
   {

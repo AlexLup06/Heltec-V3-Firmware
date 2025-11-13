@@ -10,16 +10,13 @@ void MacBase::finish()
 
 void MacBase::clearMacData()
 {
+    nodeAnnounceTime = 0;
     clearQueue();
     clearIncompletePacketLists();
-
-    if (receivedPacket != nullptr)
-    {
-        free(receivedPacket->payload);
-        free(receivedPacket);
-    }
-    isReceivedPacketReady = false;
+    finishReceiving();
     finishCurrentTransmission();
+    msgScheduler.clear();
+    lastTrajectoryTime.clear();
 }
 
 void MacBase::initRun()
@@ -78,7 +75,6 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
     if (isReceivedPacketReady)
     {
         DEBUG_PRINTF("[Mac Base] We are currently handeling another packet: %s\n", msgIdToString(messageType));
-
         return;
     }
 
@@ -118,11 +114,17 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
         DEBUG_PRINTLN("[Mac Base] packet complete");
         if (result.sendUp)
         {
+            if (!result.isMission)
+            {
+                logTimeToLastTrajectory(result.completePacket->source);
+            }
+
             FragmentedPacket *fragmentedPacket = result.completePacket;
             if (!result.isMission || fragmentedPacket->source == nodeId)
             {
                 return;
             }
+
             DEBUG_PRINTLN("[Mac Base] Packet is mission so propagate");
             createMessage(
                 fragmentedPacket->payload,
@@ -132,8 +134,18 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
                 true,
                 withContinuousRTS,
                 fragmentedPacket->id);
-        }
 
+            ReceivedCompleteMission_data receivedMission = ReceivedCompleteMission_data();
+            receivedMission.missionId = fragmentedPacket->id;
+            receivedMission.source = fragmentedPacket->source;
+            receivedMission.time = time(NULL);
+            loggerManager->log(Metric::ReceivedCompleteMission_V, receivedMission);
+        }
+        else
+        {
+            loggerManager->increment(Metric::Collisions_S);
+        }
+        
         removeIncompletePacket(result.completePacket->source, result.isMission);
     }
 }
@@ -164,4 +176,54 @@ void MacBase::onReceiveIR()
     }
     free(receiveBuffer);
     startReceive();
+}
+
+void MacBase::logTimeToLastTrajectory(uint8_t source)
+{
+    TimeToLastTrajecotory timeToLastTrajecotry = TimeToLastTrajecotory();
+    uint16_t ttlt = timeSinceLastTrajectory(source);
+    timeToLastTrajecotry.time = ttlt;
+    loggerManager->log(Metric::TimeToLastTrajectory_V, timeToLastTrajecotry);
+    recordTrajectory(source);
+    DEBUG_PRINTF("[Mac Base] Log time to last trajectory: %d\n", ttlt);
+}
+
+void MacBase::recordTrajectory(uint16_t nodeId)
+{
+    lastTrajectoryTime[nodeId] = millis();
+}
+
+uint16_t MacBase::timeSinceLastTrajectory(uint16_t nodeId) const
+{
+    auto it = lastTrajectoryTime.find(nodeId);
+    if (it == lastTrajectoryTime.end())
+    {
+        return 0xFFFF;
+    }
+    unsigned long now = millis();
+    return (now - it->second) / 10;
+}
+void MacBase::logReceivedStatistics(const uint8_t *data, const size_t len)
+{
+    DEBUG_PRINTLN("[Mac Base] Log received");
+    ReceivedBytes_data receivedByes = ReceivedBytes_data();
+    receivedByes.bytes = len;
+    loggerManager->log(Metric::ReceivedBytes_V, receivedByes);
+    DEBUG_PRINTF("[Mac Base] Log received bytes: %d\n", len);
+
+    ReceivedEffectiveBytes_data receivedEffectiveBytes = ReceivedEffectiveBytes_data();
+    if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_FRAGMENT)
+    {
+        receivedEffectiveBytes.bytes = len - BROADCAST_FRAGMENT_METADATA_SIZE;
+        loggerManager->log(Metric::ReceivedEffectiveBytes_V, receivedEffectiveBytes);
+        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_FRAGMENT_METADATA_SIZE);
+    }
+
+    if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT)
+    {
+        receivedEffectiveBytes.bytes = len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE;
+        loggerManager->log(Metric::ReceivedEffectiveBytes_V, receivedEffectiveBytes);
+        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
+    }
+    DEBUG_PRINTLN("[Mac Base] Finish log received");
 }

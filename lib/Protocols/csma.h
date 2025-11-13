@@ -27,7 +27,7 @@ public:
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
     void handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission);
     void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
-    String getProtocolName();
+    const char *getProtocolName() override;
 
 private:
     cFSM fsm;

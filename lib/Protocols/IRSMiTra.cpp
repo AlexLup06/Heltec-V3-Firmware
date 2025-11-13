@@ -1,6 +1,6 @@
 #include "IRSMiTra.h"
 
-String IRSMiTra::getProtocolName()
+const char *IRSMiTra::getProtocolName()
 {
     return "irsmitra";
 }
@@ -23,12 +23,11 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         static SelfMessage defaultMsg{"default"};
         msg = &defaultMsg;
     }
-    
+
     FSMA_Switch(fsm)
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered LISTENING"););
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
                                   CW_CTS, );
@@ -45,7 +44,7 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(BACKOFF)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered BACKOFF"); regularBackoffHandler.scheduleBackoffTimer(););
+            FSMA_Enter(regularBackoffHandler.scheduleBackoffTimer());
             FSMA_Event_Transition(backoff finished send rts,
                                   regularBackoff == *msg && withRTS(),
                                   SEND_RTS,
@@ -62,14 +61,13 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(SEND_RTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_RTS"); sendRTS(););
+            FSMA_Enter(sendRTS());
             FSMA_Event_Transition(rts is sent now wait f0r cts,
                                   !isTransmitting(),
                                   WAIT_CTS, );
         }
         FSMA_State(WAIT_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered WAIT_CTS"););
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   LISTENING,
@@ -84,7 +82,7 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(TRANSMITTING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered TRANSMITTINF"); sendPacket(currentTransmission->data, currentTransmission->packetSize););
+            FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
             FSMA_Event_Transition(
                 finished transmitting,
                 !isTransmitting(),
@@ -92,7 +90,7 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(CW_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] CW_CTS"); initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
+            FSMA_Enter(initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(cts backoff finished and we send cts,
                                   ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
@@ -113,15 +111,13 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(SEND_CTS)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] SEND_CTS"); sendCTS(););
+            FSMA_Enter(sendCTS());
             FSMA_Event_Transition(finished sending CTS now listen f0r packet,
                                   !isTransmitting(),
                                   AWAIT_TRANSMISSION, );
         }
         FSMA_State(AWAIT_TRANSMISSION)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered AWAIT_TRANSMISSION"););
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered AWAIT_TRANSMISSION"););
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
                                   transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
@@ -141,7 +137,6 @@ void IRSMiTra::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Enter(DEBUG_PRINTLN("[FSM] Entered RECEIVING"););
             FSMA_Event_Transition(received message,
                                   isReceivedPacketReady,
                                   LISTENING,
@@ -167,6 +162,8 @@ void IRSMiTra::handleUpperPacket(MessageToSend *msg)
 
 void IRSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
     size_t packetSize = receivedPacket->size;

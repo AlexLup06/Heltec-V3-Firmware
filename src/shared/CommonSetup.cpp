@@ -1,5 +1,6 @@
 #include "shared/Common.h"
 #include "WiFi.h"
+#include "filesystemOperations.h"
 
 void displayTask(void *pvParameters);
 
@@ -26,9 +27,7 @@ void commonSetup()
 
     randomSeed(nodeId);
 
-    loggerManager.init();
     loraDisplay.init();
-
     xTaskCreatePinnedToCore(
         displayTask,
         "DisplayTask",
@@ -38,24 +37,32 @@ void commonSetup()
         NULL,
         0);
 
+    if (!LittleFS.begin(true))
+    {
+        Serial.printf("Failed to mount LittleFS!");
+        return;
+    }
+    Serial.printf("LittleFS mounted successfully");
+
     radio.init(LORA_FREQUENCY, LORA_SPREADINGFACTOR, LORA_OUTPUT_POWER, LORA_BANDWIDTH);
     radio.startReceive();
 
-    macController.setSwitchCallback(onMacChanged);
-    macController.setFinishCallback(onMacFinished);
-
-    button.begin();
-    button.onTripleClick(dumpFilesOverSerial);
+    button.begin(&radio);
+    button.onQuadrupleClick(dumpFilesOverSerial);
+    button.onSingleLongClick(deleteAllBinFilesAndDirs);
 
     // setup MAC
     macCtx.radio = &radio;
     macCtx.loggerManager = &loggerManager;
     macCtx.loraDisplay = &loraDisplay;
 
-    macProtocol = &rsmitra;
+    macProtocol = &aloha;
     macController.setMac(macProtocol);
+    macController.setCtx(&loggerManager, &messageSimulator, &loraDisplay, nodeId);
+    macController.setSwitchCallback(onMacChanged);
+    macController.setFinishCallback(onMacFinished);
 
-    configurator.setCtx(&loraDisplay, &radio, nodeId);
+    configurator.setCtx(&loraDisplay, &radio, &loggerManager, nodeId);
 
     meshRouter.init(macCtx, nodeId);
     aloha.init(macCtx, nodeId);

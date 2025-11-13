@@ -1,45 +1,80 @@
 #include "LoggerManager.h"
 
-LoggerManager::LoggerManager(const String &topo, int startRun)
-    : topology(topo), runNumber(startRun) {}
-
-String LoggerManager::makeFilename(Metric metric)
+void LoggerManager::makeFilename(Metric metric, char *out, size_t len)
 {
-    char buf[64];
-    snprintf(buf, sizeof(buf), "/%s_%s_run%02d.bin",
-             metricToString(metric), topology.c_str(), runNumber);
-    return String(buf);
+    snprintf(out, len, "/%s/nodes-%d/%s-%s-%s-%d-%d-%d-vec-run%02d.bin",
+             networkName,
+             numberOfNodes,
+             metricToString(metric), currentMac, networkName, missionMessagesPerMin, numberOfNodes, nodeId, runNumber);
 }
 
 FileHeader LoggerManager::makeHeader(Metric metric)
 {
     FileHeader header;
     header.metric = metric;
-    strncpy(header.topology, topology.c_str(), sizeof(header.topology) - 1);
+    strncpy(header.networkName, networkName, sizeof(header.networkName) - 1);
+    strncpy(header.currentMac, currentMac, sizeof(header.currentMac) - 1);
+    header.missionMessagesPerMin = missionMessagesPerMin;
+    header.numberOfNodes = numberOfNodes;
     header.runNumber = runNumber;
     header.timestamp = millis();
+    header.nodeId = nodeId;
+
     return header;
 }
 
-void LoggerManager::init()
+void LoggerManager::init(uint8_t _nodeId)
 {
-    if (!LittleFS.begin(true))
+
+    nodeId = _nodeId;
+
+    char path[64];
+
+    // Top-level folders
+    snprintf(path, sizeof(path), "/%s", networkIdToString(TOPOLOGY_FULLY_MESHED));
+    createDirChecked(path);
+
+    snprintf(path, sizeof(path), "/%s", networkIdToString(TOPOLOGY_COMPLEX));
+    createDirChecked(path);
+
+    snprintf(path, sizeof(path), "/%s", networkIdToString(TOPOLOGY_LINE));
+    createDirChecked(path);
+
+    // Per-node directories under TOPOLOGY_FULLY_MESHED
+    for (int i = 1; i <= MAX_NUMBER_OF_NODES; i++)
     {
-        DEBUG_PRINTLN("Failed to mount LittleFS!");
-        return;
+        snprintf(path, sizeof(path), "/%s/nodes-%d",
+                 networkIdToString(TOPOLOGY_FULLY_MESHED), i);
+        createDirChecked(path);
     }
 
-    DEBUG_PRINTLN("LittleFS mounted successfully");
-
+    registerLogger<SentEffectiveBytes_data>(Metric::SentEffectiveBytes_V);
+    registerLogger<SentBytes_data>(Metric::SentBytes_V);
+    registerLogger<ReceivedEffectiveBytes_data>(Metric::ReceivedEffectiveBytes_V);
+    registerLogger<ReceivedBytes_data>(Metric::ReceivedBytes_V);
     registerLogger<ReceivedCompleteMission_data>(Metric::ReceivedCompleteMission_V);
     registerLogger<SentMissionRTS_data>(Metric::SentMissionRTS_V);
     registerLogger<SentMissionFragment_data>(Metric::SentMissionFragment_V);
+    registerLogger<TimeToLastTrajecotory>(Metric::TimeToLastTrajectory_V);
+}
+
+void LoggerManager::updateFilename()
+{
+    for (auto &[metric, ptr] : loggers)
+    {
+        char filename[128];
+        makeFilename(metric, filename, sizeof(filename));
+        FileHeader header = makeHeader(metric);
+        ptr->updateFilename(filename, header);
+    }
 }
 
 void LoggerManager::saveAll()
 {
     for (auto &[metric, ptr] : loggers)
+    {
         ptr->save();
+    }
 }
 
 void LoggerManager::clearAll()
@@ -48,30 +83,21 @@ void LoggerManager::clearAll()
         ptr->clear();
 }
 
-void LoggerManager::nextRun()
+void LoggerManager::setMetadata(int _runNumber, const char *_newMac, int _missionMessagesPerMin)
 {
-    runNumber++;
-    for (auto &[metric, ptr] : loggers)
-    {
-        String newFile = makeFilename(metric);
-        FileHeader header = makeHeader(metric);
-        ptr->updateFilename(newFile, header);
-    }
-    clearAll();
-    resetCounters();
-    DEBUG_PRINTF("Started next run: %d\n", runNumber);
+    runNumber = _runNumber;
+    strncpy(currentMac, _newMac, sizeof(currentMac) - 1);
+    currentMac[sizeof(currentMac) - 1] = '\0';
+    missionMessagesPerMin = _missionMessagesPerMin;
+    DEBUG_PRINTF("[LoggerManager] Setting new Metadata, runNumber: %d, currentMac: %s, missionMessagesPerMin: %d\n", _runNumber, _newMac, _missionMessagesPerMin);
 }
 
-void LoggerManager::setTopology(const String &topo)
+void LoggerManager::setNetworkTopology(const char *_networkName, int _numberOfNodes)
 {
-    topology = topo;
-    for (auto &[metric, ptr] : loggers)
-    {
-        String newFile = makeFilename(metric);
-        FileHeader header = makeHeader(metric);
-        ptr->updateFilename(newFile, header);
-    }
-    DEBUG_PRINTF("Topology changed to: %s\n", topology.c_str());
+    strncpy(networkName, _networkName, sizeof(networkName) - 1);
+    networkName[sizeof(networkName) - 1] = '\0';
+    numberOfNodes = _numberOfNodes;
+    DEBUG_PRINTF("[LoggerManager] Setting new Toplogy, newtorkId: %s, numberOfNodes: %d\n", networkName, numberOfNodes);
 }
 
 void LoggerManager::increment(Metric metric, double value)
@@ -97,21 +123,23 @@ void LoggerManager::resetCounters()
 
 void LoggerManager::saveCounters()
 {
-    // Use a consistent name for counter metrics
-    String filename = "/counters_" + topology + "_run" + String(runNumber) + ".bin";
-    File file = LittleFS.open(filename, FILE_WRITE);
+    char filenameBuf[128];
+    snprintf(filenameBuf, sizeof(filenameBuf), "/%s/nodes-%d/counter-%s-%s-%d-%d-%d-vec-run%02d.bin",
+             networkName,
+             numberOfNodes,
+             currentMac, networkName, missionMessagesPerMin, numberOfNodes, nodeId, runNumber);
+
+    File file = LittleFS.open(filenameBuf, FILE_WRITE);
     if (!file)
     {
-        DEBUG_PRINTF("Failed to open %s\n", filename.c_str());
+        DEBUG_PRINTF("Failed to open %s\n", filenameBuf);
         return;
     }
 
-    // Write header first (consistent with other metrics)
-    FileHeader header = makeHeader(Metric::SingleValues); // You can define this enum
+    FileHeader header = makeHeader(Metric::SingleValues);
     header.entrySize = sizeof(Metric) + sizeof(double);
     file.write((uint8_t *)&header, sizeof(header));
 
-    // Write all metric/value pairs
     for (const auto &entry : counters)
     {
         const char *name = metricToString(entry.first);
@@ -120,5 +148,5 @@ void LoggerManager::saveCounters()
     }
 
     file.close();
-    DEBUG_PRINTF("Saved %u counters to %s\n", (unsigned)counters.size(), filename.c_str());
+    DEBUG_PRINTF("Saved %u counters to %s\n", (unsigned)counters.size(), filenameBuf);
 }

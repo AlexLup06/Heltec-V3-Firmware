@@ -68,7 +68,6 @@ public:
         const uint8_t *payload);
 
     void updatePacketId(const uint8_t sourceId, const uint16_t newId);
-    bool isNewIdLower(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdSame(const uint8_t sourceId, const uint16_t newId) const;
     bool isNewIdHigher(const uint8_t sourceId, const uint16_t newId) const;
 

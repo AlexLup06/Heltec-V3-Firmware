@@ -12,8 +12,10 @@ const int daylightOffset_sec = 0;
 void connectToWiFi();
 void initTime();
 void printLocalTime();
-void setStartTime();
 void disableWiFiFully();
+void changeConfigForward();
+void changeConfigBackward();
+void confirmConfig();
 
 void setup()
 {
@@ -24,8 +26,9 @@ void setup()
     printLocalTime();
     disableWiFiFully();
 
-    button.onDoubleClick(setStartTime);
-    button.onTripleClick(dumpFilesOverSerial);
+    button.onSingleClick(changeConfigForward);
+    button.onDoubleClick(changeConfigBackward);
+    button.onTripleClick(confirmConfig);
 }
 
 void loop()
@@ -101,9 +104,19 @@ void printLocalTime()
     }
 }
 
-void setStartTime()
+void changeConfigForward()
 {
-    Serial.println("Double-click detected setting start time");
-    time_t startTime = time(nullptr) + START_DELAY_SEC;
-    configurator.setStartTime(startTime);
+    configurator.setNetworkTopology(true);
+}
+
+void changeConfigBackward()
+{
+    configurator.setNetworkTopology(false);
+}
+
+void confirmConfig()
+{
+    time_t startTime = time(NULL) + START_DELAY_SEC;
+    configurator.confirmSetup(startTime);
+    DEBUG_PRINTF("Double-click detected setting start time with startTime: %lu\n", startTime);
 }

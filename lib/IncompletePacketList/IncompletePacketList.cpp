@@ -62,14 +62,8 @@ bool IncompletePacketList::createIncompletePacket(
         assert(pkt->id < id);
     removePacketBySource(source);
 
-    DEBUG_PRINTF(
-        "We create packet: id=%u, size=%u, source=%u, hopId=%d, type=%s, checksum=%u\n",
-        id,
-        messageSize,
-        source,
-        hopId,
-        msgIdToString(messageType),
-        checksum);
+    DEBUG_PRINTF("Create packet: id=%u, size=%u, source=%u, hopId=%d, type=%s, checksum=%u, isMission: %s\n",
+                 id, messageSize, source, hopId, msgIdToString(messageType), checksum, isMissionList_ ? "True" : "False");
 
     bool isLeaderFragment = messageType == MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
     int firstFragmentPayload = isLeaderFragment ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
@@ -111,11 +105,7 @@ Result IncompletePacketList::addToIncompletePacket(
 {
     Result result;
 
-    DEBUG_PRINTF(
-        "[IncompletePacketList] Add to packet: id=%u, payloadSize=%u, source=%u\n",
-        id,
-        payloadSize,
-        source);
+    DEBUG_PRINTF("[IncompletePacketList] Add to packet: id=%u, payloadSize=%u, source=%u\n", id, payloadSize, source);
 
     FragmentedPacket *incompletePacket = nullptr;
     for (auto *p : packets_)
@@ -135,7 +125,7 @@ Result IncompletePacketList::addToIncompletePacket(
     // already received this packet
     if (incompletePacket->receivedFragments[fragment])
     {
-        DEBUG_PRINTLN("[IncompletePacketList]Already received this fragment");
+        DEBUG_PRINTLN("[IncompletePacketList] Already received this fragment");
         result.bytesLeft = incompletePacket->packetSize - incompletePacket->received;
         return result;
     }
@@ -149,9 +139,7 @@ Result IncompletePacketList::addToIncompletePacket(
     }
 
     int offset = calcOffset(incompletePacket, fragment);
-    DEBUG_PRINTF("[IncompletePacketList] Offset: %d\n", offset);
     memcpy(incompletePacket->payload + offset, payload, payloadSize);
-    DEBUG_PRINTF("[IncompletePacketList] Successfully copied. Size of payload buffer %d and payloadSize: %d\n", sizeof(incompletePacket->payload), payloadSize);
 
     incompletePacket->received += payloadSize;
     result.bytesLeft = incompletePacket->packetSize - incompletePacket->received;
@@ -159,24 +147,17 @@ Result IncompletePacketList::addToIncompletePacket(
     assert(incompletePacket->received <= incompletePacket->packetSize);
     if (incompletePacket->received == incompletePacket->packetSize)
     {
-        DEBUG_PRINTLN("[IncompletePacketList] No bytes missing");
-        DEBUG_PRINTF("[IncompletePacketList] Size of \n");
         uint8_t calculatedChecksum = crc8(incompletePacket->payload, incompletePacket->packetSize);
-        DEBUG_PRINTLN("[IncompletePacketList] No calculated checksum ");
 
         if (calculatedChecksum != incompletePacket->checksum)
             incompletePacket->corrupted = true;
 
-        DEBUG_PRINTF("[IncompletePacketList] Packet is corrupted: %d", incompletePacket->corrupted);
+        DEBUG_PRINTF("[IncompletePacketList] Packet is corrupted: %s\n", incompletePacket->corrupted ? "True" : "False");
 
         result.isComplete = true;
         result.sendUp = !incompletePacket->corrupted;
         result.completePacket = incompletePacket;
         result.isMission = isMissionList_;
-    }
-    else
-    {
-        DEBUG_PRINTLN("[IncompletePacketList] Still bytes missing");
     }
 
     return result;
@@ -201,11 +182,9 @@ int IncompletePacketList::calcOffset(const FragmentedPacket *incompletePacket, c
 
 bool IncompletePacketList::isCorrupted(const FragmentedPacket *incompletePacket, const uint8_t fragment, const uint16_t payloadSize)
 {
-    // fragment payload has a max size of 250 Bytes
     if (payloadSize > LORA_MAX_FRAGMENT_PAYLOAD)
         return true;
 
-    // there is only one fragment
     if (incompletePacket->numOfFragments == 1)
     {
         if (incompletePacket->packetSize != payloadSize)
@@ -213,9 +192,6 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket *incompletePacket,
         return false;
     }
 
-    // There is two or more fragments
-
-    // check if first fragment is corrupted
     if (fragment == 0)
     {
         int firstFragmentSize = incompletePacket->withLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
@@ -224,7 +200,6 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket *incompletePacket,
         return false;
     }
 
-    // check middle fragment is corrupted if it exists
     if (incompletePacket->numOfFragments > 2 && fragment > 0 && fragment < incompletePacket->numOfFragments - 1)
     {
         if (payloadSize != LORA_MAX_FRAGMENT_PAYLOAD)
@@ -232,7 +207,6 @@ bool IncompletePacketList::isCorrupted(const FragmentedPacket *incompletePacket,
         return false;
     }
 
-    // last fragment is corrupted
     if (incompletePacket->numOfFragments - 1 == fragment)
     {
         int firstFragmentSize = incompletePacket->withLeaderFrag ? LORA_MAX_FRAGMENT_LEADER_PAYLOAD : LORA_MAX_FRAGMENT_PAYLOAD;
@@ -261,16 +235,6 @@ void IncompletePacketList::updatePacketId(
     }
 
     latestIdsFromSource_.emplace_back(sourceId, newId);
-}
-
-bool IncompletePacketList::isNewIdLower(
-    const uint8_t sourceId,
-    const uint16_t newId) const
-{
-    for (const auto &entry : latestIdsFromSource_)
-        if (entry.first == sourceId)
-            return newId < entry.second;
-    return false;
 }
 
 bool IncompletePacketList::isNewIdSame(

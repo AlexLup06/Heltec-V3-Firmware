@@ -34,32 +34,28 @@ struct BroadcastConfig
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
     uint8_t source;
     uint32_t startTime;
+    uint8_t networkId;
+    uint8_t numberOfNodes;
     uint32_t currentTime;
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastNodeIdAnnounce : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
     uint8_t nodeId;
     uint8_t respond;
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastRTSPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_RTS;
+    uint16_t id;
     uint8_t source;
     uint8_t hopId;
-    uint16_t id;
     uint16_t size;
     uint8_t checksum;
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastContinuousRTSPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS;
@@ -68,42 +64,33 @@ struct BroadcastContinuousRTSPacket : public MessageTypeBase
     uint16_t id;
     uint8_t fragmentSize;
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastCTS : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CTS;
     uint8_t rtsSource;
     uint8_t fragmentSize;
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastLeaderFragmentPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
-    uint8_t source;
     uint16_t id;
+    uint8_t source;
     uint16_t size;
     uint8_t checksum;
     uint8_t payload[LORA_MAX_PACKET_SIZE - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE] = {0};
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct BroadcastFragmentPacket : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
-    uint8_t source;
     uint16_t id;
+    uint8_t source;
     uint8_t fragment;
     uint8_t payload[LORA_MAX_PACKET_SIZE - BROADCAST_FRAGMENT_METADATA_SIZE] = {0};
 };
-#pragma pack(pop)
 
-// This struct contains information on the serially transmitted payload packet.
-#pragma pack(1)
 struct MessageToSend
 {
     bool isMission;

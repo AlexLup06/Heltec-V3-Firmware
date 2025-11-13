@@ -29,10 +29,12 @@ public:
     bool enqueuePacket(QueuedPacket *pkt);
     void enqueuePacketAtPosition(QueuedPacket *pkt, int pos);
     void enqueueNodeAnnounce(QueuedPacket *pkt);
-    QueuedPacket *dequeuePacket();
+
     const QueuedPacket *getFirstPacket() const;
+    QueuedPacket *dequeuePacket();
     void removePacketAtPosition(int pos);
     void removePacket(QueuedPacket *pkt);
+
     bool isEmpty() const;
     int size() const;
     void printQueue();

@@ -52,9 +52,6 @@ bool CustomPacketQueue::enqueuePacket(QueuedPacket* pkt) {
         return true;
     }
 
-    // -----------------------------
-    // Neighbour HEADER logic
-    // -----------------------------
     if (!pkt->isMission && pkt->isHeader) {
         int insertPos = -1;
         int index = 0;

@@ -7,14 +7,18 @@ void incrementCb()
 
 void onMacChanged(MacProtocol newMac)
 {
-    DEBUG_PRINTF("Switched MAC protocol to %s\n", macController.macIdToString(newMac).c_str());
+    if (macController.finishedAllRuns())
+    {
+        DEBUG_PRINTLN("\n\nALL RUNS COMPLETED!\n\n");
+        return;
+    }
+    DEBUG_PRINTF("Switched MAC protocol to %s\n", macController.macIdToString(newMac));
     macProtocol->initRun();
     messageSimulator.init();
 }
 
 void onMacFinished(MacProtocol finished)
 {
-    DEBUG_PRINTF("Finished MAC %s — cooling down for 2 minutes\n", macController.macIdToString(finished).c_str());
     macProtocol->finish();
     messageSimulator.finish();
 
@@ -25,7 +29,7 @@ void onMacFinished(MacProtocol finished)
         macController.setMac(macProtocol);
         break;
     case MacProtocol::CAD_ALOHA:
-        macProtocol = &aloha;
+        macProtocol = &csma;
         macController.setMac(macProtocol);
         break;
     case MacProtocol::CSMA:
@@ -46,11 +50,6 @@ void onMacFinished(MacProtocol finished)
         break;
     case MacProtocol::MIRS:
         macController.increaseRunCount();
-        if (macController.finishedAllRuns())
-        {
-            DEBUG_PRINTLN("\n\nALL RUNS COMPLETED!\n\n");
-            break;
-        }
         DEBUG_PRINTF("\n\nFinished %d Runs!\n\n\n", macController.getRunCount());
         macProtocol = &aloha;
         macController.setMac(macProtocol);

@@ -4,7 +4,8 @@
 template <typename T>
 void LoggerManager::registerLogger(Metric metric)
 {
-    String filename = makeFilename(metric);
+    char filename[128];
+    makeFilename(metric, filename, sizeof(filename));
     FileHeader header = makeHeader(metric);
     loggers[metric] = std::make_shared<TypedLogger<T>>(filename, header);
 }

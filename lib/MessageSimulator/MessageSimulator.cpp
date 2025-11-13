@@ -18,6 +18,11 @@ void MessageSimulator::finish()
     }
 }
 
+void MessageSimulator::setTimeToNextMission(int _timeToNextMission)
+{
+    nextMission = _timeToNextMission;
+}
+
 void MessageSimulator::simulateMessages()
 {
     uint32_t currentTime = millis();
@@ -46,7 +51,7 @@ void MessageSimulator::simulateMessages()
         messageToSend = msg;
         packetReady = true;
 
-        nextMission = currentTime + random(timeToNextMission - timeToNextMission / 10, timeToNextMission - timeToNextMission / 10);
+        nextMission = currentTime + random(timeToNextMission - timeToNextMission / 10, timeToNextMission - timeToNextMission / 10); // TODO
         return;
     }
 

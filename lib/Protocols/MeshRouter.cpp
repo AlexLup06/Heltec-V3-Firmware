@@ -1,6 +1,6 @@
 #include "MeshRouter.h"
 
-String MeshRouter::getProtocolName()
+const char *MeshRouter::getProtocolName()
 {
     return "meshrouter";
 }
@@ -55,6 +55,8 @@ void MeshRouter::onPreambleDetectedIR()
 
 void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+
     preambleAdd = 0;
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;

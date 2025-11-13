@@ -17,6 +17,13 @@ enum OperationMode
     OPERATIONAL,
 };
 
+struct Config
+{
+    time_t startTimeUnix = 0;
+    uint8_t networkId = 0;
+    uint8_t numberOfNodes = 0;
+};
+
 class Configurator
 {
 public:
@@ -26,21 +33,28 @@ public:
 
     virtual ~Configurator() {}
     void handleConfigPacket(const uint8_t messageType, const uint8_t *rawPacket, const size_t packetSize);
-    void setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, uint8_t _nodeId);
+    void setCtx(LoRaDisplay *_loraDisplay, SX1262Public *_radio, LoggerManager *_loggerManager, uint8_t _nodeId);
 
     void turnOnOperationMode();
     bool isInConfigMode();
     void handleConfigMode(); // runs in main handle()
     void handleDioInterrupt();
-    void setStartTime(time_t startTime);
     void sendBroadcastConfig();
+    void setNetworkTopology(bool forward);
+    void confirmSetup(time_t startTime);
 
 private:
     LoRaDisplay *loraDisplay;
     LoggerManager *loggerManager;
     SX1262Public *radio;
 
+    Config config;
+
     bool hasSentConfigMessage = false;
+    bool settingNetworkTopology = true;
+
+    uint8_t networkId = 0;
+    uint8_t numberOfNodes = 0;
 
     uint32_t startTimeUnix = 0;
     int maxCW = 100;

@@ -23,11 +23,12 @@ private:
     void enqueueStruct(
         const T *packetStruct,
         size_t packetSize,
+        uint8_t source,
         int id,
+        uint8_t fullMsgChecksum,
         bool isHeader,
         bool isMission,
         bool isNodeAnnounce,
-        uint8_t fullMsgChecksum,
         bool hasContinuousRTS = false);
 
     BroadcastLeaderFragmentPacket *createLeaderFragment(

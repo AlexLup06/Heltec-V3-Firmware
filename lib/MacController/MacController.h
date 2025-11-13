@@ -3,6 +3,9 @@
 #include "config.h"
 #include "functions.h"
 #include "MacBase.h"
+#include "LoggerManager.h"
+#include "LoRaDisplay.h"
+#include "MessageSimulator.h"
 
 enum MacProtocol
 {
@@ -24,9 +27,14 @@ public:
 
     MacController();
 
+    void init();
+
     void setMac(MacBase *m);
+    void setCtx(LoggerManager *_loggerManager, MessageSimulator *_messageSimulator, LoRaDisplay *_loraDisplay, uint8_t _nodeId);
+
     void update();
     void markFinished();
+    void collectData();
 
     void setSwitchCallback(MacSwitchCallback cb);
     void setFinishCallback(MacFinishCallback cb);
@@ -36,25 +44,32 @@ public:
     bool finishedAllRuns() { return runCount >= NUMBER_OF_RUNS; }
 
     MacProtocol getCurrent() const;
-    String macIdToString(MacProtocol macProtocol) const;
+    const char *macIdToString(MacProtocol macProtocol) const;
 
     bool isInWaitMode() const;
 
 private:
+    MessageSimulator *messageSimulator;
+    LoRaDisplay *loraDisplay;
     MacProtocol currentMac;
     MacSwitchCallback onMacSwitch;
     MacFinishCallback onMacFinish;
 
-    MacBase *mac;
+    MacBase *mac = nullptr;
+    uint8_t runCount = 0;
+    uint16_t missionMessagesPerMin[NUMBER_OF_RUNS];
+
+    LoggerManager *loggerManager = nullptr;
+
+    uint8_t nodeId;
 
     bool waitingForNext;
     bool firstRun;
     bool waitMode;
+    bool collectedMidWait = false;
 
     unsigned long switchTime;
     unsigned long macStartTime;
-
-    uint8_t runCount = 0;
 
     static constexpr unsigned long RUN_DURATION_MS = SIMULATION_DURATION_SEC * 1000UL;
     static constexpr unsigned long SWITCH_DELAY_MS = MAC_PROTOCOL_SWITCH_DELAY_SEC * 1000UL;

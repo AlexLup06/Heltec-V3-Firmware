@@ -24,11 +24,14 @@ void RtsCtsBase::finishRTSCTS()
 
     ctsBackoffHandler.invalidateBackoffPeriod();
     regularBackoffHandler.invalidateBackoffPeriod();
+
+    rtsSource = -1;
+    ctsData.fragmentSize = -1;
+    ctsData.rtsSource = -1;
 }
 
 bool RtsCtsBase::isFreeToSend()
 {
-    // DEBUG_PRINTF("Isfree to send: %d\n", !ongoingTransmissionTimer.isScheduled() && !transmissionStartTimer.isScheduled());
     return !ongoingTransmissionTimer.isScheduled() && !transmissionStartTimer.isScheduled();
 }
 
@@ -48,7 +51,6 @@ bool RtsCtsBase::isPacketFromRTSSource(ReceivedPacket *receivedPacket)
     if (!isReceivedPacketReady)
         return false;
 
-    DEBUG_PRINTLN("[RtsCts] Check isPacketFromRTSSource");
     BroadcastFragmentPacket *fragment = tryCastMessage<BroadcastFragmentPacket>(receivedPacket->payload);
     if (fragment == nullptr)
     {
@@ -83,7 +85,7 @@ void RtsCtsBase::sendCTS(bool waitForCTStimeout)
 
     // After we send CTS, we need to receive message within ctsFS + sifs otherwise we assume there will be no message
     // if we are RSMiTra then we need to wait for the remainder of the CTS cw window because the transmitter waits until the end
-    uint16_t startSend = ctsFS_MS + sifs_MS;
+    uint16_t startSend = 2 * ctsFS_MS + sifs_MS;
     if (waitForCTStimeout)
     {
         startSend += ctsBackoffHandler.getRemainderCW() * ctsFS_MS;
@@ -108,8 +110,6 @@ void RtsCtsBase::sendRTS()
     msgScheduler.schedule(&waitForCTSTimer, scheduleCTSTimerTime);
 
     finishCurrentTransmission();
-    DEBUG_PRINTF("[RtsBase] CTS timeout in %d ms\n", scheduleCTSTimerTime);
-    DEBUG_PRINTF("[RtsBase] we sent rts and scheduled cts timeout at millis:  %lu\n", millis());
 }
 
 void RtsCtsBase::clearRTSsource()
@@ -120,7 +120,6 @@ void RtsCtsBase::clearRTSsource()
 // Put packet back to queue at front and currentTransmission is the header again, to try once again. After 3 tries delete the packet
 void RtsCtsBase::handleCTSTimeout()
 {
-    DEBUG_PRINTF("[RtsBase] CTS cw timeout at millis:  %lu\n", millis());
     currentTransmission->sendTrys++;
     if (currentTransmission->sendTrys >= 3)
     {

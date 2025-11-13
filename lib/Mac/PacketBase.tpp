@@ -5,11 +5,12 @@ template <typename T>
 void PacketBase::enqueueStruct(
     const T *packetStruct,
     size_t packetSize,
+    uint8_t source,
     int id,
+    uint8_t fullMsgChecksum,
     bool isHeader,
     bool isMission,
     bool isNodeAnnounce,
-    uint8_t fullMsgChecksum,
     bool hasContinuousRTS)
 {
     uint8_t *buffer = (uint8_t *)malloc(packetSize);
@@ -17,15 +18,16 @@ void PacketBase::enqueueStruct(
 
     QueuedPacket *pkt = (QueuedPacket *)malloc(sizeof(QueuedPacket));
 
-    pkt->id=id;
     pkt->data = buffer;
     pkt->packetSize = packetSize;
+    pkt->id = id;
+    pkt->source = nodeId;
+    pkt->sendTrys = 0;
+    pkt->fullMsgChecksum = fullMsgChecksum;
     pkt->isHeader = isHeader;
     pkt->isMission = isMission;
     pkt->isNodeAnnounce = isNodeAnnounce;
-    pkt->sendTrys = 0;
     pkt->hasContinuousRTS = hasContinuousRTS;
-    pkt->fullMsgChecksum = fullMsgChecksum;
 
     customPacketQueue.enqueuePacket(pkt);
 }

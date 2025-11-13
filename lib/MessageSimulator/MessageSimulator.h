@@ -25,6 +25,7 @@ public:
     void finish();
 
     void simulateMessages();
+    void setTimeToNextMission(int _timeToNextMission);
     void cleanUp();
 
     bool packetReady = false;

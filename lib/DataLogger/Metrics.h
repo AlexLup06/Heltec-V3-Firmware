@@ -3,16 +3,16 @@
 
 enum class Metric : uint8_t
 {
-    ReceivedCompleteMission_V,
-    SentMissionRTS_V,
-    SentMissionFragment_V,
-    TimeToLastTrajectory_V,
-    ReceivedEfectiveBytes_V,
-    ReceivedBytes_V,
-    SentEfectiveBytes_V,
-    SentBytes_V,
-    Collisions_S,
-    TimeOnAir_S,
+    ReceivedCompleteMission_V, // ✅
+    SentMissionRTS_V,          // ✅
+    SentMissionFragment_V,     // ✅
+    TimeToLastTrajectory_V,    // ✅
+    ReceivedEffectiveBytes_V,  // ✅
+    ReceivedBytes_V,           // ✅
+    SentEffectiveBytes_V,      // ✅
+    SentBytes_V,               // ✅
+    Collisions_S,              // ✅
+    TimeOnAir_S,               // ✅
     SingleValues,
     COUNT
 };
@@ -29,11 +29,11 @@ inline const char *metricToString(Metric m)
         return "sent_mission_fragment";
     case Metric::TimeToLastTrajectory_V:
         return "time_of_last_trajectory";
-    case Metric::ReceivedEfectiveBytes_V:
+    case Metric::ReceivedEffectiveBytes_V:
         return "received_effective_bytes";
     case Metric::ReceivedBytes_V:
         return "received_bytes";
-    case Metric::SentEfectiveBytes_V:
+    case Metric::SentEffectiveBytes_V:
         return "sent_effective_bytes";
     case Metric::SentBytes_V:
         return "sent_bytes";

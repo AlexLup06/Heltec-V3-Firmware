@@ -2,7 +2,6 @@
 
 void SelfMessageScheduler::schedule(SelfMessage *msg, unsigned long delayMs)
 {
-    DEBUG_PRINTF("[SelfMessageScheduler] delay: %lu\n", delayMs);
     unsigned long t = millis() + delayMs;
 
     // If message already scheduled, update its trigger time and reinsert
