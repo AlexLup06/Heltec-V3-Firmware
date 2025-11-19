@@ -7,6 +7,7 @@
 #pragma once
 
 #include "cfsm.h"
+#include "functions.h"
 
 /*
     This is an alternative FSM implementation.
@@ -98,12 +99,12 @@
 
 #define FSMA_State(s) if (___transition_seen = false, ___exit = true, ___fsm.getState() == (s))
 
-#define FSMA_Enter(action)          \
-    if (!___is_event)               \
-    {                               \
-        if (___transition_seen)     \
+#define FSMA_Enter(action)                                        \
+    if (!___is_event)                                             \
+    {                                                             \
+        if (___transition_seen)                                   \
             throw std::runtime_error("Invalid enter transition"); \
-        action;                     \
+        action;                                                   \
     }
 
 #define FSMA_Event_Transition(transition, condition, target, action) \
@@ -121,7 +122,11 @@
 
 #define FSMA_Transition(transition, condition, target, action) \
     action;                                                    \
+    DEBUG_PRINTF("[FSM] Transitioned from ");                  \
+    DEBUG_PRINTF_NO_TS(___fsm.getStateName());                 \
+    DEBUG_PRINTF_NO_TS(" to ");                                \
     ___fsm.setState(target, #target);                          \
+    DEBUG_PRINTLN_NO_TS(___fsm.getStateName());                \
     ___exit = false;                                           \
     continue;                                                  \
     }
@@ -133,9 +138,9 @@
         ___is_event = false;         \
     }
 
-#define FSMA_Fail_On_Unhandled_Event() \
-    ___transition_seen = true;         \
-    if (___is_event)                   \
-    {                                  \
+#define FSMA_Fail_On_Unhandled_Event()                   \
+    ___transition_seen = true;                           \
+    if (___is_event)                                     \
+    {                                                    \
         throw std::runtime_error("Unhandled FSM event"); \
     }

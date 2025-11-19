@@ -11,7 +11,7 @@ void LoggerManager::makeFilename(Metric metric, char *out, size_t len)
 FileHeader LoggerManager::makeHeader(Metric metric)
 {
     FileHeader header;
-    header.metric = metric;
+    header.metric = (uint8_t)metric;
     strncpy(header.networkName, networkName, sizeof(header.networkName) - 1);
     strncpy(header.currentMac, currentMac, sizeof(header.currentMac) - 1);
     header.missionMessagesPerMin = missionMessagesPerMin;

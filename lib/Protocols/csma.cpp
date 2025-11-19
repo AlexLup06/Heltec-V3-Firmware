@@ -43,7 +43,7 @@ void Csma::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(Backoff done - start transmitting,
                                   backoff == *msg,
                                   TRANSMITTING,
-                                  backoffHandler.invalidateBackoffPeriod(););
+                                  backoffHandler.invalidateBackoffPeriod());
             FSMA_Event_Transition(Received Preamble - start receiving,
                                   isReceiving(),
                                   RECEIVING,
@@ -63,6 +63,10 @@ void Csma::handleWithFSM(SelfMessage *msg)
                                   isReceivedPacketReady,
                                   LISTENING,
                                   handleProtocolPacket(receivedPacket););
+            FSMA_Event_Transition(timeout,
+                                  hasPreambleTimedOut(),
+                                  LISTENING,
+                                  finishReceiving());
         }
     }
 

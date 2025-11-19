@@ -46,39 +46,12 @@ void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t b
     this->setDio1Action(receiveDio1Interrupt);
 
     DEBUG_PRINTLN("Radio initialized successfully!");
+
 }
 
-void SX1262Public::reInitRadio(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw)
+void IRAM_ATTR SX1262Public::receiveDio1Interrupt()
 {
-    this->standby();
-    vTaskDelay(pdMS_TO_TICKS(50));
-
-    int state = this->begin(frequency);
-    if (state != RADIOLIB_ERR_NONE)
-    {
-        DEBUG_PRINTF("SX1262 re-init failed! Code: %d\n", state);
-        while (true)
-            ;
-    }
-
-    this->setSpreadingFactor(sf);
-    this->setOutputPower(txPower);
-    this->setBandwidth(bw);
-    this->setCodingRate(5);
-    this->setSyncWord(0x12);
-    this->setPreambleLength(8);
-
-    this->setDio1Action(receiveDio1Interrupt);
-
-    DEBUG_PRINTLN("SX1262 re-initialized successfully!");
-}
-
-void SX1262Public::receiveDio1Interrupt()
-{
-    if (instance)
-    {
-        instance->handleDio1Interrupt();
-    }
+    instance->dio1Flag = true;
 }
 
 void SX1262Public::handleDio1Interrupt()
@@ -111,6 +84,8 @@ void SX1262Public::handleDio1Interrupt()
     if (relevant)
         this->clearIrqFlags(relevant);
 }
+
+
 
 int SX1262Public::sendRaw(const uint8_t *data, const size_t len)
 {

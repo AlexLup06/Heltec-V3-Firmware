@@ -2,8 +2,6 @@
 #include "WiFi.h"
 #include "filesystemOperations.h"
 
-void displayTask(void *pvParameters);
-
 void commonSetup()
 {
     esp_log_level_set("*", ESP_LOG_ERROR);
@@ -28,14 +26,6 @@ void commonSetup()
     randomSeed(nodeId);
 
     loraDisplay.init();
-    xTaskCreatePinnedToCore(
-        displayTask,
-        "DisplayTask",
-        4096,
-        &loraDisplay,
-        1,
-        NULL,
-        0);
 
     if (!LittleFS.begin(true))
     {
@@ -71,15 +61,32 @@ void commonSetup()
     rsmitra.init(macCtx, nodeId);
     irsmitra.init(macCtx, nodeId);
     mirs.init(macCtx, nodeId);
-}
+    rsmitranr.init(macCtx, nodeId);
 
-void displayTask(void *pvParameters)
-{
-    LoRaDisplay *displayObj = (LoRaDisplay *)pvParameters;
+    xTaskCreatePinnedToCore(
+        buttonTask,
+        "Button",
+        4096,
+        NULL,
+        3,
+        NULL,
+        1);
 
-    for (;;)
-    {
-        displayObj->loop();
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
+    xTaskCreatePinnedToCore(
+        macTask,
+        "MAC",
+        4096,
+        NULL,
+        6,
+        NULL,
+        1);
+
+    xTaskCreatePinnedToCore(
+        radioIrqTask,
+        "RadioIRQ",
+        4096,
+        &radio,
+        10,
+        NULL,
+        1);
 }

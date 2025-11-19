@@ -13,7 +13,6 @@ void LoRaDisplay::init()
   delay(20);
 
   Wire.begin(17, 18);
-  Wire.setClock(100000);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
@@ -77,14 +76,43 @@ void LoRaDisplay::drawHeader()
   display.print("Node");
   display.setCursor(48, 0);
   display.print("RSSI");
-  display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
 
   int16_t x, y;
   uint16_t w, h;
+
   display.getTextBounds("Rx:0000", 0, 0, &x, &y, &w, &h);
   display.setCursor(SCREEN_WIDTH - w - 2, 0);
-  display.printf("Rx:%lu", messageReceivedCount);
-  display.drawLine(SCREEN_WIDTH - w - 6, 0, SCREEN_WIDTH - w - 6, 10, SSD1306_WHITE);
+  if (messageReceivedCount >= 10000)
+  {
+    display.printf("Rx:%luk", messageReceivedCount / 1000);
+  }
+  else
+  {
+    display.printf("Rx:%lu", messageReceivedCount);
+  }
+
+  display.getTextBounds("Tx:0000", 0, 0, &x, &y, &w, &h);
+  display.setCursor(SCREEN_WIDTH - w - 2, 10);
+  if (messageSentCount >= 10000)
+  {
+    display.printf("Tx:%luk", messageSentCount / 1000);
+  }
+  else
+  {
+    display.printf("Tx:%lu", messageSentCount);
+  }
+
+  display.setCursor(SCREEN_WIDTH - w - 2, 20);
+  display.printf("#r: %lu", runNumber);
+
+  display.setCursor(SCREEN_WIDTH - w - 2, 30);
+  display.printf("nId:%lu", networkId);
+
+  display.setCursor(SCREEN_WIDTH - w - 2, 40);
+  display.printf("#n: %lu", numberOfNodes);
+
+  display.drawLine(SCREEN_WIDTH - w - 6, 0, SCREEN_WIDTH - w - 6, SCREEN_HEIGHT - 12, SSD1306_WHITE);
+  display.drawLine(0, 10, SCREEN_WIDTH - w - 6, 10, SSD1306_WHITE);
 }
 
 void LoRaDisplay::drawRows()
@@ -104,45 +132,44 @@ void LoRaDisplay::drawRows()
 
   display.drawLine(0, SCREEN_HEIGHT - 12, SCREEN_WIDTH, SCREEN_HEIGHT - 12, SSD1306_WHITE);
 
-  display.setCursor(0, SCREEN_HEIGHT - 8);
-
   uint32_t total = ESP.getHeapSize();
   uint32_t free = ESP.getFreeHeap();
   uint32_t used = total - free;
-  display.print("RAM:");
+  display.setCursor(0, SCREEN_HEIGHT - 8);
+  display.print("R:");
   display.print(used / 1024);
   display.print("/");
   display.print(total / 1024);
   display.print("K");
 
-  int16_t x, y;
-  uint16_t w, h;
-  display.getTextBounds("Tx:0000", 0, 0, &x, &y, &w, &h);
-  display.setCursor(SCREEN_WIDTH - w - 2, SCREEN_HEIGHT - 8);
-  display.printf("Tx:%lu", messageSentCount);
-}
+  total = LittleFS.totalBytes();
+  used = LittleFS.usedBytes();
 
-void LoRaDisplay::suspend()
-{
-  displaySuspended = true;
-}
+  float totalMB = total / (1024.0 * 1024.0);
+  float usedMB = used / (1024.0 * 1024.0);
 
-void LoRaDisplay::resume()
-{
-  displaySuspended = false;
+  display.setCursor(64, SCREEN_HEIGHT - 8);
+  display.printf("F:%.1f/%.1f", usedMB, totalMB);
 }
 
 void LoRaDisplay::render()
 {
-  if (displaySuspended)
-    return;
-
   if (!displayAvailable)
     return;
 
   display.clearDisplay();
   drawHeader();
   drawRows();
+  display.display();
+}
+
+void LoRaDisplay::renderFinish()
+{
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.printf("Finished all Runs at:");
+  display.setCursor(0, 12);
+  display.printf("#nodes: %d , and netId: %d", numberOfNodes, networkId);
   display.display();
 }
 

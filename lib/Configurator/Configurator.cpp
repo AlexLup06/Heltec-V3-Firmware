@@ -32,7 +32,11 @@ void Configurator::handleDioInterrupt()
 
         if (state == RADIOLIB_ERR_NONE)
         {
-            loraDisplay->updateNode(receiveBuffer[1], rssi);
+            if (receiveBuffer[0] == MESSAGE_TYPE_BROADCAST_CONFIG)
+            {
+                loraDisplay->updateNode(receiveBuffer[1], rssi);
+            }
+
             handleConfigPacket(receiveBuffer[0], receiveBuffer, len);
         }
         else
@@ -55,7 +59,6 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
         time_t now = time(NULL);
         if (now < 946684800)
         {
-            DEBUG_PRINTF("[CONFIG] Set current Time: currentTime=%lu (UTC)\n", packet->currentTime);
             setClockFromTimestamp(packet->currentTime);
         }
 
@@ -66,9 +69,8 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
             networkId = packet->networkId;
             numberOfNodes = packet->numberOfNodes;
             DEBUG_PRINTF("[CONFIG] Received CONFIG message: startTime=%lu (UTC)\n", packet->startTime);
+            loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
         }
-
-        loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
         break;
     }
     default:
@@ -126,6 +128,7 @@ void Configurator::setClockFromTimestamp(uint32_t unixTime)
 void Configurator::sendBroadcastConfig()
 {
     BroadcastConfig msg{};
+    msg.messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
     msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig)) / 1'000'000;
     msg.source = nodeId;
     msg.startTime = static_cast<uint32_t>(config.startTimeUnix);
@@ -139,6 +142,9 @@ void Configurator::sendBroadcastConfig()
         DEBUG_PRINTF("[RadioBase] Send failed: %d\n", state);
         radio->startReceive();
     }
+
+    loraDisplay->setNetworkId(networkId);
+    loraDisplay->setNumberOfNodes(numberOfNodes);
 }
 
 void Configurator::setNetworkTopology(bool forward)
@@ -178,6 +184,8 @@ void Configurator::setNetworkTopology(bool forward)
         }
     }
     loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
+    loraDisplay->setNetworkId(networkId);
+    loraDisplay->setNumberOfNodes(numberOfNodes);
 }
 
 void Configurator::confirmSetup(time_t startTime)

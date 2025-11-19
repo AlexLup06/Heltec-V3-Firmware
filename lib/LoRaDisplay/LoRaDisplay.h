@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <Wire.h>
+#include <LittleFS.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "functions.h"
@@ -19,9 +20,11 @@ public:
   void incrementSent();
   void incrementReceived();
   void render();
+  void setRunNumber(uint8_t n) { runNumber = n; }
+  void setNetworkId(uint8_t n) { networkId = n; }
+  void setNumberOfNodes(uint8_t n) { numberOfNodes = n; }
+  void renderFinish();
 
-  void suspend();
-  void resume();
 
   void loop();
 
@@ -29,8 +32,10 @@ private:
   static const uint8_t MAX_NODES = 32;
   static const uint8_t ROWS_PER_PAGE = 4;
   bool displayAvailable = false;
-
-  bool displaySuspended = false;
+  
+  uint8_t runNumber = 0;
+  uint8_t networkId = 0;
+  uint8_t numberOfNodes = 0;
 
   unsigned long messageReceivedCount = 0;
   unsigned long messageSentCount = 0;

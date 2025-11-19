@@ -8,7 +8,7 @@ struct FileHeader
     uint32_t magic = 0xDEADBEEF;
     uint16_t version = 1;
     uint16_t entrySize;
-    Metric metric;
+    uint8_t metric;
     char networkName[32];
     char currentMac[32];
     uint16_t missionMessagesPerMin;

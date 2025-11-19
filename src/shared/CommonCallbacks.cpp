@@ -7,12 +7,7 @@ void incrementCb()
 
 void onMacChanged(MacProtocol newMac)
 {
-    if (macController.finishedAllRuns())
-    {
-        DEBUG_PRINTLN("\n\nALL RUNS COMPLETED!\n\n");
-        return;
-    }
-    DEBUG_PRINTF("Switched MAC protocol to %s\n", macController.macIdToString(newMac));
+    Serial.printf("Switched MAC protocol to %s\n", macController.macIdToString(newMac));
     macProtocol->initRun();
     messageSimulator.init();
 }
@@ -49,10 +44,21 @@ void onMacFinished(MacProtocol finished)
         macController.setMac(macProtocol);
         break;
     case MacProtocol::MIRS:
+        macProtocol = &rsmitranr;
+        macController.setMac(macProtocol);
+        break;
+    case MacProtocol::RS_MITRANR:
         macController.increaseRunCount();
-        DEBUG_PRINTF("\n\nFinished %d Runs!\n\n\n", macController.getRunCount());
+        Serial.printf("\n\nFinished %d Runs!\n\n\n", macController.getRunCount());
         macProtocol = &aloha;
         macController.setMac(macProtocol);
+
+        if (macController.finishedAllRuns())
+        {
+            Serial.println("\n\nALL RUNS COMPLETED!\n\n");
+            loraDisplay.renderFinish();
+            return;
+        }
         break;
     default:
         break;

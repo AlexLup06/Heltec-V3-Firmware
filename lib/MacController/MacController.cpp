@@ -48,14 +48,10 @@ bool MacController::isInWaitMode() const
 
 void MacController::collectData()
 {
-    loraDisplay->suspend();
-
     loggerManager->saveAll();
     loggerManager->clearAll();
     loggerManager->saveCounters();
     loggerManager->resetCounters();
-
-    loraDisplay->resume();
 }
 
 void MacController::markFinished()
@@ -63,7 +59,7 @@ void MacController::markFinished()
     if (waitingForNext)
         return;
 
-    DEBUG_PRINTF("\n\nFinished MAC %s — cooling down for 2 minutes\n\n", macIdToString(currentMac));
+    Serial.printf("\n\nFinished MAC %s — cooling down for 2 minutes\n\n", macIdToString(currentMac));
 
     waitingForNext = true;
     switchTime = millis() + SWITCH_DELAY_MS;
@@ -81,7 +77,7 @@ void MacController::markFinished()
 
 void MacController::init()
 {
-    DEBUG_PRINTLN("[MacController] First MACController update");
+    Serial.println("[MacController] First MACController update");
 
     missionMessagesPerMin[0] = 10;
     missionMessagesPerMin[1] = 15;
@@ -91,13 +87,21 @@ void MacController::init()
     missionMessagesPerMin[5] = 240;
 
     unsigned long now = millis();
-    macStartTime = now;
+    macStartTime = now - 10;
     waitMode = false;
     firstRun = false;
     mac->initRun();
+
+    delay(1000);
     loggerManager->setMetadata(runCount, mac->getProtocolName(), missionMessagesPerMin[0]);
     messageSimulator->setTimeToNextMission(missionMessagesPerMin[0]);
     loggerManager->init(nodeId);
+}
+
+void MacController::increaseRunCount()
+{
+    runCount++;
+    loraDisplay->setRunNumber(runCount);
 }
 
 void MacController::update()
@@ -124,6 +128,8 @@ void MacController::update()
             DEBUG_PRINTLN("Mid-wait: collecting data...");
             collectData();
             collectedMidWait = true;
+
+            loraDisplay->loop();
         }
 
         if (now >= switchTime)
@@ -160,6 +166,8 @@ const char *MacController::macIdToString(MacProtocol macProtocol) const
         return "LoRaIRSMitra";
     case MIRS:
         return "LoRaMIRS";
+    case RS_MITRANR:
+        return "LoRaRSMiTraNR";
     default:
         return "InvalidMAC";
     }

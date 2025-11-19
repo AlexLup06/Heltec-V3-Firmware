@@ -18,7 +18,7 @@ void RadioBase::setOnSendCallback(std::function<void()> cb)
     onSendCallback = cb;
 }
 
-void RadioBase::handleDio1Interrupt()
+void RadioBase::handleIRQFlags()
 {
     uint16_t flags = radio->irqFlag;
     radio->irqFlag = 0;
@@ -34,10 +34,21 @@ void RadioBase::handleDio1Interrupt()
 
     if (flags & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED)
     {
-        DEBUG_PRINTLN("[RadioBase] got preamble");
-        isReceivingVar = true;
-        lastPreambleTime = millis();
-        onPreambleDetectedIR();
+        if (!isReceivingVar)
+        {
+            DEBUG_PRINTLN("[RadioBase] got preamble");
+            isReceivingVar = true;
+            lastPreambleTime = millis();
+            onPreambleDetectedIR();
+        }
+    }
+
+    if (isReceivingVar && (millis() - lastPreambleTime) > MAX_PACKET_TIME && lastPreambleTime != 0)
+    {
+        isReceivingVar = false;
+        DEBUG_PRINTLN("[RadioBase] Preamble Timeout");
+        preambleTimedOutFlag = true;
+        startReceive();
     }
 
     if (flags & (RADIOLIB_SX126X_IRQ_RX_DONE |
@@ -56,7 +67,6 @@ void RadioBase::handleDio1Interrupt()
                 float snr = radio->getSNR();
                 if (snr > -5)
                 {
-                    // TODO: handle Collision
                     loggerManager->increment(Metric::Collisions_S);
                     DEBUG_PRINTLN("[RadioBase] Possible collision detected!");
                 }
@@ -67,6 +77,11 @@ void RadioBase::handleDio1Interrupt()
         lastPreambleTime = 0;
         startReceive();
     }
+}
+
+bool RadioBase::hasPreambleTimedOut() const
+{
+    return preambleTimedOutFlag;
 }
 
 void RadioBase::setReceivingVar(bool s)
@@ -156,23 +171,24 @@ void RadioBase::logSendStatistics(const uint8_t *data, const size_t len)
     }
 
     SentMissionRTS_data sentMissionRTS = SentMissionRTS_data();
-    if (data[0] == (MESSAGE_TYPE_BROADCAST_RTS | 0x80))
+    if (data[0] == (MESSAGE_TYPE_BROADCAST_RTS | 0x80) ||
+        data[0] == (MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT | 0x80))
     {
         sentMissionRTS.time = time(NULL);
-        sentMissionRTS.missionId = ((uint16_t)data[1] << 8) | data[2]; //  second and thrird bytes is the id
-        sentMissionRTS.source = data[3];                               // fourth byte is the source
+        sentMissionRTS.missionId = ((uint16_t)data[2] << 8) | (uint16_t)data[1]; //  second and thrird bytes is the id
+        sentMissionRTS.source = data[3];                                         // fourth byte is the source
         loggerManager->log(Metric::SentMissionRTS_V, sentMissionRTS);
-        DEBUG_PRINTF("[Mac Base] Log sent mission RTS with id: %d\n", ((uint16_t)data[1] << 8) | data[2]);
+        DEBUG_PRINTF("[Mac Base] Log sent mission RTS with id: %d\n", ((uint16_t)data[2] << 8) | (uint16_t)data[1]);
     }
 
     SentMissionFragment_data sentMissionFragment = SentMissionFragment_data();
     if (data[0] == (MESSAGE_TYPE_BROADCAST_FRAGMENT | 0x80))
     {
         sentMissionFragment.time = time(NULL);
-        sentMissionFragment.missionId = ((uint16_t)data[1] << 8) | data[2]; //  second and third bytes is the source
-        sentMissionFragment.source = data[3];                               // fourth byte is the source
+        sentMissionFragment.missionId = ((uint16_t)data[2] << 8) | (uint16_t)data[1]; //  second and third bytes is the source
+        sentMissionFragment.source = data[3];                                         // fourth byte is the source
         loggerManager->log(Metric::SentMissionFragment_V, sentMissionFragment);
-        DEBUG_PRINTF("[Mac Base] Log sent mission fragment with id: %d\n", ((uint16_t)data[1] << 8) | data[2]);
+        DEBUG_PRINTF("[Mac Base] Log sent mission fragment with id: %d\n", ((uint16_t)data[2] << 8) | (uint16_t)data[1]);
     }
     DEBUG_PRINTLN("[Mac Base] Finish log send");
 }

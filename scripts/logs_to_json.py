@@ -3,21 +3,27 @@ import json
 from pathlib import Path
 
 # --- Input and output roots ---
-input_root = Path("./data")          # Where dumped .bin files are stored
-output_root = Path("./data_json")    # Where parsed .json files will be saved
+input_root = Path("./data")  # Where dumped .bin files are stored
+output_root = Path("./data_json")  # Where parsed .json files will be saved
 output_root.mkdir(parents=True, exist_ok=True)
 
 # --- Define struct formats (Little Endian) ---
 STRUCT_MAP = {
-    "SentMissionFragment": "<IBH",  # uint32_t time, uint8_t source, uint16_t missionId
-    "SentMissionRTS": "<IBH",
-    "ReceivedCompleteMission": "<IBH",
-    "SentEffectiveBytes": "<H",
-    "SentBytes": "<H",
-    "ReceivedEffectiveBytes": "<H",
-    "ReceivedBytes": "<H",
-    "TimeToLastTrajecotory": "<H",
+    "sent_effective_bytes": "<H",
+    "sent_bytes": "<H",
+    "received_effective_bytes": "<H",
+    "received_bytes": "<H",
+    "received_complete_mission": "<IBH",
+    "sent_mission_rts": "<IBH",
+    "sent_mission_fragment": "<IBH",
+    "time_of_last_trajectory": "<H",
 }
+
+FIELDS = {
+    "<H": ["value"],
+    "<IBH": ["time", "source", "missionId"],
+}
+
 
 HEADER_FORMAT = "<IHHB32s32sHBHIB"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
@@ -44,8 +50,8 @@ def parse_header(data: bytes):
         "version": version,
         "entrySize": entry_size,
         "metric": metric,
-        "networkName": networkName.decode(errors="ignore").strip("\x00"),
-        "currentMac": currentMac.decode(errors="ignore").strip("\x00"),
+        "networkName": networkName.decode("ascii", errors="ignore").rstrip("\x00"),
+        "currentMac": currentMac.decode("ascii", errors="ignore").rstrip("\x00"),
         "missionMessagesPerMin": missionMessagesPerMin,
         "numberOfNodes": numberOfNodes,
         "runNumber": runNumber,
@@ -70,14 +76,14 @@ for file in input_root.rglob("*.bin"):
     payload = data[HEADER_SIZE:]
 
     # --- Detect struct type based on filename ---
-    name = file.stem
-    struct_type = next((k for k in STRUCT_MAP if k.lower() in name.lower()), None)
-    if not struct_type:
+    name = file.stem.lower()
+    struct_key = next((k for k in STRUCT_MAP if k in name), None)
+    if not struct_key:
         print(f"⚠️ Unknown struct type for {file}, skipping.")
         continue
 
-    fmt = STRUCT_MAP[struct_type]
-    fields = {"<H": ["bytes"], "<IBH": ["time", "source", "missionId"]}[fmt]
+    fmt = STRUCT_MAP[struct_key]
+    fields = FIELDS[fmt]
     vectors = {f: [] for f in fields}
 
     # --- Parse all entries ---

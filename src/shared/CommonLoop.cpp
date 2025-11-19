@@ -2,8 +2,6 @@
 
 void commonLoop()
 {
-    button.update();
-
     if (button.inputActive)
     {
         return;
@@ -17,21 +15,8 @@ void commonLoop()
     if (configurator.isInConfigMode())
     {
         configurator.handleConfigMode();
+        loraDisplay.loop();
         return;
-    }
-
-    if (!macController.isInWaitMode())
-    {
-        macProtocol->handle();
-        messageSimulator.simulateMessages();
-    }
-
-    macController.update();
-
-    if (messageSimulator.packetReady)
-    {
-        macProtocol->handleUpperPacket(messageSimulator.messageToSend);
-        messageSimulator.cleanUp();
     }
 
     yield();

@@ -138,6 +138,10 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   isReceivedPacketReady,
                                   LISTENING,
                                   handleProtocolPacket(receivedPacket));
+            FSMA_Event_Transition(timeout,
+                                  hasPreambleTimedOut(),
+                                  LISTENING,
+                                  finishReceiving());
         }
     }
 

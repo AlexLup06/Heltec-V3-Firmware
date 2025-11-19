@@ -123,11 +123,13 @@ void RtsCtsBase::handleCTSTimeout()
     currentTransmission->sendTrys++;
     if (currentTransmission->sendTrys >= 3)
     {
+        regularBackoffHandler.setCw(8);
         finishCurrentTransmission();
         return;
     }
 
     customPacketQueue.enqueuePacketAtPosition(currentTransmission, 0);
+    regularBackoffHandler.setCw(regularBackoffHandler.getCw() * 2);
 
     if (currentTransmission->hasContinuousRTS)
         currentTransmission = createNewContinuousRTS(currentTransmission);

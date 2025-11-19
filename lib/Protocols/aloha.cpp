@@ -16,35 +16,34 @@ void Aloha::handleWithFSM(SelfMessage *msg)
     {
         FSMA_State(LISTENING)
         {
-            FSMA_Event_Transition(
-                detected preamble and trying to receive,
-                isReceiving() && currentTransmission == nullptr,
-                RECEIVING, );
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr,
-                TRANSMITTING, );
+            FSMA_Event_Transition(detected preamble and trying to receive,
+                                  isReceiving() && currentTransmission == nullptr,
+                                  RECEIVING, );
+            FSMA_Event_Transition(we have packet to send and just send it,
+                                  currentTransmission != nullptr,
+                                  TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
         {
             FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
-            FSMA_Event_Transition(
-                finished transmitting,
-                !isTransmitting(),
-                LISTENING,
-                finishCurrentTransmission());
+            FSMA_Event_Transition(finished transmitting,
+                                  !isTransmitting(),
+                                  LISTENING,
+                                  finishCurrentTransmission());
         }
         FSMA_State(RECEIVING)
         {
-            FSMA_Event_Transition(
-                received message,
-                isReceivedPacketReady,
-                LISTENING,
-                handleProtocolPacket(receivedPacket););
-            FSMA_Event_Transition(
-                we have packet to send and just send it,
-                currentTransmission != nullptr,
-                TRANSMITTING, );
+            FSMA_Event_Transition(received message,
+                                  isReceivedPacketReady,
+                                  LISTENING,
+                                  handleProtocolPacket(receivedPacket););
+            FSMA_Event_Transition(we have packet to send and just send it,
+                                  currentTransmission != nullptr,
+                                  TRANSMITTING, );
+            FSMA_Event_Transition(timeout,
+                                  hasPreambleTimedOut(),
+                                  LISTENING,
+                                  finishReceiving());
         }
     }
 

@@ -2,7 +2,7 @@ import serial
 from pathlib import Path
 
 # --- CONFIG ---
-SERIAL_PORT = "/dev/cu.usbserial-7"  # your port
+SERIAL_PORT = "/dev/cu.usbserial-0001"  # your port
 BAUD = 115200
 output_root = Path("./data")          # where to mirror LittleFS
 output_root.mkdir(exist_ok=True)

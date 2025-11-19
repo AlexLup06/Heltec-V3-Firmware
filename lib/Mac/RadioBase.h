@@ -5,6 +5,7 @@
 #include <RadioHandler.h>
 #include "functions.h"
 #include "LoggerManager.h"
+#include "LoRaDisplay.h"
 
 class RadioBase
 {
@@ -18,6 +19,9 @@ private:
 
 protected:
     LoggerManager *loggerManager = nullptr;
+    LoRaDisplay *loraDisplay;
+
+    bool preambleTimedOutFlag = false;
 
 public:
     std::function<void()> onSendCallback = nullptr;
@@ -36,6 +40,7 @@ public:
     void setReceivingVar(bool s);
     void setOnSendCallback(std::function<void()> cb);
     void logSendStatistics(const uint8_t *data, const size_t len);
+    bool hasPreambleTimedOut() const;
 
     void finishRadioBase();
 
@@ -43,5 +48,5 @@ protected:
     virtual void onReceiveIR() {};
     virtual void onPreambleDetectedIR() {};
 
-    void handleDio1Interrupt();
+    void handleIRQFlags();
 };

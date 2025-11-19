@@ -7,16 +7,57 @@
 #include "config.h"
 #include "definitions.h"
 
-#ifdef DEBUG_LORA_SERIAL
-#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
-#else
-#define DEBUG_PRINTF(...)
-#endif
+inline void debugTimestamp(char *buf, size_t len)
+{
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+
+    time_t now = tv.tv_sec;
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    int ms = tv.tv_usec / 1000;
+
+    snprintf(buf, len,
+             "%02d:%02d:%02d:%03d",
+             timeinfo.tm_hour,
+             timeinfo.tm_min,
+             timeinfo.tm_sec,
+             ms);
+}
 
 #ifdef DEBUG_LORA_SERIAL
-#define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
+
+#define DEBUG_PRINTF(...)                 \
+    do                                    \
+    {                                     \
+        char _ts[16];                     \
+        debugTimestamp(_ts, sizeof(_ts)); \
+        Serial.print("[");                \
+        Serial.print(_ts);                \
+        Serial.print("] ");               \
+        Serial.printf(__VA_ARGS__);       \
+    } while (0)
+
+#define DEBUG_PRINTLN(msg)                \
+    do                                    \
+    {                                     \
+        char _ts[16];                     \
+        debugTimestamp(_ts, sizeof(_ts)); \
+        Serial.print("[");                \
+        Serial.print(_ts);                \
+        Serial.print("] ");               \
+        Serial.println(msg);              \
+    } while (0)
+
+#define DEBUG_PRINTF_NO_TS(msg) Serial.printf(msg);
+#define DEBUG_PRINTLN_NO_TS(msg) Serial.println(msg);
+
 #else
+#define DEBUG_PRINTF(...)
 #define DEBUG_PRINTLN(...)
+#define DEBUG_PRINTF_NO_TS(...)
+#define DEBUG_PRINTLN_NO_TS(...)
 #endif
 
 // Simple CRC-8 implementation (polynomial 0x07)
@@ -85,7 +126,6 @@ inline T *tryCastMessage(uint8_t *buffer, size_t bufferSize = sizeof(T))
 
     return reinterpret_cast<T *>(buffer);
 }
-
 
 inline const char *networkIdToString(uint8_t networkId)
 {

@@ -41,7 +41,6 @@ protected:
     void logReceivedStatistics(const uint8_t *data, const size_t len);
 
 public:
-    LoRaDisplay *loraDisplay;
     SelfMessageScheduler msgScheduler;
 
     MacBase() {}

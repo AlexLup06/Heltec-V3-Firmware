@@ -32,7 +32,7 @@ protected:
     BackoffHandler ctsBackoffHandler{ctsFS_MS, ctsCW, &msgScheduler, &ctsBackoff};
 
     uint8_t backoffFS_MS = 21;
-    uint8_t backoffCW = 8;
+    uint8_t backoffCW = 16;
     BackoffHandler regularBackoffHandler{backoffFS_MS, backoffCW, &msgScheduler, &regularBackoff};
 
     uint16_t sifs_MS = 9;

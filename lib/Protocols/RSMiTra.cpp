@@ -1,11 +1,5 @@
 #include "RSMiTra.h"
 
-inline bool weAreWaitingLog()
-{
-    DEBUG_PRINTLN("Waiting for CTS");
-    return true;
-}
-
 const char *RSMiTra::getProtocolName()
 {
     return "rsmitra";
@@ -75,12 +69,12 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
         FSMA_State(WAIT_CTS)
         {
             FSMA_Event_Transition(we didnt get cts go back to listening,
-                                  waitForCTSTimer == *msg && weAreWaitingLog(),
+                                  waitForCTSTimer == *msg,
                                   LISTENING,
                                   handleCTSTimeout();
                                   msgScheduler.schedule(&shortWaitTimer, sifs_MS););
             FSMA_Event_Transition(received a CTS meant f0r us,
-                                  isOurCTS() && weAreWaitingLog(),
+                                  isOurCTS(),
                                   READY_TO_SEND, );
         }
         FSMA_State(READY_TO_SEND)
@@ -94,7 +88,8 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
             FSMA_Enter(sendPacket(currentTransmission->data, currentTransmission->packetSize));
             FSMA_Event_Transition(finished transmitting,
                                   !isTransmitting(),
-                                  LISTENING, finishCurrentTransmission());
+                                  LISTENING,
+                                  finishCurrentTransmission(););
         }
         FSMA_State(CW_CTS)
         {
@@ -140,7 +135,11 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(got - message,
                                   isReceivedPacketReady,
                                   LISTENING,
-                                  handleProtocolPacket(receivedPacket));
+                                  handleProtocolPacket(receivedPacket););
+            FSMA_Event_Transition(timeout,
+                                  hasPreambleTimedOut(),
+                                  LISTENING,
+                                  finishReceiving(););
         }
     }
 

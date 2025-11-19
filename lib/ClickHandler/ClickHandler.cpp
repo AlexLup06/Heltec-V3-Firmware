@@ -18,7 +18,7 @@ void ClickHandler::onQuadrupleClick(Callback cb) { _quadrupleClick = cb; }
 
 void ClickHandler::trigger(int count)
 {
-    DEBUG_PRINTF("Clicked %d times!\n", count);
+    Serial.printf("Clicked %d times!\n", count);
     switch (count)
     {
     case 1:

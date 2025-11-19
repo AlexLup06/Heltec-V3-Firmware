@@ -23,12 +23,15 @@ public:
     void decreaseBackoffPeriod();
     void cancelBackoffTimer();
 
+    void setCw(uint8_t newCw) { cwBackoff = newCw; }
+    uint8_t getCw() { return cwBackoff; }
+
     long getBackoffPeriod() const { return backoffPeriod_MS; }
     long getRemainderCW() const { return remainderCW; }
 
 private:
-    const int backoffFS_MS;
-    const int cwBackoff;
+    int backoffFS_MS;
+    int cwBackoff;
     long backoffPeriod_MS;
 
     uint16_t remainderCW;

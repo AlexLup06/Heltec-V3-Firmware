@@ -16,6 +16,7 @@ enum MacProtocol
     RS_MITRA,
     IRS_MITRA,
     MIRS,
+    RS_MITRANR,
     MAC_COUNT
 };
 
@@ -40,7 +41,7 @@ public:
     void setFinishCallback(MacFinishCallback cb);
 
     uint8_t getRunCount() { return runCount; }
-    void increaseRunCount() { runCount++; }
+    void increaseRunCount();
     bool finishedAllRuns() { return runCount >= NUMBER_OF_RUNS; }
 
     MacProtocol getCurrent() const;

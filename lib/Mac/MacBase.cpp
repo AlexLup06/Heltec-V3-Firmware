@@ -27,7 +27,7 @@ void MacBase::initRun()
 
 void MacBase::handle()
 {
-    handleDio1Interrupt();
+    handleIRQFlags();
     if (millis() > nodeAnnounceTime)
     {
         createNodeAnnouncePacket(nodeId);
@@ -103,6 +103,7 @@ void MacBase::finishReceiving()
         receivedPacket = nullptr;
         setReceivingVar(false);
     }
+    preambleTimedOutFlag = false;
 }
 
 void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuousRTS)
@@ -145,7 +146,7 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
         {
             loggerManager->increment(Metric::Collisions_S);
         }
-        
+
         removeIncompletePacket(result.completePacket->source, result.isMission);
     }
 }

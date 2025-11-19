@@ -23,18 +23,23 @@ void BackoffHandler::scheduleBackoffTimer()
     if (isInvalidBackoffPeriod())
         generateBackoffPeriod();
 
+    DEBUG_PRINTF("[BackoffHandler] Backoff duration: %d\n", backoffPeriod_MS);
     scheduler_->schedule(endBackoff, backoffPeriod_MS);
 }
 
 void BackoffHandler::decreaseBackoffPeriod()
 {
-    unsigned long elapsed = millis() - endBackoff->getTriggerTime();
+    long remaining = (long)endBackoff->getTriggerTime() - (long)millis();
+    if (remaining < 0)
+    {
+        remaining = 0;
+    }
+    long elapsed = backoffPeriod_MS - remaining;
     backoffPeriod_MS -= ((int)(elapsed / backoffFS_MS)) * backoffFS_MS;
+    DEBUG_PRINTF("[BackoffHandler] Decrease by: %d\n", ((int)(elapsed / backoffFS_MS)) * backoffFS_MS);
 
     if (backoffPeriod_MS < 0)
         backoffPeriod_MS = 0;
-
-    assert(backoffPeriod_MS >= 0);
 }
 
 void BackoffHandler::cancelBackoffTimer()

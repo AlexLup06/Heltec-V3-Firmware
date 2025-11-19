@@ -14,6 +14,7 @@
 #include <RSMiTra.h>
 #include <IRSMiTra.h>
 #include <MiRS.h>
+#include <RSMiTraNR.h>
 
 // --- Shared global objects ---
 extern LoRaDisplay loraDisplay;
@@ -35,8 +36,14 @@ extern MeshRouter meshRouter;
 extern RSMiTra rsmitra;
 extern IRSMiTra irsmitra;
 extern MiRS mirs;
+extern RSMiTraNR rsmitranr;
 
 // --- Shared callbacks ---
 void onMacChanged(MacProtocol newMac);
 void onMacFinished(MacProtocol finished);
 void incrementCb();
+
+// tasks
+void macTask(void *param);
+void radioIrqTask(void *param);
+void buttonTask(void *param);
