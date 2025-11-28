@@ -1,3 +1,5 @@
+#pragma once
+
 #define BROADCAST_NODE_ANNOUNCE_SIZE 3
 #define BROADCAST_RTS_SIZE 8
 #define BROADCAST_CONTINUOUS_RTS_SIZE 6
@@ -24,3 +26,5 @@
 #define TOPOLOGY_COMPLEX 2
 #define MAX_NETWORK_ID 3
 #define MAX_NUMBER_OF_NODES 8
+
+inline constexpr uint8_t allNodeIds[] = { 32, 92, 4, 100, 52, 104, 248, 16 };

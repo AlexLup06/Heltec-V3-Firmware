@@ -7,6 +7,13 @@
 #include "config.h"
 #include "definitions.h"
 
+inline bool nodeIdArrayContains(uint8_t value) {
+    for (uint8_t id : allNodeIds) {
+        if (id == value) return true;
+    }
+    return false;
+}
+
 inline void debugTimestamp(char *buf, size_t len)
 {
     struct timeval tv;
@@ -82,7 +89,7 @@ inline uint32_t getToAByPacketSizeInUS(int packetBytes)
 {
     constexpr bool CRC_ON = true;
     constexpr bool IMPLICIT_HEADER = false;
-    constexpr double PREAMBLE_SYMB = 12.0;
+    constexpr double PREAMBLE_SYMB = LORA_PREAMBLE_LENGTH;
 
     long bw = LORA_BANDWIDTH * 1000;
 

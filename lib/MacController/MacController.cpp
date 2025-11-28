@@ -154,8 +154,8 @@ const char *MacController::macIdToString(MacProtocol macProtocol) const
     {
     case MESH_ROUTER:
         return "LoRaMeshRouter";
-    case CAD_ALOHA:
-        return "LoRaCADAloha";
+    // case CAD_ALOHA:
+    //     return "LoRaCADAloha";
     case ALOHA:
         return "LoRaAloha";
     case CSMA:

@@ -186,6 +186,11 @@ void LoRaDisplay::loop()
     }
 
     lastPageSwitch = now;
+  }
+
+  if (now - lastRender >= RENDER_INTERVAL_MS)
+  {
     render();
+    lastRender = now;
   }
 }

@@ -9,7 +9,7 @@
 #include <Configurator.h>
 #include <MeshRouter.h>
 #include <Aloha.h>
-#include <CadAloha.h>
+// #include <CadAloha.h>
 #include <Csma.h>
 #include <RSMiTra.h>
 #include <IRSMiTra.h>
@@ -30,7 +30,7 @@ extern uint8_t nodeId;
 extern MacContext macCtx;
 extern MacBase *macProtocol;
 extern Aloha aloha;
-extern CadAloha cadAloha;
+// extern CadAloha cadAloha;
 extern Csma csma;
 extern MeshRouter meshRouter;
 extern RSMiTra rsmitra;

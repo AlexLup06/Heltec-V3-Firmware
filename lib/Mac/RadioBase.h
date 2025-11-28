@@ -4,10 +4,9 @@
 #include <RadioLib.h>
 #include <RadioHandler.h>
 #include "functions.h"
-#include "LoggerManager.h"
-#include "LoRaDisplay.h"
+#include "NodeContext.h"
 
-class RadioBase
+class RadioBase : public NodeContext
 {
 
 private:
@@ -16,15 +15,17 @@ private:
     unsigned long lastPreambleTime = 0;
 
     SX1262Public *radio;
+    std::function<void()> onSendCallback = nullptr;
 
 protected:
-    LoggerManager *loggerManager = nullptr;
-    LoRaDisplay *loraDisplay;
-
     bool preambleTimedOutFlag = false;
 
+    void handleIRQFlags();
+
+    virtual void onReceiveIR() {};
+    virtual void onPreambleDetectedIR() {};
+
 public:
-    std::function<void()> onSendCallback = nullptr;
 
     void assignRadio(SX1262Public *_radio);
     void sendPacket(const uint8_t *data, const size_t len);
@@ -43,10 +44,4 @@ public:
     bool hasPreambleTimedOut() const;
 
     void finishRadioBase();
-
-protected:
-    virtual void onReceiveIR() {};
-    virtual void onPreambleDetectedIR() {};
-
-    void handleIRQFlags();
 };

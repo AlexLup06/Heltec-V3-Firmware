@@ -1,5 +1,3 @@
-// Even when we receive a CTS we wait for our ctsBackoff to finish and send our CTS. if we get the packet from rts source meanwhile, then we abort ctsBackoff
-
 #pragma once
 
 #include <Arduino.h>
@@ -20,7 +18,7 @@ public:
         BACKOFF,
         SEND_RTS,
         WAIT_CTS,
-        CW_CTS,
+        BACKOFF_CTS,
         SEND_CTS,
         AWAIT_TRANSMISSION,
         TRANSMITTING

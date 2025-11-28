@@ -30,7 +30,7 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
-                                  CW_CTS, );
+                                  BACKOFF_CTS, );
             FSMA_Event_Transition(we have packet to send and just send it,
                                   currentTransmission != nullptr &&
                                       !isReceiving() &&
@@ -46,11 +46,11 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Enter(regularBackoffHandler.scheduleBackoffTimer());
             FSMA_Event_Transition(backoff finished send rts,
-                                  regularBackoff == *msg && withRTS(),
+                                  regularBackoff == *msg && isWithRTS(),
                                   SEND_RTS,
                                   regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(backoff finished message without rts - only NodeAnnounce in th1s protocol,
-                                  regularBackoff == *msg && !withRTS(),
+                                  regularBackoff == *msg && !isWithRTS(),
                                   TRANSMITTING,
                                   regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(receiving msg - cancle backoff - listen now,
@@ -71,7 +71,7 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   LISTENING,
-                                  finishCurrentTransmission();
+                                  finishCurrentTransmission(); // just delete the fragment and queue the next packet
                                   msgScheduler.schedule(&shortWaitTimer, sifs_MS););
             FSMA_Event_Transition(received a CTS meant f0r us,
                                   isOurCTS(),
@@ -91,7 +91,7 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
                                   LISTENING,
                                   finishCurrentTransmission(););
         }
-        FSMA_State(CW_CTS)
+        FSMA_State(BACKOFF_CTS)
         {
             FSMA_Enter(initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(cts backoff finished and we send cts,

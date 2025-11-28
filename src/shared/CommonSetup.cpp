@@ -56,7 +56,7 @@ void commonSetup()
 
     meshRouter.init(macCtx, nodeId);
     aloha.init(macCtx, nodeId);
-    cadAloha.init(macCtx, nodeId);
+    // cadAloha.init(macCtx, nodeId);
     csma.init(macCtx, nodeId);
     rsmitra.init(macCtx, nodeId);
     irsmitra.init(macCtx, nodeId);

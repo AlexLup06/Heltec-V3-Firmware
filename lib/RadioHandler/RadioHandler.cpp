@@ -39,14 +39,15 @@ void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t b
     this->setSpreadingFactor(sf);
     this->setOutputPower(txPower);
     this->setBandwidth(bw);
-    this->setCodingRate(5);
-    this->setSyncWord(0x12);
-    this->setPreambleLength(8);
+    this->setCodingRate(LORA_CR + 4);
+    this->setPreambleLength(LORA_PREAMBLE_LENGTH);
+
+    this->setSyncWord(LORA_SYNCWORD);
+    this->setCRC(LORA_CRC);
 
     this->setDio1Action(receiveDio1Interrupt);
 
     DEBUG_PRINTLN("Radio initialized successfully!");
-
 }
 
 void IRAM_ATTR SX1262Public::receiveDio1Interrupt()
@@ -84,8 +85,6 @@ void SX1262Public::handleDio1Interrupt()
     if (relevant)
         this->clearIrqFlags(relevant);
 }
-
-
 
 int SX1262Public::sendRaw(const uint8_t *data, const size_t len)
 {

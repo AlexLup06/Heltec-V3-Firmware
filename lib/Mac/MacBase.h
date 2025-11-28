@@ -23,7 +23,7 @@ struct MacContext
     LoRaDisplay *loraDisplay = nullptr;
 };
 
-class MacBase : public RadioBase, public PacketBase
+class MacBase : public PacketBase
 {
 private:
     std::map<uint16_t, unsigned long> lastTrajectoryTime;
@@ -34,14 +34,15 @@ private:
 
 protected:
     QueuedPacket *currentTransmission;
+    SelfMessageScheduler msgScheduler;
 
+    ReceivedPacket *receivedPacket;
     uint32_t nodeAnnounceTime = 0;
     bool isReceivedPacketReady = false;
-    ReceivedPacket *receivedPacket;
+
     void logReceivedStatistics(const uint8_t *data, const size_t len);
 
 public:
-    SelfMessageScheduler msgScheduler;
 
     MacBase() {}
     virtual ~MacBase() {}

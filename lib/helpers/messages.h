@@ -33,9 +33,9 @@ struct BroadcastConfig
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
     uint8_t source;
-    uint32_t startTime;
     uint8_t networkId;
     uint8_t numberOfNodes;
+    uint32_t startTime;
     uint32_t currentTime;
 };
 

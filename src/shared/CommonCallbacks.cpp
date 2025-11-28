@@ -20,10 +20,6 @@ void onMacFinished(MacProtocol finished)
     switch (finished)
     {
     case MacProtocol::ALOHA:
-        macProtocol = &cadAloha;
-        macController.setMac(macProtocol);
-        break;
-    case MacProtocol::CAD_ALOHA:
         macProtocol = &csma;
         macController.setMac(macProtocol);
         break;
@@ -55,6 +51,10 @@ void onMacFinished(MacProtocol finished)
 
         if (macController.finishedAllRuns())
         {
+            delay(20000);
+            macController.collectData();
+            delay(3000);
+
             Serial.println("\n\nALL RUNS COMPLETED!\n\n");
             loraDisplay.renderFinish();
             return;

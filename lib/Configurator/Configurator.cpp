@@ -56,6 +56,11 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
     {
         BroadcastConfig *packet = (BroadcastConfig *)rawPacket;
 
+        if (!nodeIdArrayContains(packet->source))
+        {
+            return;
+        }
+
         time_t now = time(NULL);
         if (now < 946684800)
         {
@@ -64,7 +69,6 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
 
         if (packet->numberOfNodes > 0)
         {
-
             startTimeUnix = packet->startTime;
             networkId = packet->networkId;
             numberOfNodes = packet->numberOfNodes;
@@ -152,7 +156,7 @@ void Configurator::setNetworkTopology(bool forward)
     if (forward)
     {
         numberOfNodes++;
-        if (numberOfNodes >= MAX_NUMBER_OF_NODES)
+        if (numberOfNodes > MAX_NUMBER_OF_NODES)
         {
             numberOfNodes = 0;
             networkId++;

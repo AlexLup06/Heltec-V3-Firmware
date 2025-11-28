@@ -12,10 +12,19 @@ struct CTSData
 
 class RtsCtsBase : public MacBase
 {
-public:
+
+private:
+    uint8_t ctsFS_MS = 18;
+    uint8_t ctsCW = 16;
+
+    uint8_t backoffFS_MS = 21;
+    uint8_t backoffCW = 16;
+
 protected:
     CTSData ctsData;
     int rtsSource;
+    uint16_t sifs_MS = 9;
+    bool initiateCTS = false;
 
     SelfMessage shortWaitTimer;
     SelfMessage waitForCTSTimer;
@@ -25,26 +34,18 @@ protected:
     SelfMessage ctsBackoff;
     SelfMessage regularBackoff;
 
-    bool initiateCTS = false;
-
-    uint8_t ctsFS_MS = 18;
-    uint8_t ctsCW = 16;
     BackoffHandler ctsBackoffHandler{ctsFS_MS, ctsCW, &msgScheduler, &ctsBackoff};
-
-    uint8_t backoffFS_MS = 21;
-    uint8_t backoffCW = 16;
     BackoffHandler regularBackoffHandler{backoffFS_MS, backoffCW, &msgScheduler, &regularBackoff};
 
-    uint16_t sifs_MS = 9;
-
-    bool isPacketFromRTSSource(ReceivedPacket *receivedPacket);
-    bool isCTSForSameRTSSource(ReceivedPacket *receivedPacket);
+    void handleCTSTimeout();
     void sendCTS(bool waitForCTStimeout = false);
     void sendRTS();
     void clearRTSsource();
-    void handleCTSTimeout();
+
+    bool isPacketFromRTSSource(ReceivedPacket *receivedPacket);
+    bool isCTSForSameRTSSource(ReceivedPacket *receivedPacket);
     bool isOurCTS();
-    bool withRTS(bool neighbourWithRTS = true);
+    bool isWithRTS(bool neighbourWithRTS = true);
     bool isFreeToSend();
 
     void finishRTSCTS();

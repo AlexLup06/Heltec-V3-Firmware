@@ -17,10 +17,10 @@ void Aloha::handleWithFSM(SelfMessage *msg)
         FSMA_State(LISTENING)
         {
             FSMA_Event_Transition(detected preamble and trying to receive,
-                                  isReceiving() && currentTransmission == nullptr,
+                                  isReceiving(),
                                   RECEIVING, );
             FSMA_Event_Transition(we have packet to send and just send it,
-                                  currentTransmission != nullptr,
+                                  currentTransmission != nullptr && !isReceiving(),
                                   TRANSMITTING, );
         }
         FSMA_State(TRANSMITTING)
@@ -37,9 +37,6 @@ void Aloha::handleWithFSM(SelfMessage *msg)
                                   isReceivedPacketReady,
                                   LISTENING,
                                   handleProtocolPacket(receivedPacket););
-            FSMA_Event_Transition(we have packet to send and just send it,
-                                  currentTransmission != nullptr,
-                                  TRANSMITTING, );
             FSMA_Event_Transition(timeout,
                                   hasPreambleTimedOut(),
                                   LISTENING,

@@ -30,7 +30,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
-                                  CW_CTS, );
+                                  BACKOFF_CTS, );
             FSMA_Event_Transition(we have packet to send and just send it,
                                   currentTransmission != nullptr &&
                                       !isReceiving() &&
@@ -46,11 +46,11 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Enter(regularBackoffHandler.scheduleBackoffTimer());
             FSMA_Event_Transition(backoff finished send rts,
-                                  regularBackoff == *msg && withRTS(false),
+                                  regularBackoff == *msg && isWithRTS(false),
                                   SEND_RTS,
                                   regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(backoff finished message without rts - only NodeAnnounce in th1s protocol,
-                                  regularBackoff == *msg && !withRTS(false),
+                                  regularBackoff == *msg && !isWithRTS(false),
                                   TRANSMITTING,
                                   regularBackoffHandler.invalidateBackoffPeriod(););
             FSMA_Event_Transition(receiving msg - cancle backoff - listen now,
@@ -85,7 +85,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   !isTransmitting(),
                                   LISTENING, finishCurrentTransmission());
         }
-        FSMA_State(CW_CTS)
+        FSMA_State(BACKOFF_CTS)
         {
             FSMA_Enter(initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
             FSMA_Event_Transition(cts backoff finished and we send cts,

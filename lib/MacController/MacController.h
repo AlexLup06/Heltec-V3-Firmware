@@ -10,7 +10,6 @@
 enum MacProtocol
 {
     ALOHA,
-    CAD_ALOHA,
     CSMA,
     MESH_ROUTER,
     RS_MITRA,

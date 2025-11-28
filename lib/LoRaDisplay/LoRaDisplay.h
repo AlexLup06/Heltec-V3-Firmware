@@ -44,6 +44,7 @@ private:
   uint8_t nodeCount = 0;
   uint8_t pageIndex = 0;
   unsigned long lastPageSwitch = 0;
+  unsigned long lastRender = 0;
 
   Adafruit_SSD1306 display = Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 

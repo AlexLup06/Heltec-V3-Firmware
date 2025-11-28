@@ -9,8 +9,9 @@
 #include "messages.h"
 #include "functions.h"
 #include "IncompletePacketList.h"
+#include "RadioBase.h"
 
-class PacketBase
+class PacketBase: public RadioBase
 {
 private:
     uint16_t MISSION_ID_COUNT = 0;
@@ -52,8 +53,6 @@ public:
     PacketBase() {}
     ~PacketBase();
 
-    uint8_t nodeId;
-
     CustomPacketQueue customPacketQueue;
 
     void clearQueue();
@@ -69,9 +68,6 @@ public:
     bool dequeuedPacketWasLast();
     QueuedPacket *createNewContinuousRTS(QueuedPacket *queuedPacket);
     QueuedPacket *createNewRTS(QueuedPacket *queuedPacket);
-    void removeIncompletePacket(uint8_t source, bool isMission);
-
-    FragmentedPacket *getIncompletePacketBySource(uint8_t source, bool isMission);
 
     bool createIncompletePacket(
         const uint16_t id,
@@ -89,6 +85,8 @@ public:
         const uint8_t *payload,
         bool isMission,
         bool isLeaderFragment);
+    void removeIncompletePacket(uint8_t source, bool isMission);
+    FragmentedPacket *getIncompletePacketBySource(uint8_t source, bool isMission);
 
     void encapsulate(MessageTypeBase *msg, bool isMission);
     bool decapsulate(uint8_t *packet);

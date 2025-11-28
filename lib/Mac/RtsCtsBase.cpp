@@ -54,24 +54,20 @@ bool RtsCtsBase::isPacketFromRTSSource(ReceivedPacket *receivedPacket)
     BroadcastFragmentPacket *fragment = tryCastMessage<BroadcastFragmentPacket>(receivedPacket->payload);
     if (fragment == nullptr)
     {
-        DEBUG_PRINTLN("[RtsCts] Packet NOT fragment");
         return false;
     }
 
     FragmentedPacket *incompletePacket = getIncompletePacketBySource(fragment->source, receivedPacket->isMission);
     if (incompletePacket == nullptr)
     {
-        DEBUG_PRINTLN("[RtsCts] Did not receive header");
         return false;
     }
 
     if (incompletePacket->hopId == rtsSource)
     {
-        DEBUG_PRINTLN("[RtsCts] Received packet from rts source");
         rtsSource = -1;
         return true;
     }
-    DEBUG_PRINTLN("[RtsCts] DID NOT receive packet from rts source");
     return false;
 }
 
@@ -154,8 +150,7 @@ bool RtsCtsBase::isOurCTS()
     return nodeId == rs;
 }
 
-// In this protocol all messages except NodeAnnounce are send with RTS
-bool RtsCtsBase::withRTS(bool neighbourWithRTS)
+bool RtsCtsBase::isWithRTS(bool neighbourWithRTS)
 {
     if (!neighbourWithRTS)
     {

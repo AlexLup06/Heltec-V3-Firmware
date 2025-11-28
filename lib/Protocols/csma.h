@@ -32,5 +32,5 @@ public:
 private:
     cFSM fsm;
     SelfMessage backoff;
-    BackoffHandler backoffHandler{200, 8, &msgScheduler, &backoff};
+    BackoffHandler backoffHandler{200, 16, &msgScheduler, &backoff};
 };
