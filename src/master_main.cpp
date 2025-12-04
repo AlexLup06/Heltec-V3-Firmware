@@ -3,16 +3,8 @@
 #include <time.h>
 #include "esp_wifi.h"
 
-const char *WIFI_SSID = "Alex Iphone";
-const char *WIFI_PASSWORD = "test123456";
-const char *ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 0;
-const int daylightOffset_sec = 0;
-
-void connectToWiFi();
 void initTime();
 void printLocalTime();
-void disableWiFiFully();
 void changeConfigForward();
 void changeConfigBackward();
 void confirmConfig();
@@ -21,10 +13,8 @@ void setup()
 {
     commonSetup();
 
-    connectToWiFi();
     initTime();
     printLocalTime();
-    disableWiFiFully();
 
     button.onSingleClick(changeConfigForward);
     button.onDoubleClick(changeConfigBackward);
@@ -36,57 +26,17 @@ void loop()
     commonLoop();
 }
 
-// --- Function Definitions --- //
-
-void connectToWiFi()
-{
-    Serial.printf("Connecting to Wi-Fi: %s\n", WIFI_SSID);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-        if (millis() - start > 15000)
-        {
-            Serial.println("\nWiFi connection failed!");
-            return;
-        }
-    }
-
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-}
-
-void disableWiFiFully()
-{
-    WiFi.disconnect(true, true);
-    delay(200);
-
-    esp_wifi_stop();
-    esp_wifi_deinit();
-    WiFi.mode(WIFI_OFF);
-}
-
 void initTime()
 {
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    Serial.println("Getting time from NTP...");
+    const time_t timestamp = 1764628858;
 
-    struct tm timeinfo;
-    for (int i = 0; i < 20; i++)
-    {
-        if (getLocalTime(&timeinfo))
-        {
-            Serial.println("Time synchronized.");
-            return;
-        }
-        delay(500);
-    }
-    Serial.println("Failed to get time from NTP.");
+    struct timeval tv;
+    tv.tv_sec = timestamp;
+    tv.tv_usec = 0;
+
+    settimeofday(&tv, nullptr);
+
+    Serial.println("Time set!");
 }
 
 void printLocalTime()
@@ -100,7 +50,7 @@ void printLocalTime()
     }
     else
     {
-        Serial.println("No time available.");
+        Serial.println("No time available");
     }
 }
 
@@ -118,5 +68,5 @@ void confirmConfig()
 {
     time_t startTime = time(NULL) + START_DELAY_SEC;
     configurator.confirmSetup(startTime);
-    DEBUG_PRINTF("Double-click detected setting start time with startTime: %lu\n", startTime);
+    DEBUG_PRINTF("Double-click detected - setting start time: %lu\n", startTime);
 }

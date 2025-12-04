@@ -10,7 +10,6 @@ inline void createDirChecked(const char *path)
         return;
     }
 
-    // Optional: check length (LittleFS limit ~31 chars per component)
     if (strlen(path) >= 63)
     {
         Serial.printf("[ERR] Path too long: '%s'\n", path);
@@ -21,7 +20,6 @@ inline void createDirChecked(const char *path)
 
     if (!ok)
     {
-        // Directory might already exist — check
         if (LittleFS.exists(path))
         {
             Serial.printf("[OK] Directory already exists: %s\n", path);
@@ -47,7 +45,7 @@ inline void dumpDir(File dir, String path = "")
 
         if (file.isDirectory())
         {
-            dumpDir(file, fullPath); // recursive call
+            dumpDir(file, fullPath);
         }
         else
         {
@@ -88,21 +86,18 @@ inline String normalizePath(const String &p)
 {
     String out = p;
 
-    // Strip VFS prefix if present
     const char *prefix = "/littlefs";
     int plen = strlen(prefix);
 
     if (out.startsWith(prefix))
         out.remove(0, plen);
 
-    // Make sure path is absolute
     if (!out.startsWith("/"))
         out = "/" + out;
 
     return out;
 }
 
-// Recursively delete .bin files and directories
 inline bool deleteRecursive(const char *path)
 {
     File dir = LittleFS.open(path);
@@ -114,7 +109,6 @@ inline bool deleteRecursive(const char *path)
 
     if (!dir.isDirectory())
     {
-        // Delete only .bin files
         if (String(path).endsWith(".bin"))
         {
             dir.close();
@@ -126,14 +120,12 @@ inline bool deleteRecursive(const char *path)
         return true;
     }
 
-    // Directory
     File child = dir.openNextFile();
     while (child)
     {
-        String name = child.name(); // e.g. "nodes-1"
+        String name = child.name(); 
         child.close();
 
-        // Build FULL path: parent + "/" + child
         String full = String(path);
         if (!full.endsWith("/"))
             full += "/";

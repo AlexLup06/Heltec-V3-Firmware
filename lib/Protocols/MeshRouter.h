@@ -17,8 +17,8 @@ public:
     void finishProtocol() override;
 
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
-    void OnFloodHeaderPacket(BroadcastRTSPacket *packet, size_t packetSize, bool isMission);
-    void OnFloodFragmentPacket(BroadcastFragmentPacket *packet, size_t packetSize, bool isMission);
+    void OnFloodHeaderPacket(BroadcastRTS *packet, size_t packetSize, bool isMission);
+    void OnFloodFragmentPacket(BroadcastFragment *packet, size_t packetSize, bool isMission);
 
     void handleUpperPacket(MessageToSend *serialPayloadFloodPacket) override;
     const char *getProtocolName() override;

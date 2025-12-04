@@ -67,7 +67,6 @@ inline void debugTimestamp(char *buf, size_t len)
 #define DEBUG_PRINTLN_NO_TS(...)
 #endif
 
-// Simple CRC-8 implementation (polynomial 0x07)
 inline uint8_t crc8(const uint8_t *data, size_t len)
 {
     uint8_t crc = 0x00;
@@ -93,24 +92,19 @@ inline uint32_t getToAByPacketSizeInUS(int packetBytes)
 
     long bw = LORA_BANDWIDTH * 1000;
 
-    // Derived parameters
     const bool lowDataRateOptimize = (LORA_SPREADINGFACTOR >= 11 && bw == 125000);
     const double DE = lowDataRateOptimize ? 1.0 : 0.0;
     const double H = IMPLICIT_HEADER ? 1.0 : 0.0;
     const double CRC = CRC_ON ? 1.0 : 0.0;
 
-    // Symbol time in microseconds
     const double Tsym_us = (std::pow(2.0, LORA_SPREADINGFACTOR) * 1e6) / bw;
 
-    // Payload symbol calculation (from SX1262 datasheet)
     const double numerator = 8.0 * packetBytes - 4.0 * LORA_SPREADINGFACTOR + 28.0 + 16.0 * CRC - 20.0 * H;
     const double denominator = 4.0 * (LORA_SPREADINGFACTOR - 2.0 * DE);
     const double payloadSymbNb = 8.0 + std::max(0.0, std::ceil(numerator / denominator) * (LORA_CR + 4.0));
 
-    // Total symbols
     const double totalSymbols = PREAMBLE_SYMB + 4.25 + payloadSymbNb;
 
-    // Airtime in µs
     const double duration_us = totalSymbols * Tsym_us;
 
     const uint64_t result = static_cast<uint64_t>(std::round(duration_us));
@@ -118,7 +112,7 @@ inline uint32_t getToAByPacketSizeInUS(int packetBytes)
 }
 
 template <typename T>
-inline T *tryCastMessage(uint8_t *buffer, size_t bufferSize = sizeof(T))
+inline T *tryCastMessage(const uint8_t *buffer, size_t bufferSize = sizeof(T))
 {
     if (!buffer)
         return nullptr;
@@ -131,7 +125,7 @@ inline T *tryCastMessage(uint8_t *buffer, size_t bufferSize = sizeof(T))
     if (*typePtr != expectedType)
         return nullptr; // not the same message type
 
-    return reinterpret_cast<T *>(buffer);
+    return reinterpret_cast<const T *>(buffer);
 }
 
 inline const char *networkIdToString(uint8_t networkId)

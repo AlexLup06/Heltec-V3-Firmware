@@ -21,8 +21,8 @@ public:
 
     void handleUpperPacket(MessageToSend *msg) override;
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
-    void handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission);
-    void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
+    void handleLeaderFragment(const BroadcastLeaderFragment *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission);
     const char *getProtocolName() override;
 
 private:

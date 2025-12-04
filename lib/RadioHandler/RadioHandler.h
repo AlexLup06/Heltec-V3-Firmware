@@ -1,12 +1,10 @@
-// RadioHandler.h
 #pragma once
 #include <RadioLib.h>
 #include "functions.h"
 
-// Subclass to expose the protected method setDioIrqParams()
 class SX1262Public : public SX1262
 {
-    using SX1262::SX1262; // inherit constructor
+    using SX1262::SX1262; 
 public:
     SX1262Public(Module *module);
 

@@ -33,10 +33,9 @@ public:
     void handleUpperPacket(MessageToSend *msg) override;
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
 
-    void handleRTS(const BroadcastRTSPacket *packet, const size_t packetSize, bool isMission);
-    void handleContinuousRTS(const BroadcastContinuousRTSPacket *packet, const size_t packetSize, bool isMission);
-    void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
-    void handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission);
+    void handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission);
+    void handleContinuousRTS(const BroadcastContinuousRTS *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission);
 
     const char *getProtocolName() override;
 

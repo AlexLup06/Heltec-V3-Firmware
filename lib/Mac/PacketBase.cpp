@@ -1,6 +1,44 @@
 #include "PacketBase.h"
 
+PacketBase::PacketBase()
+{
+    incompleteMissionPackets.setLogCallback(
+        [this](uint16_t id, bool isMission, uint8_t src, int16_t hop)
+        {
+            this->logReceivedIdStatistics(id, isMission, src, hop);
+        });
+
+    incompleteNeighbourPackets.setLogCallback(
+        [this](uint16_t id, bool isMission, uint8_t src, int16_t hop)
+        {
+            this->logReceivedIdStatistics(id, isMission, src, hop);
+        });
+}
+
 PacketBase::~PacketBase() { clearQueue(); }
+
+void PacketBase::logReceivedIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId)
+{
+    if (!isMission)
+    {
+        ReceivedNeighbourId_data receivedNeighbourId = ReceivedNeighbourId_data();
+        receivedNeighbourId.missionId = id;
+        receivedNeighbourId.missionId = sourceId;
+        loggerManager->log(Metric::ReceivedNeighbourId_V, receivedNeighbourId);
+
+        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
+    }
+    if (isMission)
+    {
+        ReceivedMissionId_data receivedMissionId = ReceivedMissionId_data();
+        receivedMissionId.missionId = id;
+        receivedMissionId.hopId = hopId;
+        receivedMissionId.sourceId = sourceId;
+        loggerManager->log(Metric::ReceivedMissionId_V, receivedMissionId);
+
+        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
+    }
+}
 
 FragmentedPacket *PacketBase::getIncompletePacketBySource(uint8_t source, bool isMission)
 {
@@ -51,7 +89,7 @@ bool PacketBase::createIncompletePacket(
     {
         return incompleteNeighbourPackets.createIncompletePacket(id, size, source, hopId, messageType, checksum);
     }
-    
+
     DEBUG_PRINTF("We DO NO create incomplete packet: id=%u, source=%u, hopId=%d, type=%s, checksum=%u, isMission: %s\n",
                  id, source, hopId, msgIdToString(messageType), checksum, isMission ? "True" : "False");
 
@@ -100,16 +138,6 @@ bool PacketBase::dequeuedPacketWasLast()
 
 // ---------------------- Packet Creation ----------------------
 
-void PacketBase::createNodeAnnouncePacket(uint8_t nodeId)
-{
-    BroadcastNodeIdAnnounce *pkt = (BroadcastNodeIdAnnounce *)malloc(sizeof(BroadcastNodeIdAnnounce));
-    pkt->messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
-    pkt->nodeId = nodeId;
-    pkt->respond = 0;
-    enqueueStruct(pkt, sizeof(BroadcastNodeIdAnnounce), nodeId, 0, 0, false, false, true);
-    free(pkt);
-}
-
 void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uint8_t source, bool withRTS, bool isMission, bool withContinuousRTS, int id)
 {
 
@@ -121,9 +149,9 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
 
     if (withRTS)
     {
-        BroadcastRTSPacket *rts = createRTS(msgId, source, payloadSize, checksum, isMission);
+        BroadcastRTS *rts = createRTS(msgId, source, payloadSize, checksum, isMission);
         encapsulate(rts, isMission);
-        enqueueStruct(rts, sizeof(BroadcastRTSPacket), source, checksum, msgId, true, isMission, false);
+        enqueueStruct(rts, sizeof(BroadcastRTS), source, checksum, msgId, true, isMission, false);
         free(rts);
 
         uint8_t fragmentId = 0;
@@ -136,14 +164,14 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
             bool thisFragHasContinuousRTS = false;
             if (withContinuousRTS && fragmentId > 0)
             {
-                BroadcastContinuousRTSPacket *continuousRTS = createContinuousRTS(msgId, source, packetSize, isMission);
+                BroadcastContinuousRTS *continuousRTS = createContinuousRTS(msgId, source, packetSize, isMission);
                 encapsulate(continuousRTS, isMission);
-                enqueueStruct(continuousRTS, sizeof(BroadcastRTSPacket), source, checksum, msgId, true, isMission, false);
+                enqueueStruct(continuousRTS, sizeof(BroadcastRTS), source, checksum, msgId, true, isMission, false);
                 free(continuousRTS);
                 thisFragHasContinuousRTS = true;
             }
 
-            BroadcastFragmentPacket *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, false, isMission);
+            BroadcastFragment *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, false, isMission);
             encapsulate(fragment, isMission);
             enqueueStruct(fragment, packetSize, source, msgId, checksum, false, isMission, false, thisFragHasContinuousRTS);
             free(fragment);
@@ -156,7 +184,7 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
     {
         uint16_t leaderPayloadSize = std::min<uint16_t>(payloadSize, LORA_MAX_FRAGMENT_LEADER_PAYLOAD);
         uint16_t leaderPacketSize = leaderPayloadSize + BROADCAST_LEADER_FRAGMENT_METADATA_SIZE;
-        BroadcastLeaderFragmentPacket *leaderFragment = createLeaderFragment(msgId, source, checksum, payload, payloadSize, leaderPayloadSize, isMission);
+        BroadcastLeaderFragment *leaderFragment = createLeaderFragment(msgId, source, checksum, payload, payloadSize, leaderPayloadSize, isMission);
         encapsulate(leaderFragment, isMission);
         enqueueStruct(leaderFragment, leaderPacketSize, source, msgId, checksum, true, isMission, false);
         free(leaderFragment);
@@ -169,7 +197,7 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
         {
             uint16_t packetPayloadSize = std::min<uint16_t>(payloadSize, LORA_MAX_FRAGMENT_PAYLOAD);
             uint16_t packetSize = packetPayloadSize + BROADCAST_FRAGMENT_METADATA_SIZE;
-            BroadcastFragmentPacket *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, true, isMission);
+            BroadcastFragment *fragment = createFragment(msgId, fragmentId++, payload, packetPayloadSize, source, true, isMission);
             encapsulate(fragment, isMission);
             enqueueStruct(fragment, packetSize, source, msgId, checksum, false, isMission, false);
             free(fragment);
@@ -180,9 +208,9 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
     }
 }
 
-BroadcastRTSPacket *PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission)
+BroadcastRTS *PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission)
 {
-    BroadcastRTSPacket *pkt = (BroadcastRTSPacket *)malloc(sizeof(BroadcastRTSPacket));
+    BroadcastRTS *pkt = (BroadcastRTS *)malloc(sizeof(BroadcastRTS));
     pkt->messageType = MESSAGE_TYPE_BROADCAST_RTS;
     pkt->source = sourceId;
     pkt->id = packetId;
@@ -194,9 +222,9 @@ BroadcastRTSPacket *PacketBase::createRTS(uint16_t packetId, uint8_t sourceId, u
     return pkt;
 }
 
-BroadcastContinuousRTSPacket *PacketBase::createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission)
+BroadcastContinuousRTS *PacketBase::createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission)
 {
-    BroadcastContinuousRTSPacket *pkt = (BroadcastContinuousRTSPacket *)malloc(sizeof(BroadcastContinuousRTSPacket));
+    BroadcastContinuousRTS *pkt = (BroadcastContinuousRTS *)malloc(sizeof(BroadcastContinuousRTS));
     pkt->messageType = MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS;
     pkt->id = packetId;
     pkt->source = source;
@@ -207,20 +235,22 @@ BroadcastContinuousRTSPacket *PacketBase::createContinuousRTS(uint16_t packetId,
     return pkt;
 }
 
-BroadcastCTS *PacketBase::createCTS(uint8_t fragmentSize, uint8_t rtsSource)
+BroadcastCTS *PacketBase::createCTS(uint8_t fragmentSize, uint8_t rtsSource, uint8_t chosenSlot)
 {
     BroadcastCTS *pkt = (BroadcastCTS *)malloc(sizeof(BroadcastCTS));
     pkt->messageType = MESSAGE_TYPE_BROADCAST_CTS;
     pkt->fragmentSize = fragmentSize;
     pkt->rtsSource = rtsSource;
+    pkt->chosenSlot = chosenSlot;
     return pkt;
 }
 
-BroadcastLeaderFragmentPacket *PacketBase::createLeaderFragment(uint16_t packetId, uint16_t source, uint8_t checksum, const uint8_t *payload, uint16_t size, uint16_t leaderPayloadSize, bool isMission)
+BroadcastLeaderFragment *PacketBase::createLeaderFragment(uint16_t packetId, uint16_t source, uint8_t checksum, const uint8_t *payload, uint16_t size, uint16_t leaderPayloadSize, bool isMission)
 {
-    BroadcastLeaderFragmentPacket *pkt = (BroadcastLeaderFragmentPacket *)malloc(sizeof(BroadcastLeaderFragmentPacket));
+    BroadcastLeaderFragment *pkt = (BroadcastLeaderFragment *)malloc(sizeof(BroadcastLeaderFragment));
     pkt->messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
     pkt->source = source;
+    pkt->hopId = nodeId;
     pkt->id = packetId;
     pkt->size = size;
     pkt->checksum = checksum;
@@ -232,9 +262,9 @@ BroadcastLeaderFragmentPacket *PacketBase::createLeaderFragment(uint16_t packetI
     return pkt;
 }
 
-BroadcastFragmentPacket *PacketBase::createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, size_t payloadSize, uint8_t source, bool hasLeaderFrag, bool isMission)
+BroadcastFragment *PacketBase::createFragment(uint16_t packetId, uint8_t fragmentId, const uint8_t *payload, size_t payloadSize, uint8_t source, bool hasLeaderFrag, bool isMission)
 {
-    BroadcastFragmentPacket *pkt = (BroadcastFragmentPacket *)malloc(sizeof(BroadcastFragmentPacket));
+    BroadcastFragment *pkt = (BroadcastFragment *)malloc(sizeof(BroadcastFragment));
     pkt->messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
     pkt->source = source;
     pkt->id = packetId;
@@ -254,7 +284,7 @@ QueuedPacket *PacketBase::createNewContinuousRTS(QueuedPacket *queuedPacket)
 {
     assert(!queuedPacket->isHeader && !queuedPacket->isNodeAnnounce);
 
-    BroadcastContinuousRTSPacket *continuousRTS = createContinuousRTS(
+    BroadcastContinuousRTS *continuousRTS = createContinuousRTS(
         queuedPacket->id,
         queuedPacket->source,
         queuedPacket->packetSize,
@@ -262,7 +292,7 @@ QueuedPacket *PacketBase::createNewContinuousRTS(QueuedPacket *queuedPacket)
 
     QueuedPacket *pkt = (QueuedPacket *)malloc(sizeof(QueuedPacket));
     pkt->data = (uint8_t *)continuousRTS;
-    pkt->packetSize = sizeof(BroadcastContinuousRTSPacket);
+    pkt->packetSize = sizeof(BroadcastContinuousRTS);
     pkt->isHeader = true;
     pkt->isMission = queuedPacket->isMission;
     pkt->isNodeAnnounce = false;
@@ -275,7 +305,7 @@ QueuedPacket *PacketBase::createNewRTS(QueuedPacket *queuedPacket)
 {
     assert(!queuedPacket->isHeader && !queuedPacket->isNodeAnnounce);
 
-    BroadcastRTSPacket *rts = createRTS(
+    BroadcastRTS *rts = createRTS(
         queuedPacket->id,
         queuedPacket->source,
         queuedPacket->packetSize,
@@ -284,7 +314,7 @@ QueuedPacket *PacketBase::createNewRTS(QueuedPacket *queuedPacket)
 
     QueuedPacket *pkt = (QueuedPacket *)malloc(sizeof(QueuedPacket));
     pkt->data = (uint8_t *)rts;
-    pkt->packetSize = sizeof(BroadcastRTSPacket);
+    pkt->packetSize = sizeof(BroadcastRTS);
     pkt->source = nodeId;
     pkt->id = rts->id;
     pkt->sendTrys = 0;

@@ -34,7 +34,6 @@ bool DataLogger<T>::saveToDisk()
         return false;
     }
 
-    // --- Write header once ---
     if (!headerWritten)
     {
         header.entrySize = sizeof(T);
@@ -42,7 +41,6 @@ bool DataLogger<T>::saveToDisk()
         headerWritten = true;
     }
 
-    // --- Write data points ---
     size_t bytes = file.write(reinterpret_cast<const uint8_t *>(buffer.data()),
                               buffer.size() * sizeof(T));
     file.close();

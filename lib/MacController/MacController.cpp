@@ -79,12 +79,13 @@ void MacController::init()
 {
     Serial.println("[MacController] First MACController update");
 
-    missionMessagesPerMin[0] = 10;
-    missionMessagesPerMin[1] = 15;
-    missionMessagesPerMin[2] = 30;
-    missionMessagesPerMin[3] = 60;
-    missionMessagesPerMin[4] = 120;
-    missionMessagesPerMin[5] = 240;
+    missionMessagesPerMin[0] = 2;
+    missionMessagesPerMin[1] = 10;
+    missionMessagesPerMin[2] = 15;
+    missionMessagesPerMin[3] = 30;
+    missionMessagesPerMin[4] = 60;
+    missionMessagesPerMin[5] = 120;
+    missionMessagesPerMin[6] = 240;
 
     unsigned long now = millis();
     macStartTime = now - 10;
@@ -154,8 +155,6 @@ const char *MacController::macIdToString(MacProtocol macProtocol) const
     {
     case MESH_ROUTER:
         return "LoRaMeshRouter";
-    // case CAD_ALOHA:
-    //     return "LoRaCADAloha";
     case ALOHA:
         return "LoRaAloha";
     case CSMA:
@@ -168,6 +167,8 @@ const char *MacController::macIdToString(MacProtocol macProtocol) const
         return "LoRaMIRS";
     case RS_MITRANR:
         return "LoRaRSMiTraNR";
+    case RS_MITRANAV:
+        return "LoRaRSMiTraNAV";
     default:
         return "InvalidMAC";
     }

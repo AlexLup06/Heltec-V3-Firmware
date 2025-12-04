@@ -56,12 +56,12 @@ void commonSetup()
 
     meshRouter.init(macCtx, nodeId);
     aloha.init(macCtx, nodeId);
-    // cadAloha.init(macCtx, nodeId);
     csma.init(macCtx, nodeId);
     rsmitra.init(macCtx, nodeId);
     irsmitra.init(macCtx, nodeId);
     mirs.init(macCtx, nodeId);
     rsmitranr.init(macCtx, nodeId);
+    rsmitranav.init(macCtx, nodeId);
 
     xTaskCreatePinnedToCore(
         buttonTask,

@@ -6,12 +6,14 @@
 #include <algorithm>
 #include <cstring>
 #include <cassert>
+#include <functional>
 #include "definitions.h"
 #include "functions.h"
 
 using std::pair;
 using std::vector;
 
+class PacketBase;
 struct FragmentedPacket
 {
     uint16_t id;
@@ -41,11 +43,9 @@ struct Result
 class IncompletePacketList
 {
 public:
-    explicit IncompletePacketList(bool isMissionList = false)
-    {
-        isMissionList_ = isMissionList;
-        packets_.reserve(10); // We do not have more than 10 nodes in the network
-    }
+    using LogFunc = std::function<void(uint16_t id, bool isMission, uint8_t source, int16_t hop)>;
+
+    explicit IncompletePacketList(bool isMissionList);
 
     ~IncompletePacketList() = default;
 
@@ -74,8 +74,11 @@ public:
     bool isCorrupted(const FragmentedPacket *incompletePacket, const uint8_t fragment, const uint16_t payloadSize);
     int calcOffset(const FragmentedPacket *incompletePacket, const uint8_t fragment);
 
+    void setLogCallback(LogFunc func);
+
 private:
     vector<FragmentedPacket *> packets_;
     vector<pair<uint8_t, uint16_t>> latestIdsFromSource_;
     bool isMissionList_;
+    LogFunc logFunc_;
 };

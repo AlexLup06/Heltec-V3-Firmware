@@ -1,5 +1,16 @@
 #include "IncompletePacketList.h"
 
+IncompletePacketList::IncompletePacketList(bool isMissionList)
+{
+    isMissionList_ = isMissionList;
+    packets_.reserve(10); // We do not have more than 10 nodes in the network
+}
+
+void IncompletePacketList::setLogCallback(LogFunc func)
+{
+    logFunc_ = std::move(func);
+}
+
 void IncompletePacketList::clear()
 {
     for (auto *pkt : packets_)
@@ -121,6 +132,8 @@ Result IncompletePacketList::addToIncompletePacket(
     {
         return result;
     }
+
+    logFunc_(id, incompletePacket->isMission, incompletePacket->source, incompletePacket->hopId);
 
     // already received this packet
     if (incompletePacket->receivedFragments[fragment])

@@ -53,13 +53,6 @@ bool CustomPacketQueue::enqueuePacket(QueuedPacket *pkt)
     if (!pkt)
         return false;
 
-    // Example logic: NodeAnnounce always goes to front
-    if (pkt->isNodeAnnounce)
-    {
-        enqueueNodeAnnounce(pkt);
-        return true;
-    }
-
     // Mission packets (non-neighbour) go to the back
     if (pkt->isMission)
     {
@@ -87,7 +80,7 @@ bool CustomPacketQueue::enqueuePacket(QueuedPacket *pkt)
                     free(old->data);
                     it = packetQueue.erase(it);
                 }
-                break; // stop once done
+                break;
             }
             else
             {
@@ -130,7 +123,7 @@ bool CustomPacketQueue::enqueuePacket(QueuedPacket *pkt)
 
         if (headerIt == packetQueue.end())
         {
-            // No neighbour header exists → push front
+            // No neighbour header exists - push front
             packetQueue.push_front(pkt);
         }
         else
@@ -157,52 +150,6 @@ void CustomPacketQueue::enqueuePacketAtPosition(QueuedPacket *pkt, int pos)
     auto it = packetQueue.begin();
     std::advance(it, pos);
     packetQueue.insert(it, pkt);
-}
-
-void CustomPacketQueue::enqueueNodeAnnounce(QueuedPacket *pkt)
-{
-    // Check if one already exists
-    for (auto existing : packetQueue)
-    {
-        if (existing->isNodeAnnounce)
-        {
-            free(pkt->data);
-            return;
-        }
-    }
-
-    if (packetQueue.empty())
-    {
-        packetQueue.push_front(pkt);
-        return;
-    }
-
-    // If first packet is a header -> insert at front
-    if (packetQueue.front()->isHeader)
-    {
-        packetQueue.push_front(pkt);
-        return;
-    }
-
-    // Otherwise insert before next header
-    auto insertPos = packetQueue.end();
-    for (auto it = packetQueue.begin(); it != packetQueue.end(); ++it)
-    {
-        if ((*it)->isHeader)
-        {
-            insertPos = it;
-            break;
-        }
-    }
-
-    if (insertPos != packetQueue.end())
-    {
-        packetQueue.insert(insertPos, pkt);
-    }
-    else
-    {
-        packetQueue.push_back(pkt);
-    }
 }
 
 QueuedPacket *CustomPacketQueue::dequeuePacket()

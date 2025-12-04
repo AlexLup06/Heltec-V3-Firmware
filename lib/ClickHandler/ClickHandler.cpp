@@ -49,7 +49,7 @@ void ClickHandler::update()
 {
     bool reading = digitalRead(_pin);
     if (_activeLow)
-        reading = !reading; // normalize: pressed = true
+        reading = !reading;
 
     if (reading != _lastState)
     {
@@ -58,24 +58,21 @@ void ClickHandler::update()
 
     if ((millis() - _lastDebounceTime) > _debounceMs)
     {
-        // --- Button just pressed ---
         if (reading && !_buttonPressed)
         {
             _buttonPressed = true;
-            _pressStartTime = millis();  // remember when pressed
-            _longClickTriggered = false; // reset flag
+            _pressStartTime = millis();
+            _longClickTriggered = false;
             _clickCount++;
             _lastClickTime = millis();
 
             radio->standby();
             inputActive = true;
         }
-        // --- Button released ---
         else if (!reading && _buttonPressed)
         {
             _buttonPressed = false;
 
-            // if we released before long-click threshold, normal click logic applies
             if (!_longClickTriggered)
             {
                 if ((millis() - _lastClickTime) > _multiClickTimeout && _clickCount > 0)
@@ -86,15 +83,13 @@ void ClickHandler::update()
             }
             else
             {
-                // long click already handled — don’t count as normal click
                 _clickCount = 0;
             }
         }
 
-        // --- Long-click detection while held ---
         if (_buttonPressed && !_longClickTriggered)
         {
-            if ((millis() - _pressStartTime) >= 2000) // 2 seconds
+            if ((millis() - _pressStartTime) >= 2000)
             {
                 _longClickTriggered = true;
                 if (_singleLongClickCb)
@@ -104,7 +99,6 @@ void ClickHandler::update()
             }
         }
 
-        // --- Multi-click timeout handling ---
         if (!_buttonPressed && (millis() - _lastClickTime) > _multiClickTimeout && _clickCount > 0)
         {
             trigger(_clickCount);

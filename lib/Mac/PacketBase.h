@@ -11,14 +11,14 @@
 #include "IncompletePacketList.h"
 #include "RadioBase.h"
 
-class PacketBase: public RadioBase
+class PacketBase : public RadioBase
 {
 private:
     uint16_t MISSION_ID_COUNT = 0;
     uint16_t NEIGHBOUR_ID_COUNT = 0;
 
     IncompletePacketList incompleteMissionPackets{true};
-    IncompletePacketList incompleteNeighbourPackets;
+    IncompletePacketList incompleteNeighbourPackets{false};
 
     template <typename T>
     void enqueueStruct(
@@ -32,7 +32,7 @@ private:
         bool isNodeAnnounce,
         bool hasContinuousRTS = false);
 
-    BroadcastLeaderFragmentPacket *createLeaderFragment(
+    BroadcastLeaderFragment *createLeaderFragment(
         uint16_t packetId,
         uint16_t source,
         uint8_t checksum,
@@ -40,7 +40,7 @@ private:
         uint16_t size,
         uint16_t leaderPayloadSize,
         bool isMission);
-    BroadcastFragmentPacket *createFragment(
+    BroadcastFragment *createFragment(
         uint16_t packetId,
         uint8_t fragmentId,
         const uint8_t *payload,
@@ -50,7 +50,7 @@ private:
         bool isMission);
 
 public:
-    PacketBase() {}
+    PacketBase();
     ~PacketBase();
 
     CustomPacketQueue customPacketQueue;
@@ -59,10 +59,9 @@ public:
     void clearIncompletePacketLists();
     QueuedPacket *dequeuePacket();
 
-    BroadcastRTSPacket *createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission);
-    BroadcastContinuousRTSPacket *createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission);
-    BroadcastCTS *createCTS(uint8_t fragmentSize, uint8_t rtsSource);
-    void createNodeAnnouncePacket(uint8_t nodeId);
+    BroadcastRTS *createRTS(uint16_t packetId, uint8_t sourceId, uint16_t payloadSize, uint8_t checksum, bool isMission);
+    BroadcastContinuousRTS *createContinuousRTS(uint16_t packetId, uint16_t source, uint8_t fragmentSize, bool isMission);
+    BroadcastCTS *createCTS(uint8_t fragmentSize, uint8_t rtsSource, uint8_t chosenSlot);
     void createMessage(const uint8_t *payload, uint16_t payloadSize, uint8_t source, bool withRTS, bool isMission, bool withContinuousRTS, int id = -1);
     bool doesIncompletePacketExist(const uint8_t sourceId, const uint16_t id, bool isMission);
     bool dequeuedPacketWasLast();
@@ -90,6 +89,8 @@ public:
 
     void encapsulate(MessageTypeBase *msg, bool isMission);
     bool decapsulate(uint8_t *packet);
+
+    void logReceivedIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId);
 };
 
 #include "PacketBase.tpp"

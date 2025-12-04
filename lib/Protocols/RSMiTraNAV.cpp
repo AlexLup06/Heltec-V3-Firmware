@@ -1,28 +1,47 @@
-#include "RSMiTra.h"
+#include "RSMiTraNAV.h"
 
-const char *RSMiTra::getProtocolName()
+const char *RSMiTraNAV::getProtocolName()
 {
-    return "rsmitra";
+    return "rsmitranav";
 }
 
-void RSMiTra::initProtocol()
+void RSMiTraNAV::initProtocol()
 {
     initRTSCTS();
 }
 
-void RSMiTra::finishProtocol()
+void RSMiTraNAV::finishProtocol()
 {
     finishRTSCTS();
     fsm.setState(0);
 }
 
-void RSMiTra::handleWithFSM(SelfMessage *msg)
+void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
 {
     if (msg == nullptr)
     {
         static SelfMessage defaultMsg{"default"};
         msg = &defaultMsg;
     }
+
+            if (
+            (fsm.getState() == WAIT_CTS ||
+             fsm.getState() == READY_TO_SEND ||
+             fsm.getState() == BACKOFF_CTS ||
+             fsm.getState() == AWAIT_TRANSMISSION) &&
+            isRTS(receivedPacket))
+        {
+            handleUnhandeledRTS();
+        }
+
+        if (fsm.getState() == RECEIVING && ongoingTransmissionTimer.isScheduled() && isRTS(receivedPacket))
+        {
+            double maxTransmissionTime = getToAByPacketSizeInUS(LORA_MAX_PACKET_SIZE)/1000ul;
+            double maxCtsCWTime = ctsCW * ctsFS_MS;
+            double scheduleTime = maxTransmissionTime + maxCtsCWTime + sifs_MS;
+
+            msgScheduler.scheduleOrExtend(&ongoingTransmissionTimer, scheduleTime);
+        }
 
     FSMA_Switch(fsm)
     {
@@ -176,13 +195,13 @@ void RSMiTra::handleWithFSM(SelfMessage *msg)
     }
 }
 
-void RSMiTra::handleUpperPacket(MessageToSend *msg)
+void RSMiTraNAV::handleUpperPacket(MessageToSend *msg)
 {
     createMessage(msg->payload, msg->size, nodeId, true, msg->isMission, true);
     customPacketQueue.printQueue();
 }
 
-void RSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
+void RSMiTraNAV::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
     logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
 
@@ -213,7 +232,7 @@ void RSMiTra::handleProtocolPacket(ReceivedPacket *receivedPacket)
     finishReceiving();
 }
 
-void RSMiTra::handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission)
+void RSMiTraNAV::handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission)
 {
     // TODO: check this logic here. There is something up with ctsData.rtsSource = packet->hopId; I think we just dont get to the setting of ctsData.rtsSource. it does not create the incomplete packet
     bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
@@ -229,7 +248,7 @@ void RSMiTra::handleRTS(const BroadcastRTS *packet, const size_t packetSize, boo
     initiateCTS = true;
 }
 
-void RSMiTra::handleContinuousRTS(const BroadcastContinuousRTS *packet, const size_t packetSize, bool isMission)
+void RSMiTraNAV::handleContinuousRTS(const BroadcastContinuousRTS *packet, const size_t packetSize, bool isMission)
 {
     if (!doesIncompletePacketExist(packet->source, packet->id, isMission))
         return;
@@ -240,7 +259,7 @@ void RSMiTra::handleContinuousRTS(const BroadcastContinuousRTS *packet, const si
     initiateCTS = true;
 }
 
-void RSMiTra::handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission)
+void RSMiTraNAV::handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, true, true);

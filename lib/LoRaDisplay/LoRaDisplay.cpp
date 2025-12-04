@@ -18,7 +18,7 @@ void LoRaDisplay::init()
   {
     DEBUG_PRINTLN("SSD1306 init failed – continuing without display");
     displayAvailable = false;
-    return; // <-- don’t crash, just continue
+    return;
   }
 
   displayAvailable = true;

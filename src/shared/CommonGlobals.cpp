@@ -10,14 +10,13 @@ MacController macController;
 
 uint8_t nodeId;
 
-int currentMac = MacProtocol::MESH_ROUTER;
 MacContext macCtx;
 MacBase *macProtocol = nullptr;
 MeshRouter meshRouter;
-// CadAloha cadAloha;
 Aloha aloha;
 Csma csma;
 RSMiTra rsmitra;
 IRSMiTra irsmitra;
 MiRS mirs;
 RSMiTraNR rsmitranr;
+RSMiTraNAV rsmitranav;

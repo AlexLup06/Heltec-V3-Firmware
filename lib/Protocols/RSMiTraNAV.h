@@ -8,7 +8,7 @@
 #include "BackoffHandler.h"
 #include "RtsCtsBase.h"
 
-class RSMiTra : public RtsCtsBase
+class RSMiTraNAV : public RtsCtsBase
 {
 public:
     enum State

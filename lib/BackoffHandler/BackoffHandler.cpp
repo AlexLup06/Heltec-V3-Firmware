@@ -13,9 +13,10 @@ bool BackoffHandler::isInvalidBackoffPeriod() const
 
 void BackoffHandler::generateBackoffPeriod()
 {
-    int slots = random(1, cwBackoff + 1);    // random in [1, cw]
-    backoffPeriod_MS = slots * backoffFS_MS; // total delay
-    remainderCW = cwBackoff - slots;
+    int slot = random(0, cwBackoff);
+    backoffPeriod_MS = slot * backoffFS_MS + random(0, 3000);
+    remainderCW = cwBackoff - slot - 1;
+    chosenSlot = slot;
 }
 
 void BackoffHandler::scheduleBackoffTimer()

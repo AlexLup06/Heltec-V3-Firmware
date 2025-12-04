@@ -16,6 +16,7 @@ enum MacProtocol
     IRS_MITRA,
     MIRS,
     RS_MITRANR,
+    RS_MITRANAV,
     MAC_COUNT
 };
 

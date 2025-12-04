@@ -88,7 +88,7 @@ void Csma::handleUpperPacket(MessageToSend *msg)
 
 void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
 
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
@@ -98,10 +98,10 @@ void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT:
-        handleLeaderFragment((BroadcastLeaderFragmentPacket *)packet, packetSize, isMission);
+        handleLeaderFragment((BroadcastLeaderFragment *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment((BroadcastFragmentPacket *)packet, packetSize, isMission);
+        handleFragment((BroadcastFragment *)packet, packetSize, isMission);
         break;
     default:
         break;
@@ -110,16 +110,16 @@ void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
     finishReceiving();
 }
 
-void Csma::handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission)
+void Csma::handleLeaderFragment(const BroadcastLeaderFragment *packet, const size_t packetSize, bool isMission)
 {
-    bool created = createIncompletePacket(packet->id, packet->size, packet->source, -1, packet->messageType, packet->checksum, isMission);
+    bool created = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
     if (!created)
         return;
     Result result = addToIncompletePacket(packet->id, packet->source, 0, packetSize, packet->payload, isMission, true);
     handlePacketResult(result, false, false);
 }
 
-void Csma::handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission)
+void Csma::handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, false, false);

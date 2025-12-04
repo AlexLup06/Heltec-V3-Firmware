@@ -13,17 +13,16 @@ struct CTSData
 class RtsCtsBase : public MacBase
 {
 
-private:
-    uint8_t ctsFS_MS = 18;
+protected:
+    uint8_t ctsFS_MS = 16 + 3;
     uint8_t ctsCW = 16;
 
-    uint8_t backoffFS_MS = 21;
+    uint8_t backoffFS_MS = 19 + 3;
     uint8_t backoffCW = 16;
 
-protected:
+    uint16_t sifs_MS = 2;
     CTSData ctsData;
     int rtsSource;
-    uint16_t sifs_MS = 9;
     bool initiateCTS = false;
 
     SelfMessage shortWaitTimer;
@@ -37,7 +36,7 @@ protected:
     BackoffHandler ctsBackoffHandler{ctsFS_MS, ctsCW, &msgScheduler, &ctsBackoff};
     BackoffHandler regularBackoffHandler{backoffFS_MS, backoffCW, &msgScheduler, &regularBackoff};
 
-    void handleCTSTimeout();
+    void handleCTSTimeout(bool withRetry);
     void sendCTS(bool waitForCTStimeout = false);
     void sendRTS();
     void clearRTSsource();
@@ -50,4 +49,12 @@ protected:
 
     void finishRTSCTS();
     void initRTSCTS();
+
+    bool isStrayCTS(ReceivedPacket *receivedPacket);
+    void handleStrayCTS(ReceivedPacket *receivedPacket, bool waitForCTStimeout);
+
+    bool isRTS(ReceivedPacket *receivedPacket);
+    void handleUnhandeledRTS();
+
+    void handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission);
 };

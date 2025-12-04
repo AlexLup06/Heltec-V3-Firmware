@@ -58,7 +58,6 @@ private:
         TypedLogger(const char *filename, const FileHeader &header)
             : logger(filename, header)
         {
-            // Safely copy filename into local buffer
             strncpy(currentFile, filename, sizeof(currentFile) - 1);
             currentFile[sizeof(currentFile) - 1] = '\0';
         }
@@ -70,7 +69,6 @@ private:
         {
             strncpy(currentFile, filename, sizeof(currentFile) - 1);
             currentFile[sizeof(currentFile) - 1] = '\0';
-            // Reinitialize DataLogger with new file
             logger = DataLogger<T>(filename, header);
         }
     };

@@ -68,17 +68,29 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(WAIT_CTS)
         {
+            FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
+                                  isStrayCTS(receivedPacket),
+                                  LISTENING,
+                                  msgScheduler.cancel(&waitForCTSTimer);
+                                  handleStrayCTS(receivedPacket, true);
+                                  handleCTSTimeout(false));
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   LISTENING,
-                                  finishCurrentTransmission(); // just delete the fragment and queue the next packet
-                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS););
+                                  handleCTSTimeout(false));
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS);
             FSMA_Event_Transition(received a CTS meant f0r us,
                                   isOurCTS(),
                                   READY_TO_SEND, );
         }
         FSMA_State(READY_TO_SEND)
         {
+            FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
+                                  isStrayCTS(receivedPacket),
+                                  LISTENING,
+                                  msgScheduler.cancel(&waitForCTSTimer);
+                                  handleStrayCTS(receivedPacket, true);
+                                  handleCTSTimeout(false));
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
                                   TRANSMITTING, );
@@ -94,6 +106,12 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
         FSMA_State(BACKOFF_CTS)
         {
             FSMA_Enter(initiateCTS = false; ctsBackoffHandler.scheduleBackoffTimer(););
+            FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
+                                  isStrayCTS(receivedPacket),
+                                  LISTENING,
+                                  ctsBackoffHandler.invalidateBackoffPeriod();
+                                  ctsBackoffHandler.cancelBackoffTimer();
+                                  handleStrayCTS(receivedPacket, true));
             FSMA_Event_Transition(cts backoff finished and we send cts,
                                   ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
@@ -114,6 +132,10 @@ void RSMiTraNR::handleWithFSM(SelfMessage *msg)
         }
         FSMA_State(AWAIT_TRANSMISSION)
         {
+            FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
+                                  isStrayCTS(receivedPacket),
+                                  AWAIT_TRANSMISSION,
+                                  handleStrayCTS(receivedPacket, true));
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
                                   transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
@@ -162,7 +184,7 @@ void RSMiTraNR::handleUpperPacket(MessageToSend *msg)
 
 void RSMiTraNR::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
 
     DEBUG_PRINTF("[Protocol] handleProtocolPacket: %s\n", msgIdToString(receivedPacket->messageType));
     uint8_t messageType = receivedPacket->messageType;
@@ -173,13 +195,13 @@ void RSMiTraNR::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
-        handleRTS((BroadcastRTSPacket *)packet, packetSize, isMission);
+        handleRTS((BroadcastRTS *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS:
-        handleContinuousRTS((BroadcastContinuousRTSPacket *)packet, packetSize, isMission);
+        handleContinuousRTS((BroadcastContinuousRTS *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        handleFragment((BroadcastFragmentPacket *)packet, packetSize, isMission);
+        handleFragment((BroadcastFragment *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CTS:
         handleCTS((BroadcastCTS *)packet, packetSize, isMission);
@@ -191,7 +213,7 @@ void RSMiTraNR::handleProtocolPacket(ReceivedPacket *receivedPacket)
     finishReceiving();
 }
 
-void RSMiTraNR::handleRTS(const BroadcastRTSPacket *packet, const size_t packetSize, bool isMission)
+void RSMiTraNR::handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission)
 {
     // TODO: check this logic here. There is something up with ctsData.rtsSource = packet->hopId; I think we just dont get to the setting of ctsData.rtsSource. it does not create the incomplete packet
     bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
@@ -207,7 +229,7 @@ void RSMiTraNR::handleRTS(const BroadcastRTSPacket *packet, const size_t packetS
     initiateCTS = true;
 }
 
-void RSMiTraNR::handleContinuousRTS(const BroadcastContinuousRTSPacket *packet, const size_t packetSize, bool isMission)
+void RSMiTraNR::handleContinuousRTS(const BroadcastContinuousRTS *packet, const size_t packetSize, bool isMission)
 {
     if (!doesIncompletePacketExist(packet->source, packet->id, isMission))
         return;
@@ -218,15 +240,8 @@ void RSMiTraNR::handleContinuousRTS(const BroadcastContinuousRTSPacket *packet, 
     initiateCTS = true;
 }
 
-void RSMiTraNR::handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission)
+void RSMiTraNR::handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission)
 {
     Result result = addToIncompletePacket(packet->id, packet->source, packet->fragment, packetSize, packet->payload, isMission, false);
     handlePacketResult(result, true, true);
-}
-
-void RSMiTraNR::handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission)
-{
-    // we are only here if we did not request the CTS. Just wait for the time that the transmission
-    uint32_t endOngoingTransmission = getToAByPacketSizeInUS(packet->fragmentSize) / 1000 + sifs_MS;
-    msgScheduler.schedule(&ongoingTransmissionTimer, endOngoingTransmission);
 }

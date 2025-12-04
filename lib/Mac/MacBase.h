@@ -7,6 +7,7 @@
 #include "PacketBase.h"
 #include "FSMA.h"
 #include "SelfMessageScheduler.h"
+#include "functions.h"
 
 struct ReceivedPacket
 {
@@ -25,12 +26,6 @@ struct MacContext
 
 class MacBase : public PacketBase
 {
-private:
-    std::map<uint16_t, unsigned long> lastTrajectoryTime;
-
-    void recordTrajectory(uint16_t nodeId);
-    uint16_t timeSinceLastTrajectory(uint16_t nodeId) const;
-    void logTimeToLastTrajectory(uint8_t source);
 
 protected:
     QueuedPacket *currentTransmission;
@@ -40,10 +35,9 @@ protected:
     uint32_t nodeAnnounceTime = 0;
     bool isReceivedPacketReady = false;
 
-    void logReceivedStatistics(const uint8_t *data, const size_t len);
+    void logReceivedStatistics(const uint8_t *data, const size_t len, bool isMission);
 
 public:
-
     MacBase() {}
     virtual ~MacBase() {}
 

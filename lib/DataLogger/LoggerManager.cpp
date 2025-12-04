@@ -40,7 +40,6 @@ void LoggerManager::init(uint8_t _nodeId)
     snprintf(path, sizeof(path), "/%s", networkIdToString(TOPOLOGY_LINE));
     createDirChecked(path);
 
-    // Per-node directories under TOPOLOGY_FULLY_MESHED
     for (int i = 1; i <= MAX_NUMBER_OF_NODES; i++)
     {
         snprintf(path, sizeof(path), "/%s/nodes-%d",
@@ -55,7 +54,8 @@ void LoggerManager::init(uint8_t _nodeId)
     registerLogger<ReceivedCompleteMission_data>(Metric::ReceivedCompleteMission_V);
     registerLogger<SentMissionRTS_data>(Metric::SentMissionRTS_V);
     registerLogger<SentMissionFragment_data>(Metric::SentMissionFragment_V);
-    registerLogger<TimeToLastTrajecotory>(Metric::TimeToLastTrajectory_V);
+    registerLogger<ReceivedMissionId_data>(Metric::ReceivedMissionId_V);
+    registerLogger<ReceivedNeighbourId_data>(Metric::ReceivedNeighbourId_V);
 }
 
 void LoggerManager::updateFilename()

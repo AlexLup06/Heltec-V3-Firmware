@@ -5,7 +5,6 @@ void MacBase::finish()
     clearMacData();
     finishRadioBase();
     finishProtocol();
-    DEBUG_PRINTLN("[Mac Base] Cleared Data and ready for next run\n");
 }
 
 void MacBase::clearMacData()
@@ -16,7 +15,6 @@ void MacBase::clearMacData()
     finishReceiving();
     finishCurrentTransmission();
     msgScheduler.clear();
-    lastTrajectoryTime.clear();
 }
 
 void MacBase::initRun()
@@ -28,11 +26,6 @@ void MacBase::initRun()
 void MacBase::handle()
 {
     handleIRQFlags();
-    if (millis() > nodeAnnounceTime)
-    {
-        createNodeAnnouncePacket(nodeId);
-        nodeAnnounceTime = millis() + 5000;
-    }
     SelfMessage *msg = msgScheduler.popNextReady();
     handleWithFSM(msg);
 }
@@ -115,11 +108,6 @@ void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuou
         DEBUG_PRINTLN("[Mac Base] packet complete");
         if (result.sendUp)
         {
-            if (!result.isMission)
-            {
-                logTimeToLastTrajectory(result.completePacket->source);
-            }
-
             FragmentedPacket *fragmentedPacket = result.completePacket;
             if (!result.isMission || fragmentedPacket->source == nodeId)
             {
@@ -179,34 +167,8 @@ void MacBase::onReceiveIR()
     startReceive();
 }
 
-void MacBase::logTimeToLastTrajectory(uint8_t source)
+void MacBase::logReceivedStatistics(const uint8_t *data, const size_t len, bool isMission)
 {
-    TimeToLastTrajecotory timeToLastTrajecotry = TimeToLastTrajecotory();
-    uint16_t ttlt = timeSinceLastTrajectory(source);
-    timeToLastTrajecotry.time = ttlt;
-    loggerManager->log(Metric::TimeToLastTrajectory_V, timeToLastTrajecotry);
-    recordTrajectory(source);
-    DEBUG_PRINTF("[Mac Base] Log time to last trajectory: %d\n", ttlt);
-}
-
-void MacBase::recordTrajectory(uint16_t nodeId)
-{
-    lastTrajectoryTime[nodeId] = millis();
-}
-
-uint16_t MacBase::timeSinceLastTrajectory(uint16_t nodeId) const
-{
-    auto it = lastTrajectoryTime.find(nodeId);
-    if (it == lastTrajectoryTime.end())
-    {
-        return 0xFFFF;
-    }
-    unsigned long now = millis();
-    return (now - it->second) / 10;
-}
-void MacBase::logReceivedStatistics(const uint8_t *data, const size_t len)
-{
-    DEBUG_PRINTLN("[Mac Base] Log received");
     ReceivedBytes_data receivedByes = ReceivedBytes_data();
     receivedByes.bytes = len;
     loggerManager->log(Metric::ReceivedBytes_V, receivedByes);
@@ -226,5 +188,4 @@ void MacBase::logReceivedStatistics(const uint8_t *data, const size_t len)
         loggerManager->log(Metric::ReceivedEffectiveBytes_V, receivedEffectiveBytes);
         DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
     }
-    DEBUG_PRINTLN("[Mac Base] Finish log received");
 }

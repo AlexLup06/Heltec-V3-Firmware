@@ -2,7 +2,17 @@ import serial
 from pathlib import Path
 
 # --- CONFIG ---
-SERIAL_PORT = "/dev/cu.usbserial-0001"  # your port
+import argparse
+
+# Parse CLI argument
+parser = argparse.ArgumentParser(description="Set serial port number")
+parser.add_argument("serial_number", help="USB serial number (e.g., 0001)")
+args = parser.parse_args()
+
+# Construct full path
+SERIAL_PORT = f"/dev/cu.usbserial-{args.serial_number}"
+print(f"Using serial port: {SERIAL_PORT}")
+
 BAUD = 115200
 output_root = Path("./data")          # where to mirror LittleFS
 output_root.mkdir(exist_ok=True)

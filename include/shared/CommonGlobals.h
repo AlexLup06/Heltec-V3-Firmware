@@ -9,14 +9,13 @@
 #include <Configurator.h>
 #include <MeshRouter.h>
 #include <Aloha.h>
-// #include <CadAloha.h>
 #include <Csma.h>
 #include <RSMiTra.h>
 #include <IRSMiTra.h>
 #include <MiRS.h>
 #include <RSMiTraNR.h>
+#include <RSMiTraNAV.h>
 
-// --- Shared global objects ---
 extern LoRaDisplay loraDisplay;
 extern SX1262Public radio;
 extern LoggerManager loggerManager;
@@ -25,25 +24,22 @@ extern ClickHandler button;
 extern Configurator configurator;
 extern MacController macController;
 
-extern int currentMac;
 extern uint8_t nodeId;
 extern MacContext macCtx;
 extern MacBase *macProtocol;
 extern Aloha aloha;
-// extern CadAloha cadAloha;
 extern Csma csma;
 extern MeshRouter meshRouter;
 extern RSMiTra rsmitra;
 extern IRSMiTra irsmitra;
 extern MiRS mirs;
 extern RSMiTraNR rsmitranr;
+extern RSMiTraNAV rsmitranav;
 
-// --- Shared callbacks ---
 void onMacChanged(MacProtocol newMac);
 void onMacFinished(MacProtocol finished);
 void incrementCb();
 
-// tasks
 void macTask(void *param);
 void radioIrqTask(void *param);
 void buttonTask(void *param);

@@ -12,7 +12,9 @@ public:
           scheduler_(scheduler),
           endBackoff(msg),
           backoffPeriod_MS(-1),
-          remainderCW(0)
+          remainderCW(0),
+          chosenSlot(0),
+          cwBackoff_CONST(cw)
     {
     }
 
@@ -23,16 +25,26 @@ public:
     void decreaseBackoffPeriod();
     void cancelBackoffTimer();
 
+    void increaseCW()
+    {
+        if (cwBackoff < cwBackoff_CONST * 2)
+            cwBackoff = cwBackoff_CONST * 2;
+    }
+    void resetCw() { cwBackoff = cwBackoff_CONST; }
     void setCw(uint8_t newCw) { cwBackoff = newCw; }
     uint8_t getCw() { return cwBackoff; }
 
     long getBackoffPeriod() const { return backoffPeriod_MS; }
     long getRemainderCW() const { return remainderCW; }
+    int getChosenSlot() const { return chosenSlot; }
 
 private:
     int backoffFS_MS;
     int cwBackoff;
+    const int cwBackoff_CONST;
     long backoffPeriod_MS;
+
+    int chosenSlot;
 
     uint16_t remainderCW;
 

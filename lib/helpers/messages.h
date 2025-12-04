@@ -39,14 +39,7 @@ struct BroadcastConfig
     uint32_t currentTime;
 };
 
-struct BroadcastNodeIdAnnounce : public MessageTypeBase
-{
-    uint8_t messageType = MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE;
-    uint8_t nodeId;
-    uint8_t respond;
-};
-
-struct BroadcastRTSPacket : public MessageTypeBase
+struct BroadcastRTS : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_RTS;
     uint16_t id;
@@ -56,7 +49,7 @@ struct BroadcastRTSPacket : public MessageTypeBase
     uint8_t checksum;
 };
 
-struct BroadcastContinuousRTSPacket : public MessageTypeBase
+struct BroadcastContinuousRTS : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONTINUOUS_RTS;
     uint8_t source;
@@ -70,19 +63,21 @@ struct BroadcastCTS : public MessageTypeBase
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CTS;
     uint8_t rtsSource;
     uint8_t fragmentSize;
+    uint8_t chosenSlot;
 };
 
-struct BroadcastLeaderFragmentPacket : public MessageTypeBase
+struct BroadcastLeaderFragment : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT;
     uint16_t id;
     uint8_t source;
+    uint8_t hopId;
     uint16_t size;
     uint8_t checksum;
     uint8_t payload[LORA_MAX_PACKET_SIZE - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE] = {0};
 };
 
-struct BroadcastFragmentPacket : public MessageTypeBase
+struct BroadcastFragment : public MessageTypeBase
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_FRAGMENT;
     uint16_t id;

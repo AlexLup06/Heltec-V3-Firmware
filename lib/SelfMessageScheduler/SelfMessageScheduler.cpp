@@ -4,14 +4,12 @@ void SelfMessageScheduler::schedule(SelfMessage *msg, unsigned long delayMs)
 {
     unsigned long t = millis() + delayMs;
 
-    // If message already scheduled, update its trigger time and reinsert
     for (auto it = messages.begin(); it != messages.end(); ++it)
     {
         if (*it == msg)
         {
             (*it)->triggerTime = t;
             (*it)->scheduled = true;
-            // remove and reinsert in correct place
             messages.erase(it);
             break;
         }
@@ -20,7 +18,44 @@ void SelfMessageScheduler::schedule(SelfMessage *msg, unsigned long delayMs)
     msg->triggerTime = t;
     msg->scheduled = true;
 
-    // find correct insertion point (sorted by triggerTime)
+    auto insertPos = std::lower_bound(
+        messages.begin(),
+        messages.end(),
+        msg,
+        [](const SelfMessage *a, const SelfMessage *b)
+        {
+            return a->triggerTime < b->triggerTime;
+        });
+
+    messages.insert(insertPos, msg);
+}
+
+void SelfMessageScheduler::scheduleOrExtend(SelfMessage *msg, unsigned long delayMs)
+{
+    unsigned long now = millis();
+    unsigned long newTrigger = now + delayMs;
+
+    if (!msg->scheduled)
+    {
+        schedule(msg, delayMs);
+        return;
+    }
+
+    if ((long)(newTrigger - msg->triggerTime) <= 0) {
+        return;
+    }
+
+    for (auto it = messages.begin(); it != messages.end(); ++it)
+    {
+        if (*it == msg)
+        {
+            messages.erase(it);
+            break;
+        }
+    }
+
+    msg->triggerTime = newTrigger;
+
     auto insertPos = std::lower_bound(
         messages.begin(),
         messages.end(),

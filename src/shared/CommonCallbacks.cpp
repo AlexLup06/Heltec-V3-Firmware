@@ -44,8 +44,12 @@ void onMacFinished(MacProtocol finished)
         macController.setMac(macProtocol);
         break;
     case MacProtocol::RS_MITRANR:
+        macProtocol = &rsmitranav;
+        macController.setMac(macProtocol);
+        break;
+    case MacProtocol::RS_MITRANAV:
         macController.increaseRunCount();
-        Serial.printf("\n\nFinished %d Runs!\n\n\n", macController.getRunCount());
+        Serial.printf("\nFinished %d Runs!\n", macController.getRunCount());
         macProtocol = &aloha;
         macController.setMac(macProtocol);
 
@@ -55,7 +59,7 @@ void onMacFinished(MacProtocol finished)
             macController.collectData();
             delay(3000);
 
-            Serial.println("\n\nALL RUNS COMPLETED!\n\n");
+            Serial.println("\nALL RUNS COMPLETED!\n");
             loraDisplay.renderFinish();
             return;
         }

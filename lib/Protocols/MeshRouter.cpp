@@ -55,7 +55,7 @@ void MeshRouter::onPreambleDetectedIR()
 
 void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size);
+    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
 
     preambleAdd = 0;
     uint8_t messageType = receivedPacket->messageType;
@@ -66,11 +66,11 @@ void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
-        MeshRouter::OnFloodHeaderPacket((BroadcastRTSPacket *)packet, packetSize, isMission);
+        MeshRouter::OnFloodHeaderPacket((BroadcastRTS *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        MeshRouter::OnFloodFragmentPacket((BroadcastFragmentPacket *)packet, packetSize, isMission);
+        MeshRouter::OnFloodFragmentPacket((BroadcastFragment *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     default:
@@ -97,7 +97,7 @@ void MeshRouter::handleUpperPacket(MessageToSend *messageToSend)
     createMessage(messageToSend->payload, messageToSend->size, nodeId, true, messageToSend->isMission, false);
 }
 
-void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket *packet, size_t packetSize, bool isMission)
+void MeshRouter::OnFloodHeaderPacket(BroadcastRTS *packet, size_t packetSize, bool isMission)
 {
     if (doesIncompletePacketExist(packet->id, packet->source, isMission))
     {
@@ -112,7 +112,7 @@ void MeshRouter::OnFloodHeaderPacket(BroadcastRTSPacket *packet, size_t packetSi
     SenderWait((unsigned long)20 + predictPacketSendTime(nextFragLength));
 }
 
-void MeshRouter::OnFloodFragmentPacket(BroadcastFragmentPacket *packet, size_t packetSize, bool isMission)
+void MeshRouter::OnFloodFragmentPacket(BroadcastFragment *packet, size_t packetSize, bool isMission)
 {
     if (doesIncompletePacketExist(packet->source, packet->id, isMission))
     {

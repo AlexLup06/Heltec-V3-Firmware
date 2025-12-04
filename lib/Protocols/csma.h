@@ -25,12 +25,12 @@ public:
     void handleWithFSM(SelfMessage *msg = nullptr) override;
     void handleUpperPacket(MessageToSend *msg) override;
     void handleProtocolPacket(ReceivedPacket *receivedPacket) override;
-    void handleLeaderFragment(const BroadcastLeaderFragmentPacket *packet, const size_t packetSize, bool isMission);
-    void handleFragment(const BroadcastFragmentPacket *packet, const size_t packetSize, bool isMission);
+    void handleLeaderFragment(const BroadcastLeaderFragment *packet, const size_t packetSize, bool isMission);
+    void handleFragment(const BroadcastFragment *packet, const size_t packetSize, bool isMission);
     const char *getProtocolName() override;
 
 private:
     cFSM fsm;
     SelfMessage backoff;
-    BackoffHandler backoffHandler{200, 16, &msgScheduler, &backoff};
+    BackoffHandler backoffHandler{202, 16, &msgScheduler, &backoff};
 };
