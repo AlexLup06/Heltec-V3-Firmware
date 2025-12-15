@@ -20,7 +20,8 @@ void Configurator::handleDioInterrupt()
         return;
     }
 
-    if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
+    if ((flags & RADIOLIB_SX126X_IRQ_RX_DONE) != 0 &&
+        (flags & (RADIOLIB_SX126X_IRQ_HEADER_ERR | RADIOLIB_SX126X_IRQ_CRC_ERR)) == 0)
     {
         radio->standby();
 
@@ -34,7 +35,7 @@ void Configurator::handleDioInterrupt()
         {
             if (receiveBuffer[0] == MESSAGE_TYPE_BROADCAST_CONFIG)
             {
-                loraDisplay->updateNode(receiveBuffer[1], rssi);
+                loraDisplay->updateNode(receiveBuffer[3], rssi);
             }
 
             handleConfigPacket(receiveBuffer[0], receiveBuffer, len);
@@ -61,19 +62,61 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
             return;
         }
 
-        time_t now = time(NULL);
-        if (now < 946684800)
+        uint64_t nowUnix_MS = unixTimeMs();
+        if (packet->currentTime_UNIX_MS > 1765574916'000 && packet->currentTime_UNIX_MS < 1765920653'000 && nowUnix_MS < 1765574916'000)
         {
-            setClockFromTimestamp(packet->currentTime);
+            Serial.printf("[CONFIG] Received CONFIG message: currentTime=%llu (UTC)\n",
+                          (unsigned long long)packet->currentTime_UNIX_MS);
+
+            setClockFromTimestamp(packet->currentTime_UNIX_MS);
+
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+
+            struct tm timeinfo;
+            localtime_r(&tv.tv_sec, &timeinfo);
+
+            Serial.printf("Current time: %02d:%02d:%02d.%03ld %02d/%02d/%04d\n",
+                          timeinfo.tm_hour,
+                          timeinfo.tm_min,
+                          timeinfo.tm_sec,
+                          tv.tv_usec / 1000, // milliseconds
+                          timeinfo.tm_mday,
+                          timeinfo.tm_mon + 1,
+                          timeinfo.tm_year + 1900);
         }
 
-        if (packet->numberOfNodes > 0)
+        if (packet->startTime_UNIX_MS > 1765574916'000 &&
+            packet->startTime_UNIX_MS < 1765920653'000 &&
+            startTime_UNIX_MS < 1765574916'000 &&
+            packet->networkId >= 0 &&
+            packet->networkId <= 2 &&
+            packet->numberOfNodes > 0 &&
+            packet->numberOfNodes <= 8)
         {
-            startTimeUnix = packet->startTime;
+            startTime_UNIX_MS = packet->startTime_UNIX_MS;
             networkId = packet->networkId;
             numberOfNodes = packet->numberOfNodes;
-            DEBUG_PRINTF("[CONFIG] Received CONFIG message: startTime=%lu (UTC)\n", packet->startTime);
+
+            config.startTime_UNIX_MS = packet->startTime_UNIX_MS;
+            config.networkId = packet->networkId;
+            config.numberOfNodes = packet->numberOfNodes;
+
+            Serial.printf("[CONFIG] Received CONFIG message: startTime=%llu (UTC)\n", packet->startTime_UNIX_MS);
             loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
+
+            time_t t = (time_t)(packet->startTime_UNIX_MS / 1000ULL);
+            struct tm timeinfo;
+            localtime_r(&t, &timeinfo);
+            uint16_t ms = packet->startTime_UNIX_MS % 1000ULL;
+            Serial.printf("Start Time: %02d:%02d:%02d.%03u %02d/%02d/%04d\n",
+                          timeinfo.tm_hour,
+                          timeinfo.tm_min,
+                          timeinfo.tm_sec,
+                          ms,
+                          timeinfo.tm_mday,
+                          timeinfo.tm_mon + 1,
+                          timeinfo.tm_year + 1900);
         }
         break;
     }
@@ -85,14 +128,13 @@ void Configurator::handleConfigPacket(const uint8_t messageType, const uint8_t *
 void Configurator::handleConfigMode()
 {
     handleDioInterrupt();
-    time_t nowUnix = time(NULL);
-    if (nowUnix >= startTimeUnix && startTimeUnix != 0)
+    uint64_t nowUnix_MS = unixTimeMs();
+    if (nowUnix_MS >= startTime_UNIX_MS && startTime_UNIX_MS > 0)
     {
         turnOnOperationMode();
     }
 
     unsigned long nowMs = millis();
-    time_t now = time(NULL);
     unsigned long cycleDuration = (unsigned long)maxCW * slotTime;
     unsigned long cycleElapsed = nowMs - cycleStartMs;
 
@@ -121,21 +163,23 @@ bool Configurator::isInConfigMode()
     return operationMode == CONFIG;
 }
 
-void Configurator::setClockFromTimestamp(uint32_t unixTime)
+void Configurator::setClockFromTimestamp(uint64_t unixTime_MS)
 {
     struct timeval tv;
-    tv.tv_sec = unixTime;
-    tv.tv_usec = 0;
-    settimeofday(&tv, NULL);
+
+    tv.tv_sec = (time_t)(unixTime_MS / 1000ULL);
+    tv.tv_usec = (suseconds_t)((unixTime_MS % 1000ULL) * 1000ULL);
+
+    settimeofday(&tv, nullptr);
 }
 
 void Configurator::sendBroadcastConfig()
 {
     BroadcastConfig msg{};
     msg.messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
-    msg.currentTime = static_cast<uint32_t>(time(NULL)) + getToAByPacketSizeInUS(sizeof(BroadcastConfig)) / 1'000'000;
+    msg.currentTime_UNIX_MS = unixTimeMs() + (uint64_t)(getToAByPacketSizeInUS(sizeof(BroadcastConfig)) / 1000);
     msg.source = nodeId;
-    msg.startTime = static_cast<uint32_t>(config.startTimeUnix);
+    msg.startTime_UNIX_MS = config.startTime_UNIX_MS;
     msg.networkId = config.networkId;
     msg.numberOfNodes = config.numberOfNodes;
 
@@ -192,12 +236,12 @@ void Configurator::setNetworkTopology(bool forward)
     loraDisplay->setNumberOfNodes(numberOfNodes);
 }
 
-void Configurator::confirmSetup(time_t startTime)
+void Configurator::confirmSetup(uint64_t _startTime_UNIX_MS)
 {
     config.networkId = networkId;
     config.numberOfNodes = numberOfNodes;
-    config.startTimeUnix = startTime;
+    config.startTime_UNIX_MS = _startTime_UNIX_MS;
 
-    startTimeUnix = startTime;
+    startTime_UNIX_MS = _startTime_UNIX_MS;
     loggerManager->setNetworkTopology(networkIdToString(networkId), numberOfNodes);
 }

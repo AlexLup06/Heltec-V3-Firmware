@@ -8,10 +8,12 @@ const char *Csma::getProtocolName()
 void Csma::initProtocol()
 {
     backoff = SelfMessage("backoff");
+    shortWaitTimer = SelfMessage("shortWaitTimer");
 }
 
 void Csma::finishProtocol()
 {
+    msgScheduler.cancel(&shortWaitTimer);
     backoffHandler.invalidateBackoffPeriod();
     backoffHandler.cancelBackoffTimer();
     fsm.setState(0);
@@ -33,7 +35,9 @@ void Csma::handleWithFSM(SelfMessage *msg)
                                   isReceiving(),
                                   RECEIVING, );
             FSMA_Event_Transition(we have packet to send and just send it,
-                                  currentTransmission != nullptr && !isReceiving(),
+                                  currentTransmission != nullptr &&
+                                      !isReceiving() &&
+                                      !shortWaitTimer.isScheduled(),
                                   BACKOFF, );
         }
         FSMA_State(BACKOFF)
@@ -88,7 +92,7 @@ void Csma::handleUpperPacket(MessageToSend *msg)
 
 void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
+    logReceivedEffectiveBytes(receivedPacket->payload, receivedPacket->size);
 
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
@@ -108,6 +112,7 @@ void Csma::handleProtocolPacket(ReceivedPacket *receivedPacket)
     }
 
     finishReceiving();
+    msgScheduler.schedule(&shortWaitTimer, 6);
 }
 
 void Csma::handleLeaderFragment(const BroadcastLeaderFragment *packet, const size_t packetSize, bool isMission)

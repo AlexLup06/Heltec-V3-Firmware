@@ -6,8 +6,8 @@
 class SelfMessageScheduler
 {
 public:
-    void schedule(SelfMessage *msg, unsigned long delayMs);
-    void scheduleOrExtend(SelfMessage *msg, unsigned long delayMs);
+    void schedule(SelfMessage *msg, double delayMs);
+    void scheduleOrExtend(SelfMessage *msg, double delayMs);
     void cancel(SelfMessage *msg);
     bool isScheduled(SelfMessage *msg) const;
     SelfMessage *popNextReady();

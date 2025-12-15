@@ -56,5 +56,6 @@ template <typename T>
 void DataLogger<T>::clear()
 {
     buffer.clear();
+    buffer.shrink_to_fit();
     headerWritten = false;
 }

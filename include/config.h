@@ -1,11 +1,11 @@
 #include "definitions.h"
 
 // Enables serial debug outputs to the Lora network
-#undef DEBUG_LORA_SERIAL
+#undef DEBUG_LORA_SERIAL // TODO
 
 // LoRa parameters of the node
 #define LORA_OUTPUT_POWER 20
-#define LORA_FREQUENCY 869.4
+#define LORA_FREQUENCY 869.850
 #define LORA_BANDWIDTH 250.0
 #define LORA_SPREADINGFACTOR 7
 #define LORA_PREAMBLE_LENGTH 8
@@ -17,8 +17,8 @@
 // LoRa radio Pins
 #define LORA_CS 8
 #define LORA_RST 12
-#define LORA_DIO1 14
 #define LORA_BUSY 13
+#define LORA_DIO1 14
 
 // OLED Display configs
 #define SCREEN_WIDTH 128
@@ -31,5 +31,6 @@
 // simulation runs configs
 #define SIMULATION_DURATION_SEC 300ul
 #define MAC_PROTOCOL_SWITCH_DELAY_SEC 60ul
-#define START_DELAY_SEC 60
+
+#define START_DELAY_SEC 180
 #define NUMBER_OF_RUNS 7

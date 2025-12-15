@@ -4,7 +4,8 @@
 
 class SX1262Public : public SX1262
 {
-    using SX1262::SX1262; 
+    using SX1262::SX1262;
+
 public:
     SX1262Public(Module *module);
 
@@ -16,7 +17,7 @@ public:
     void init(float frequency, uint8_t sf, uint8_t txPower, uint32_t bw);
     int sendRaw(const uint8_t *data, const size_t len);
 
-    volatile bool dio1Flag = false;
+    QueueHandle_t irqQueue = nullptr;
 
 private:
     static SX1262Public *instance;

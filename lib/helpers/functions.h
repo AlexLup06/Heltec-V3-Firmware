@@ -7,30 +7,32 @@
 #include "config.h"
 #include "definitions.h"
 
-inline bool nodeIdArrayContains(uint8_t value) {
-    for (uint8_t id : allNodeIds) {
-        if (id == value) return true;
+inline bool nodeIdArrayContains(uint8_t value)
+{
+    for (uint8_t id : allNodeIds)
+    {
+        if (id == value)
+            return true;
     }
     return false;
 }
 
 inline void debugTimestamp(char *buf, size_t len)
 {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
+    uint64_t us = esp_timer_get_time();
+    uint32_t ms = us / 1000;
+    uint32_t sec = ms / 1000;
 
-    time_t now = tv.tv_sec;
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
+    snprintf(buf, len, "%u.%03u", sec, ms % 1000);
+}
 
-    int ms = tv.tv_usec / 1000;
+inline uint64_t unixTimeMs()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
 
-    snprintf(buf, len,
-             "%02d:%02d:%02d:%03d",
-             timeinfo.tm_hour,
-             timeinfo.tm_min,
-             timeinfo.tm_sec,
-             ms);
+    return (uint64_t)ts.tv_sec * 1000ULL +
+           (uint64_t)ts.tv_nsec / 1000000ULL;
 }
 
 #ifdef DEBUG_LORA_SERIAL

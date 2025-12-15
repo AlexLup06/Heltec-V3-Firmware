@@ -30,7 +30,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
-                                  BACKOFF_CTS, );
+                                  BACKOFF_CTS, msgScheduler.cancel(&shortWaitTimer););
             FSMA_Event_Transition(we have packet to send and just send it,
                                   currentTransmission != nullptr &&
                                       !isReceiving() &&
@@ -40,7 +40,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   BACKOFF, );
             FSMA_Event_Transition(detected preamble and trying to receive,
                                   isReceiving(),
-                                  RECEIVING, );
+                                  RECEIVING, msgScheduler.cancel(&shortWaitTimer););
         }
         FSMA_State(BACKOFF)
         {
@@ -72,7 +72,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   isStrayCTS(receivedPacket),
                                   LISTENING,
                                   msgScheduler.cancel(&waitForCTSTimer);
-                                  handleStrayCTS(receivedPacket, false);
+                                  handleStrayCTS(receivedPacket, true);
                                   handleCTSTimeout(true););
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
@@ -99,7 +99,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   LISTENING,
                                   ctsBackoffHandler.invalidateBackoffPeriod();
                                   ctsBackoffHandler.cancelBackoffTimer();
-                                  handleStrayCTS(receivedPacket, false));
+                                  handleStrayCTS(receivedPacket, true));
             FSMA_Event_Transition(cts backoff finished and we send cts,
                                   ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
@@ -117,6 +117,11 @@ void MiRS::handleWithFSM(SelfMessage *msg)
                                   ctsBackoffHandler.invalidateBackoffPeriod();
                                   ctsBackoffHandler.cancelBackoffTimer();
                                   msgScheduler.schedule(&shortWaitTimer, sifs_MS););
+            FSMA_Event_Transition(got - packet - from - rts - source,
+                                  !ctsBackoff.isScheduled() && isPacketNotFromRTSSource(receivedPacket),
+                                  LISTENING,
+                                  ctsBackoffHandler.invalidateBackoffPeriod();
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS));
         }
         FSMA_State(SEND_CTS)
         {
@@ -130,7 +135,7 @@ void MiRS::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
                                   isStrayCTS(receivedPacket),
                                   AWAIT_TRANSMISSION,
-                                  handleStrayCTS(receivedPacket, false));
+                                  handleStrayCTS(receivedPacket, true));
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
                                   transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
@@ -186,7 +191,7 @@ void MiRS::handleUpperPacket(MessageToSend *msg)
 
 void MiRS::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
+    logReceivedEffectiveBytes(receivedPacket->payload, receivedPacket->size);
 
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;
@@ -208,13 +213,14 @@ void MiRS::handleProtocolPacket(ReceivedPacket *receivedPacket)
         handleFragment((BroadcastFragment *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CTS:
-        handleCTS((BroadcastCTS *)packet, packetSize, isMission);
+        handleCTS((BroadcastCTS *)packet, packetSize, true);
         break;
     default:
         break;
     }
 
     finishReceiving();
+    msgScheduler.schedule(&shortWaitTimer, 6);
 }
 
 void MiRS::handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission)

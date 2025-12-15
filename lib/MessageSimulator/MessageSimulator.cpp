@@ -18,14 +18,20 @@ void MessageSimulator::finish()
     }
 }
 
-void MessageSimulator::setTimeToNextMission(int _timeToNextMission)
+void MessageSimulator::setTimeToNextMission(uint16_t _timeToNextMission)
 {
-    nextMission = _timeToNextMission;
+    timeToNextMission = _timeToNextMission;
 }
 
 void MessageSimulator::simulateMessages()
 {
     uint32_t currentTime = millis();
+
+    // Do not allocate a new message while one is still waiting to be consumed
+    if (packetReady)
+    {
+        return;
+    }
 
     if (initRun)
     {
@@ -43,7 +49,7 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto msg = (MessageToSend *)malloc(sizeof(MessageToSend));
+        MessageToSend *msg = (MessageToSend *)malloc(sizeof(MessageToSend));
         msg->payload = dummyPayload;
         msg->size = size;
         msg->isMission = true;
@@ -51,7 +57,7 @@ void MessageSimulator::simulateMessages()
         messageToSend = msg;
         packetReady = true;
 
-        nextMission = currentTime + random(timeToNextMission - timeToNextMission / 10, timeToNextMission - timeToNextMission / 10); // TODO
+        nextMission = currentTime + random(timeToNextMission - timeToNextMission / 20, timeToNextMission - timeToNextMission / 20);
         return;
     }
 
@@ -65,7 +71,7 @@ void MessageSimulator::simulateMessages()
             dummyPayload[i] = random(0, 256);
         }
 
-        auto msg = (MessageToSend *)malloc(sizeof(MessageToSend));
+        MessageToSend * msg = (MessageToSend *)malloc(sizeof(MessageToSend));
         msg->payload = dummyPayload;
         msg->size = size;
         msg->isMission = false;
@@ -73,7 +79,7 @@ void MessageSimulator::simulateMessages()
         messageToSend = msg;
         packetReady = true;
 
-        nextNeighbour = currentTime + random(timeToNextNeighbour - timeToNextNeighbour / 10, timeToNextNeighbour - timeToNextNeighbour / 10);
+        nextNeighbour = currentTime + random(timeToNextNeighbour - timeToNextNeighbour / 20, timeToNextNeighbour - timeToNextNeighbour / 20);
         return;
     }
 }
@@ -81,7 +87,7 @@ void MessageSimulator::cleanUp()
 {
     packetReady = false;
 
-    if (messageToSend)
+    if (messageToSend != nullptr)
     {
         free(messageToSend->payload);
         free(messageToSend);

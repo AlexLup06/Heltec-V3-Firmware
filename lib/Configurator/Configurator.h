@@ -19,7 +19,7 @@ enum OperationMode
 
 struct Config
 {
-    time_t startTimeUnix = 0;
+    uint64_t startTime_UNIX_MS = 0;
     uint8_t networkId = 0;
     uint8_t numberOfNodes = 0;
 };
@@ -41,7 +41,7 @@ public:
     void handleDioInterrupt();
     void sendBroadcastConfig();
     void setNetworkTopology(bool forward);
-    void confirmSetup(time_t startTime);
+    void confirmSetup(uint64_t _startTime);
 
 private:
     LoRaDisplay *loraDisplay;
@@ -56,11 +56,11 @@ private:
     uint8_t networkId = 0;
     uint8_t numberOfNodes = 0;
 
-    uint32_t startTimeUnix = 0;
+    uint64_t startTime_UNIX_MS = 0;
     int maxCW = 100;
     int slotTime = 50;
     int chosenSlot = 0;
     unsigned long cycleStartMs = 0;
 
-    void setClockFromTimestamp(uint32_t unixTime);
+    void setClockFromTimestamp(uint64_t unixTime_MS);
 };

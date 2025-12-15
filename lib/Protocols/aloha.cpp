@@ -62,7 +62,7 @@ void Aloha::handleUpperPacket(MessageToSend *msg)
 
 void Aloha::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
+    logReceivedEffectiveBytes(receivedPacket->payload, receivedPacket->size);
 
     uint8_t messageType = receivedPacket->messageType;
     uint8_t *packet = receivedPacket->payload;

@@ -20,7 +20,7 @@ protected:
     uint8_t backoffFS_MS = 19 + 3;
     uint8_t backoffCW = 16;
 
-    uint16_t sifs_MS = 2;
+    uint16_t sifs_MS = 3;
     CTSData ctsData;
     int rtsSource;
     bool initiateCTS = false;
@@ -37,7 +37,7 @@ protected:
     BackoffHandler regularBackoffHandler{backoffFS_MS, backoffCW, &msgScheduler, &regularBackoff};
 
     void handleCTSTimeout(bool withRetry);
-    void sendCTS(bool waitForCTStimeout = false);
+    void sendCTS(bool instantFragment = true);
     void sendRTS();
     void clearRTSsource();
 
@@ -51,10 +51,12 @@ protected:
     void initRTSCTS();
 
     bool isStrayCTS(ReceivedPacket *receivedPacket);
-    void handleStrayCTS(ReceivedPacket *receivedPacket, bool waitForCTStimeout);
+    void handleStrayCTS(ReceivedPacket *receivedPacket, bool instantFragment);
 
     bool isRTS(ReceivedPacket *receivedPacket);
     void handleUnhandeledRTS();
 
-    void handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission);
+    bool isPacketNotFromRTSSource(ReceivedPacket *receivedPacket);
+
+    void handleCTS(const BroadcastCTS *cts, const size_t packetSize, bool instantFragment);
 };

@@ -5,6 +5,7 @@ SX1262Public *SX1262Public::instance = nullptr;
 SX1262Public::SX1262Public(Module *module) : SX1262(module)
 {
     instance = this;
+    irqQueue = xQueueCreate(10, sizeof(uint8_t));
 }
 
 int16_t SX1262Public::startReceive()
@@ -52,7 +53,8 @@ void SX1262Public::init(float frequency, uint8_t sf, uint8_t txPower, uint32_t b
 
 void IRAM_ATTR SX1262Public::receiveDio1Interrupt()
 {
-    instance->dio1Flag = true;
+    uint8_t dummy = 1;
+    xQueueSendFromISR(instance->irqQueue, &dummy, NULL);
 }
 
 void SX1262Public::handleDio1Interrupt()

@@ -34,15 +34,15 @@ public:
     void setCw(uint8_t newCw) { cwBackoff = newCw; }
     uint8_t getCw() { return cwBackoff; }
 
-    long getBackoffPeriod() const { return backoffPeriod_MS; }
-    long getRemainderCW() const { return remainderCW; }
+    double getBackoffPeriod() const { return backoffPeriod_MS; }
+    int getRemainderCW() const { return remainderCW; }
     int getChosenSlot() const { return chosenSlot; }
 
 private:
     int backoffFS_MS;
     int cwBackoff;
     const int cwBackoff_CONST;
-    long backoffPeriod_MS;
+    double backoffPeriod_MS;
 
     int chosenSlot;
 

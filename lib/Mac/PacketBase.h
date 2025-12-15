@@ -90,7 +90,7 @@ public:
     void encapsulate(MessageTypeBase *msg, bool isMission);
     bool decapsulate(uint8_t *packet);
 
-    void logReceivedIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId);
+    void logReceivedFragmentsIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId);
 };
 
 #include "PacketBase.tpp"

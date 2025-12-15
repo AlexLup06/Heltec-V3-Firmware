@@ -6,53 +6,59 @@ void macTask(void *param)
     {
         if (button.inputActive)
         {
-            vTaskDelay(2);
+            vTaskDelay(20);
             continue;
         }
 
         if (macController.finishedAllRuns())
         {
-            vTaskDelay(3);
+            vTaskDelay(30);
             continue;
         }
 
         if (configurator.isInConfigMode())
         {
-            vTaskDelay(2);
+            configurator.handleConfigMode();
+            loraDisplay.loop();
+            vTaskDelay(10);
             continue;
-        }
-
-        if (!macController.isInWaitMode())
-        {
-            macProtocol->handle();
-            messageSimulator.simulateMessages();
         }
 
         macController.update();
 
-        if (messageSimulator.packetReady)
+        if (!macController.isInWaitMode())
         {
-            macProtocol->handleUpperPacket(messageSimulator.messageToSend);
-            messageSimulator.cleanUp();
+            if (macProtocol->shouldHandlePacket())
+            {
+                messageSimulator.simulateMessages();
+            }
+
+            if (messageSimulator.packetReady)
+            {
+                macProtocol->handleUpperPacket(messageSimulator.messageToSend);
+                messageSimulator.cleanUp();
+            }
+            macProtocol->handle();
         }
 
-        vTaskDelay(2);
+        vTaskDelay(0);
     }
 }
 
 void radioIrqTask(void *param)
 {
     SX1262Public *self = static_cast<SX1262Public *>(param);
+    uint8_t evt;
 
     for (;;)
     {
-        if (self->dio1Flag)
+        if (xQueueReceive(self->irqQueue, &evt, portMAX_DELAY))
         {
-            self->dio1Flag = false;
-            self->handleDio1Interrupt();
+            if (!macController.isInWaitMode())
+            {
+                self->handleDio1Interrupt();
+            }
         }
-
-        vTaskDelay(1);
     }
 }
 
@@ -60,7 +66,7 @@ void buttonTask(void *param)
 {
     for (;;)
     {
-        button.update();
-        vTaskDelay(1);
+        // button.update();
+        vTaskDelay(10);
     }
 }

@@ -2,41 +2,37 @@
 
 PacketBase::PacketBase()
 {
-    incompleteMissionPackets.setLogCallback(
-        [this](uint16_t id, bool isMission, uint8_t src, int16_t hop)
+    incompleteMissionPackets.setLogFragmentCallback(
+        [this](uint16_t id, uint8_t src, int16_t hop)
         {
-            this->logReceivedIdStatistics(id, isMission, src, hop);
+            this->logReceivedFragmentsIdStatistics(id, true, src, hop);
         });
 
-    incompleteNeighbourPackets.setLogCallback(
-        [this](uint16_t id, bool isMission, uint8_t src, int16_t hop)
+    incompleteNeighbourPackets.setLogFragmentCallback(
+        [this](uint16_t id, uint8_t src, int16_t hop)
         {
-            this->logReceivedIdStatistics(id, isMission, src, hop);
+            this->logReceivedFragmentsIdStatistics(id, false, src, hop);
         });
 }
 
 PacketBase::~PacketBase() { clearQueue(); }
 
-void PacketBase::logReceivedIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId)
+void PacketBase::logReceivedFragmentsIdStatistics(uint16_t id, bool isMission, uint8_t sourceId, uint8_t hopId)
 {
     if (!isMission)
     {
-        ReceivedNeighbourId_data receivedNeighbourId = ReceivedNeighbourId_data();
-        receivedNeighbourId.missionId = id;
-        receivedNeighbourId.missionId = sourceId;
-        loggerManager->log(Metric::ReceivedNeighbourId_V, receivedNeighbourId);
-
-        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
+        ReceivedNeighbourIdFragment_data receivedNeighbourIdFragment = ReceivedNeighbourIdFragment_data();
+        receivedNeighbourIdFragment.missionId = id;
+        receivedNeighbourIdFragment.missionId = sourceId;
+        loggerManager->log(Metric::ReceivedNeighbourIdFragment_V, receivedNeighbourIdFragment);
     }
     if (isMission)
     {
-        ReceivedMissionId_data receivedMissionId = ReceivedMissionId_data();
-        receivedMissionId.missionId = id;
-        receivedMissionId.hopId = hopId;
-        receivedMissionId.sourceId = sourceId;
-        loggerManager->log(Metric::ReceivedMissionId_V, receivedMissionId);
-
-        DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
+        ReceivedMissionIdFragment_data receivedMissionIdFragment = ReceivedMissionIdFragment_data();
+        receivedMissionIdFragment.missionId = id;
+        receivedMissionIdFragment.hopId = hopId;
+        receivedMissionIdFragment.sourceId = sourceId;
+        loggerManager->log(Metric::ReceivedMissionIdFragment_V, receivedMissionIdFragment);
     }
 }
 
@@ -133,14 +129,13 @@ bool PacketBase::dequeuedPacketWasLast()
     auto *firstPacket = customPacketQueue.getFirstPacket();
     if (firstPacket == nullptr)
         return true;
-    return firstPacket->isHeader || firstPacket->isNodeAnnounce;
+    return firstPacket->isHeader;
 }
 
 // ---------------------- Packet Creation ----------------------
 
 void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uint8_t source, bool withRTS, bool isMission, bool withContinuousRTS, int id)
 {
-
     uint16_t msgId = id;
     if (id == -1)
         msgId = isMission ? MISSION_ID_COUNT++ : NEIGHBOUR_ID_COUNT++;
@@ -151,7 +146,7 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
     {
         BroadcastRTS *rts = createRTS(msgId, source, payloadSize, checksum, isMission);
         encapsulate(rts, isMission);
-        enqueueStruct(rts, sizeof(BroadcastRTS), source, checksum, msgId, true, isMission, false);
+        enqueueStruct(rts, sizeof(BroadcastRTS), source, msgId, checksum, true, isMission, false);
         free(rts);
 
         uint8_t fragmentId = 0;
@@ -166,7 +161,7 @@ void PacketBase::createMessage(const uint8_t *payload, uint16_t payloadSize, uin
             {
                 BroadcastContinuousRTS *continuousRTS = createContinuousRTS(msgId, source, packetSize, isMission);
                 encapsulate(continuousRTS, isMission);
-                enqueueStruct(continuousRTS, sizeof(BroadcastRTS), source, checksum, msgId, true, isMission, false);
+                enqueueStruct(continuousRTS, sizeof(BroadcastRTS), source, msgId, checksum, true, isMission, false);
                 free(continuousRTS);
                 thisFragHasContinuousRTS = true;
             }
@@ -337,6 +332,7 @@ void PacketBase::clearQueue()
         if (pkt)
         {
             free(pkt->data);
+            free(pkt);
         }
     }
     DEBUG_PRINTLN("Queue cleared");

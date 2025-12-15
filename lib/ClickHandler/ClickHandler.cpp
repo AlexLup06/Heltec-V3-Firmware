@@ -40,8 +40,6 @@ void ClickHandler::trigger(int count)
     default:
         break;
     }
-
-    radio->startReceive();
     inputActive = false;
 }
 
@@ -66,7 +64,6 @@ void ClickHandler::update()
             _clickCount++;
             _lastClickTime = millis();
 
-            radio->standby();
             inputActive = true;
         }
         else if (!reading && _buttonPressed)
@@ -92,10 +89,11 @@ void ClickHandler::update()
             if ((millis() - _pressStartTime) >= 2000)
             {
                 _longClickTriggered = true;
+
                 if (_singleLongClickCb)
                     _singleLongClickCb();
 
-                radio->startReceive();
+                inputActive = false;
             }
         }
 

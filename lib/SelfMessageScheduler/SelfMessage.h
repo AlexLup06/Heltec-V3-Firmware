@@ -13,7 +13,7 @@ public:
     bool isName(const char *n) const { return strcmp(name_, n) == 0; }
     const char *getName() const { return name_; }
 
-    unsigned long getTriggerTime() const { return triggerTime; }
+    double getTriggerTime() const { return triggerTime; }
     bool isScheduled() const { return scheduled; }
 
     bool operator==(const SelfMessage &other) const
@@ -29,6 +29,6 @@ public:
 private:
     friend class SelfMessageScheduler;
     const char *name_;
-    unsigned long triggerTime;
+    double triggerTime;
     bool scheduled;
 };

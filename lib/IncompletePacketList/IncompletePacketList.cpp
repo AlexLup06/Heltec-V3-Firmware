@@ -6,9 +6,9 @@ IncompletePacketList::IncompletePacketList(bool isMissionList)
     packets_.reserve(10); // We do not have more than 10 nodes in the network
 }
 
-void IncompletePacketList::setLogCallback(LogFunc func)
+void IncompletePacketList::setLogFragmentCallback(LogFunc func)
 {
-    logFunc_ = std::move(func);
+    logFragmentFunc_ = std::move(func);
 }
 
 void IncompletePacketList::clear()
@@ -70,7 +70,7 @@ bool IncompletePacketList::createIncompletePacket(
 {
     auto *pkt = getPacketBySource(source);
     if (pkt != nullptr)
-        assert(pkt->id < id);
+        assert(pkt->id <= id);
     removePacketBySource(source);
 
     DEBUG_PRINTF("Create packet: id=%u, size=%u, source=%u, hopId=%d, type=%s, checksum=%u, isMission: %s\n",
@@ -133,7 +133,7 @@ Result IncompletePacketList::addToIncompletePacket(
         return result;
     }
 
-    logFunc_(id, incompletePacket->isMission, incompletePacket->source, incompletePacket->hopId);
+    logFragmentFunc_(id, incompletePacket->source, incompletePacket->hopId);
 
     // already received this packet
     if (incompletePacket->receivedFragments[fragment])

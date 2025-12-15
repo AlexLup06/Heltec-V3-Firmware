@@ -13,6 +13,11 @@ void MeshRouter::finishProtocol()
 
 void MeshRouter::handleWithFSM(SelfMessage *msg)
 {
+    if (isTransmitting())
+    {
+        return;
+    }
+
     if (isReceivedPacketReady)
     {
         handleProtocolPacket(receivedPacket);
@@ -29,7 +34,7 @@ void MeshRouter::handleWithFSM(SelfMessage *msg)
 
     sendPacket(queuedPacket->data, queuedPacket->packetSize);
 
-    if (queuedPacket->data[0] == MESSAGE_TYPE_BROADCAST_RTS)
+    if ((queuedPacket->data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_RTS)
     {
         SenderWait(150);
     }
@@ -41,9 +46,7 @@ void MeshRouter::handleWithFSM(SelfMessage *msg)
     }
 
     free(queuedPacket->data);
-    queuedPacket->data = nullptr;
     free(queuedPacket);
-    queuedPacket = nullptr;
 }
 
 void MeshRouter::onPreambleDetectedIR()
@@ -55,7 +58,7 @@ void MeshRouter::onPreambleDetectedIR()
 
 void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
+    logReceivedEffectiveBytes(receivedPacket->payload, receivedPacket->size);
 
     preambleAdd = 0;
     uint8_t messageType = receivedPacket->messageType;
@@ -66,11 +69,11 @@ void MeshRouter::handleProtocolPacket(ReceivedPacket *receivedPacket)
     switch (messageType)
     {
     case MESSAGE_TYPE_BROADCAST_RTS:
-        MeshRouter::OnFloodHeaderPacket((BroadcastRTS *)packet, packetSize, isMission);
+        OnFloodHeaderPacket((BroadcastRTS *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     case MESSAGE_TYPE_BROADCAST_FRAGMENT:
-        MeshRouter::OnFloodFragmentPacket((BroadcastFragment *)packet, packetSize, isMission);
+        OnFloodFragmentPacket((BroadcastFragment *)packet, packetSize, isMission);
         SenderWait(0 + (rand() % 101));
         break;
     default:
@@ -114,7 +117,7 @@ void MeshRouter::OnFloodHeaderPacket(BroadcastRTS *packet, size_t packetSize, bo
 
 void MeshRouter::OnFloodFragmentPacket(BroadcastFragment *packet, size_t packetSize, bool isMission)
 {
-    if (doesIncompletePacketExist(packet->source, packet->id, isMission))
+    if (!doesIncompletePacketExist(packet->source, packet->id, isMission))
     {
         // No information about future packages. Assume the greatest!
         // Keine Informationen über zukünftige Pakete. Gehe vom größten aus!

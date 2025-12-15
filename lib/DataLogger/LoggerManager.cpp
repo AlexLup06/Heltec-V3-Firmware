@@ -45,17 +45,24 @@ void LoggerManager::init(uint8_t _nodeId)
         snprintf(path, sizeof(path), "/%s/nodes-%d",
                  networkIdToString(TOPOLOGY_FULLY_MESHED), i);
         createDirChecked(path);
+
+        snprintf(path, sizeof(path), "/%s/nodes-%d",
+                 networkIdToString(TOPOLOGY_LINE), i);
+        createDirChecked(path);
+
+        snprintf(path, sizeof(path), "/%s/nodes-%d",
+                 networkIdToString(TOPOLOGY_COMPLEX), i);
+        createDirChecked(path);
     }
 
-    registerLogger<SentEffectiveBytes_data>(Metric::SentEffectiveBytes_V);
-    registerLogger<SentBytes_data>(Metric::SentBytes_V);
-    registerLogger<ReceivedEffectiveBytes_data>(Metric::ReceivedEffectiveBytes_V);
-    registerLogger<ReceivedBytes_data>(Metric::ReceivedBytes_V);
+    // registerLogger<SentEffectiveBytes_data>(Metric::SentEffectiveBytes_V);
+    // registerLogger<SentBytes_data>(Metric::SentBytes_V);
+    // registerLogger<ReceivedEffectiveBytes_data>(Metric::ReceivedEffectiveBytes_V);
+    // registerLogger<ReceivedBytes_data>(Metric::ReceivedBytes_V);
     registerLogger<ReceivedCompleteMission_data>(Metric::ReceivedCompleteMission_V);
     registerLogger<SentMissionRTS_data>(Metric::SentMissionRTS_V);
-    registerLogger<SentMissionFragment_data>(Metric::SentMissionFragment_V);
-    registerLogger<ReceivedMissionId_data>(Metric::ReceivedMissionId_V);
-    registerLogger<ReceivedNeighbourId_data>(Metric::ReceivedNeighbourId_V);
+    registerLogger<ReceivedMissionIdFragment_data>(Metric::ReceivedMissionIdFragment_V);
+    registerLogger<ReceivedNeighbourIdFragment_data>(Metric::ReceivedNeighbourIdFragment_V);
 }
 
 void LoggerManager::updateFilename()

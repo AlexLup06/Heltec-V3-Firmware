@@ -28,7 +28,10 @@ void RadioBase::handleIRQFlags()
         DEBUG_PRINTLN("[RadioBase] RADIOLIB_SX126X_IRQ_TX_DONE");
         isTransmittingVar = false;
         onSendCallback();
+        uint64_t t0 = esp_timer_get_time();
         startReceive();
+        uint64_t t1 = esp_timer_get_time();
+        DEBUG_PRINTF("[Radio] startReceive took %llu us\n", t1 - t0);
         return;
     }
 
@@ -55,7 +58,8 @@ void RadioBase::handleIRQFlags()
                  RADIOLIB_SX126X_IRQ_HEADER_ERR |
                  RADIOLIB_SX126X_IRQ_CRC_ERR))
     {
-        if (flags & RADIOLIB_SX126X_IRQ_RX_DONE)
+        if ((flags & RADIOLIB_SX126X_IRQ_RX_DONE) != 0 &&
+            (flags & (RADIOLIB_SX126X_IRQ_HEADER_ERR | RADIOLIB_SX126X_IRQ_CRC_ERR)) == 0)
         {
             DEBUG_PRINTLN("[RadioBase] RADIOLIB_SX126X_IRQ_RX_DONE");
             onReceiveIR();
@@ -147,48 +151,33 @@ void RadioBase::sendPacket(const uint8_t *data, const size_t len)
 void RadioBase::logSendStatistics(const uint8_t *data, const size_t len)
 {
     DEBUG_PRINTLN("[Mac Base] Log send");
-    double timeOnAir = getToAByPacketSizeInUS(len);
+    double timeOnAir = getToAByPacketSizeInUS(len) / 1000.0;
     loggerManager->increment(Metric::TimeOnAir_S, timeOnAir);
 
-    SentBytes_data sentBytes = SentBytes_data();
-    sentBytes.bytes = len;
-    loggerManager->log(Metric::SentBytes_V, sentBytes);
-    DEBUG_PRINTF("[Mac Base] Log sent bytes: %d\n", sentBytes);
+    loggerManager->increment(Metric::SentBytes_S, len);
+    DEBUG_PRINTF("[Mac Base] Log sent bytes: %d\n", len);
 
-    SentEffectiveBytes_data sentEffectiveBytes = SentEffectiveBytes_data();
     if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_FRAGMENT)
     {
-        sentEffectiveBytes.bytes = len - BROADCAST_FRAGMENT_METADATA_SIZE;
-        loggerManager->log(Metric::SentEffectiveBytes_V, sentEffectiveBytes);
+        loggerManager->increment(Metric::SentEffectiveBytes_S, len - BROADCAST_FRAGMENT_METADATA_SIZE);
         DEBUG_PRINTF("[Mac Base] Log sent effective bytes: %d\n", len - BROADCAST_FRAGMENT_METADATA_SIZE);
     }
 
     if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT)
     {
-        sentEffectiveBytes.bytes = len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE;
-        loggerManager->log(Metric::SentEffectiveBytes_V, sentEffectiveBytes);
+        loggerManager->increment(Metric::SentEffectiveBytes_S, len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
         DEBUG_PRINTF("[Mac Base] Log sent effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
     }
 
     SentMissionRTS_data sentMissionRTS = SentMissionRTS_data();
-    if (data[0] == (MESSAGE_TYPE_BROADCAST_RTS | 0x80) ||
-        data[0] == (MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT | 0x80))
+    if ((data[0] == (MESSAGE_TYPE_BROADCAST_RTS | 0x80)) ||
+        (data[0] == (MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT | 0x80)))
     {
         sentMissionRTS.time = time(NULL);
         sentMissionRTS.missionId = ((uint16_t)data[2] << 8) | (uint16_t)data[1]; //  second and thrird bytes is the id
         sentMissionRTS.source = data[3];                                         // fourth byte is the source
         loggerManager->log(Metric::SentMissionRTS_V, sentMissionRTS);
         DEBUG_PRINTF("[Mac Base] Log sent mission RTS with id: %d\n", ((uint16_t)data[2] << 8) | (uint16_t)data[1]);
-    }
-
-    SentMissionFragment_data sentMissionFragment = SentMissionFragment_data();
-    if (data[0] == (MESSAGE_TYPE_BROADCAST_FRAGMENT | 0x80))
-    {
-        sentMissionFragment.time = time(NULL);
-        sentMissionFragment.missionId = ((uint16_t)data[2] << 8) | (uint16_t)data[1]; //  second and third bytes is the source
-        sentMissionFragment.source = data[3];                                         // fourth byte is the source
-        loggerManager->log(Metric::SentMissionFragment_V, sentMissionFragment);
-        DEBUG_PRINTF("[Mac Base] Log sent mission fragment with id: %d\n", ((uint16_t)data[2] << 8) | (uint16_t)data[1]);
     }
     DEBUG_PRINTLN("[Mac Base] Finish log send");
 }

@@ -24,24 +24,25 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
         msg = &defaultMsg;
     }
 
-            if (
-            (fsm.getState() == WAIT_CTS ||
-             fsm.getState() == READY_TO_SEND ||
-             fsm.getState() == BACKOFF_CTS ||
-             fsm.getState() == AWAIT_TRANSMISSION) &&
-            isRTS(receivedPacket))
-        {
-            handleUnhandeledRTS();
-        }
+    if (
+        (fsm.getState() == WAIT_CTS ||
+         fsm.getState() == READY_TO_SEND ||
+         fsm.getState() == BACKOFF_CTS ||
+         fsm.getState() == AWAIT_TRANSMISSION) &&
+        isRTS(receivedPacket))
+    {
+        handleUnhandeledRTS();
+        finishReceiving();
+        return;
+    }
 
-        if (fsm.getState() == RECEIVING && ongoingTransmissionTimer.isScheduled() && isRTS(receivedPacket))
-        {
-            double maxTransmissionTime = getToAByPacketSizeInUS(LORA_MAX_PACKET_SIZE)/1000ul;
-            double maxCtsCWTime = ctsCW * ctsFS_MS;
-            double scheduleTime = maxTransmissionTime + maxCtsCWTime + sifs_MS;
-
-            msgScheduler.scheduleOrExtend(&ongoingTransmissionTimer, scheduleTime);
-        }
+    if (fsm.getState() == RECEIVING && ongoingTransmissionTimer.isScheduled() && isRTS(receivedPacket))
+    {
+        handleUnhandeledRTS();
+        finishReceiving();
+        fsm.setState(LISTENING);
+        return;
+    }
 
     FSMA_Switch(fsm)
     {
@@ -49,7 +50,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
         {
             FSMA_Event_Transition(we got rts now send cts,
                                   initiateCTS && isFreeToSend(),
-                                  BACKOFF_CTS, );
+                                  BACKOFF_CTS, msgScheduler.cancel(&shortWaitTimer););
             FSMA_Event_Transition(we have packet to send and just send it,
                                   currentTransmission != nullptr &&
                                       !isReceiving() &&
@@ -59,7 +60,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
                                   BACKOFF, );
             FSMA_Event_Transition(detected preamble and trying to receive,
                                   isReceiving(),
-                                  RECEIVING, );
+                                  RECEIVING, msgScheduler.cancel(&shortWaitTimer););
         }
         FSMA_State(BACKOFF)
         {
@@ -91,7 +92,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
                                   isStrayCTS(receivedPacket),
                                   LISTENING,
                                   msgScheduler.cancel(&waitForCTSTimer);
-                                  handleStrayCTS(receivedPacket, true);
+                                  handleStrayCTS(receivedPacket, false);
                                   handleCTSTimeout(true););
             FSMA_Event_Transition(we didnt get cts go back to listening,
                                   waitForCTSTimer == *msg,
@@ -108,7 +109,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
                                   isStrayCTS(receivedPacket),
                                   LISTENING,
                                   msgScheduler.cancel(&waitForCTSTimer);
-                                  handleStrayCTS(receivedPacket, true);
+                                  handleStrayCTS(receivedPacket, false);
                                   handleCTSTimeout(true););
             FSMA_Event_Transition(wait full contention window,
                                   waitForCTSTimer == *msg,
@@ -130,7 +131,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
                                   LISTENING,
                                   ctsBackoffHandler.invalidateBackoffPeriod();
                                   ctsBackoffHandler.cancelBackoffTimer();
-                                  handleStrayCTS(receivedPacket, true));
+                                  handleStrayCTS(receivedPacket, false));
             FSMA_Event_Transition(cts backoff finished and we send cts,
                                   ctsBackoff == *msg && !isReceiving(),
                                   SEND_CTS,
@@ -141,10 +142,15 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
                                   ctsBackoffHandler.invalidateBackoffPeriod();
                                   ctsBackoffHandler.cancelBackoffTimer();
                                   msgScheduler.schedule(&shortWaitTimer, sifs_MS););
+            FSMA_Event_Transition(got - packet - from - rts - source,
+                                  !ctsBackoff.isScheduled() && isPacketNotFromRTSSource(receivedPacket),
+                                  LISTENING,
+                                  ctsBackoffHandler.invalidateBackoffPeriod();
+                                  msgScheduler.schedule(&shortWaitTimer, sifs_MS));
         }
         FSMA_State(SEND_CTS)
         {
-            FSMA_Enter(sendCTS(true));
+            FSMA_Enter(sendCTS(false));
             FSMA_Event_Transition(finished sending CTS now listen f0r packet,
                                   !isTransmitting(),
                                   AWAIT_TRANSMISSION, );
@@ -154,7 +160,7 @@ void RSMiTraNAV::handleWithFSM(SelfMessage *msg)
             FSMA_Event_Transition(got some other CTS - wait f0r the maximum CTS CW time,
                                   isStrayCTS(receivedPacket),
                                   AWAIT_TRANSMISSION,
-                                  handleStrayCTS(receivedPacket, true));
+                                  handleStrayCTS(receivedPacket, false));
             FSMA_Event_Transition(source didnt get cts - just go back to regular listening,
                                   transmissionStartTimer == *msg && !isReceiving(),
                                   LISTENING,
@@ -203,7 +209,7 @@ void RSMiTraNAV::handleUpperPacket(MessageToSend *msg)
 
 void RSMiTraNAV::handleProtocolPacket(ReceivedPacket *receivedPacket)
 {
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
+    logReceivedEffectiveBytes(receivedPacket->payload, receivedPacket->size);
 
     DEBUG_PRINTF("[Protocol] handleProtocolPacket: %s\n", msgIdToString(receivedPacket->messageType));
     uint8_t messageType = receivedPacket->messageType;
@@ -223,18 +229,18 @@ void RSMiTraNAV::handleProtocolPacket(ReceivedPacket *receivedPacket)
         handleFragment((BroadcastFragment *)packet, packetSize, isMission);
         break;
     case MESSAGE_TYPE_BROADCAST_CTS:
-        handleCTS((BroadcastCTS *)packet, packetSize, isMission);
+        handleCTS((BroadcastCTS *)packet, packetSize, false);
         break;
     default:
         DEBUG_PRINTF("[Protocol] received unkown packet: %s\n", msgIdToString(receivedPacket->messageType));
         break;
     }
     finishReceiving();
+    msgScheduler.schedule(&shortWaitTimer, 6);
 }
 
 void RSMiTraNAV::handleRTS(const BroadcastRTS *packet, const size_t packetSize, bool isMission)
 {
-    // TODO: check this logic here. There is something up with ctsData.rtsSource = packet->hopId; I think we just dont get to the setting of ctsData.rtsSource. it does not create the incomplete packet
     bool createdPacket = createIncompletePacket(packet->id, packet->size, packet->source, packet->hopId, packet->messageType, packet->checksum, isMission);
     if (!createdPacket)
     {

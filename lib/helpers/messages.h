@@ -32,11 +32,11 @@ public:
 struct BroadcastConfig
 {
     uint8_t messageType = MESSAGE_TYPE_BROADCAST_CONFIG;
-    uint8_t source;
     uint8_t networkId;
     uint8_t numberOfNodes;
-    uint32_t startTime;
-    uint32_t currentTime;
+    uint8_t source;
+    uint64_t currentTime_UNIX_MS;
+    uint64_t startTime_UNIX_MS;
 };
 
 struct BroadcastRTS : public MessageTypeBase

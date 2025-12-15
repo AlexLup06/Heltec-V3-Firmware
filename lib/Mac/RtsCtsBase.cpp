@@ -71,8 +71,37 @@ bool RtsCtsBase::isPacketFromRTSSource(ReceivedPacket *receivedPacket)
     return false;
 }
 
-void RtsCtsBase::sendCTS(bool waitForCTStimeout)
+bool RtsCtsBase::isPacketNotFromRTSSource(ReceivedPacket *receivedPacket)
 {
+    if (!isReceivedPacketReady)
+        return false;
+
+    if (const BroadcastFragment *fragment = tryCastMessage<const BroadcastFragment>(receivedPacket->payload))
+    {
+        FragmentedPacket *incompletePacket = getIncompletePacketBySource(fragment->source, receivedPacket->isMission);
+        if (incompletePacket == nullptr)
+        {
+            return true;
+        }
+
+        if (incompletePacket->hopId == rtsSource)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void RtsCtsBase::sendCTS(bool instantFragment)
+{
+    DEBUG_PRINTLN("Send CTS");
     customPacketQueue.printQueue();
 
     BroadcastCTS *cts = createCTS(ctsData.fragmentSize, ctsData.rtsSource, ctsBackoffHandler.getChosenSlot());
@@ -81,14 +110,14 @@ void RtsCtsBase::sendCTS(bool waitForCTStimeout)
 
     // After we send CTS, we need to receive message within ctsFS + sifs otherwise we assume there will be no message
     // if we are RSMiTra then we need to wait for the remainder of the CTS cw window because the transmitter waits until the end
-    uint16_t startSend = ctsFS_MS + sifs_MS;
-    if (waitForCTStimeout)
+    double startSend = ctsFS_MS + sifs_MS + 6; // + 6 because of tx->rx is huge
+    if (!instantFragment)
     {
         startSend += ctsBackoffHandler.getRemainderCW() * ctsFS_MS;
     }
 
     msgScheduler.schedule(&transmissionStartTimer, startSend);
-    msgScheduler.schedule(&transmissionEndTimer, startSend + getToAByPacketSizeInUS(ctsData.fragmentSize) / 1000);
+    msgScheduler.schedule(&transmissionEndTimer, startSend + getToAByPacketSizeInUS(ctsData.fragmentSize) / 1000.0);
 
     ctsData.fragmentSize = -1;
     ctsData.rtsSource = -1;
@@ -102,10 +131,10 @@ void RtsCtsBase::sendRTS()
 
     sendPacket(currentTransmission->data, currentTransmission->packetSize);
 
-    unsigned long scheduleCTSTimerTime =
+    double scheduleCTSTimerTime =
         ctsFS_MS * (ctsCW - 1) + sifs_MS + 3 +
-        (getToAByPacketSizeInUS(currentTransmission->packetSize) / 1000UL) +
-        (getToAByPacketSizeInUS(BROADCAST_CTS_SIZE) / 1000UL);
+        (getToAByPacketSizeInUS(currentTransmission->packetSize) / 1000.0) +
+        (getToAByPacketSizeInUS(BROADCAST_CTS_SIZE) / 1000.0);
     msgScheduler.schedule(&waitForCTSTimer, scheduleCTSTimerTime);
 
     finishCurrentTransmission();
@@ -154,7 +183,6 @@ bool RtsCtsBase::isOurCTS()
         return false;
     }
 
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
     if (nodeId == cts->rtsSource)
     {
         regularBackoffHandler.resetCw();
@@ -167,10 +195,10 @@ bool RtsCtsBase::isWithRTS(bool neighbourWithRTS)
 {
     if (!neighbourWithRTS)
     {
-        return !currentTransmission->isNodeAnnounce && currentTransmission->isMission;
+        return currentTransmission->isMission;
     }
 
-    return !currentTransmission->isNodeAnnounce;
+    return true;
 }
 
 bool RtsCtsBase::isStrayCTS(ReceivedPacket *receivedPacket)
@@ -185,11 +213,10 @@ bool RtsCtsBase::isStrayCTS(ReceivedPacket *receivedPacket)
         return false;
     }
 
-    logReceivedStatistics(receivedPacket->payload, receivedPacket->size, receivedPacket->isMission);
     return nodeId != cts->rtsSource;
 }
 
-void RtsCtsBase::handleStrayCTS(ReceivedPacket *receivedPacket, bool waitForCTStimeout)
+void RtsCtsBase::handleStrayCTS(ReceivedPacket *receivedPacket, bool instantFragment)
 {
     if (!isReceivedPacketReady)
         return;
@@ -201,10 +228,10 @@ void RtsCtsBase::handleStrayCTS(ReceivedPacket *receivedPacket, bool waitForCTSt
         return;
     }
 
-    int time = getToAByPacketSizeInUS(cts->fragmentSize) / 1000ul + sifs_MS;
-    if (waitForCTStimeout)
+    double time = getToAByPacketSizeInUS(cts->fragmentSize) / 1000.0 + sifs_MS + 6;
+    if (!instantFragment)
     {
-        int remainingCtsCwDuration = (ctsCW - cts->chosenSlot - 1) * ctsFS_MS;
+        double remainingCtsCwDuration = (ctsCW - cts->chosenSlot - 1) * ctsFS_MS;
         time += remainingCtsCwDuration;
     }
 
@@ -227,16 +254,21 @@ bool RtsCtsBase::isRTS(ReceivedPacket *receivedPacket)
 
 void RtsCtsBase::handleUnhandeledRTS()
 {
-    double maxTransmissionTime = getToAByPacketSizeInUS(LORA_MAX_PACKET_SIZE) / 1000ul;
+    double maxTransmissionTime = getToAByPacketSizeInUS(LORA_MAX_PACKET_SIZE) / 1000.0;
     double maxCtsCWTime = ctsCW * ctsFS_MS;
     double scheduleTime = maxTransmissionTime + maxCtsCWTime + sifs_MS;
 
     msgScheduler.scheduleOrExtend(&ongoingTransmissionTimer, scheduleTime);
 }
 
-void RtsCtsBase::handleCTS(const BroadcastCTS *packet, const size_t packetSize, bool isMission)
+void RtsCtsBase::handleCTS(const BroadcastCTS *cts, const size_t packetSize, bool instantFragment)
 {
     // we are only here if we did not request the CTS. Just wait for the time that the transmission
-    uint32_t endOngoingTransmissionTime = millis() + getToAByPacketSizeInUS(packet->fragmentSize) / 1000 + sifs_MS;
-    msgScheduler.scheduleOrExtend(&ongoingTransmissionTimer, endOngoingTransmissionTime);
+    double time = (double)getToAByPacketSizeInUS(cts->fragmentSize) / 1000.0 + sifs_MS + 6;
+    if (!instantFragment)
+    {
+        double remainingCtsCwDuration = (ctsCW - cts->chosenSlot - 1) * ctsFS_MS;
+        time += remainingCtsCwDuration;
+    }
+    msgScheduler.scheduleOrExtend(&ongoingTransmissionTimer, time);
 }

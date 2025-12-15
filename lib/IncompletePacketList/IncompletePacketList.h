@@ -43,7 +43,7 @@ struct Result
 class IncompletePacketList
 {
 public:
-    using LogFunc = std::function<void(uint16_t id, bool isMission, uint8_t source, int16_t hop)>;
+    using LogFunc = std::function<void(uint16_t id, uint8_t source, int16_t hop)>;
 
     explicit IncompletePacketList(bool isMissionList);
 
@@ -74,11 +74,11 @@ public:
     bool isCorrupted(const FragmentedPacket *incompletePacket, const uint8_t fragment, const uint16_t payloadSize);
     int calcOffset(const FragmentedPacket *incompletePacket, const uint8_t fragment);
 
-    void setLogCallback(LogFunc func);
+    void setLogFragmentCallback(LogFunc func);
 
 private:
     vector<FragmentedPacket *> packets_;
     vector<pair<uint8_t, uint16_t>> latestIdsFromSource_;
     bool isMissionList_;
-    LogFunc logFunc_;
+    LogFunc logFragmentFunc_;
 };

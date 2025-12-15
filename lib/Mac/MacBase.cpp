@@ -60,11 +60,6 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
         return;
     }
 
-    if (messageType == MESSAGE_TYPE_BROADCAST_NODE_ANNOUNCE)
-    {
-        loraDisplay->updateNode(packet[1], rssi);
-    }
-
     if (isReceivedPacketReady)
     {
         DEBUG_PRINTF("[Mac Base] We are currently handeling another packet: %s\n", msgIdToString(messageType));
@@ -79,6 +74,8 @@ void MacBase::handleLowerPacket(const uint8_t messageType, uint8_t *packet, cons
     receivedPacket->messageType = packet[0];
     receivedPacket->size = packetSize;
     receivedPacket->payload = (uint8_t *)malloc(packetSize);
+
+    logReceivedBytes(receivedPacket->payload, receivedPacket->size);
 
     memcpy(receivedPacket->payload, packet, packetSize);
 }
@@ -97,6 +94,11 @@ void MacBase::finishReceiving()
         setReceivingVar(false);
     }
     preambleTimedOutFlag = false;
+}
+
+bool MacBase::shouldHandlePacket()
+{
+    return customPacketQueue.size() < 300;
 }
 
 void MacBase::handlePacketResult(Result result, bool withRTS, bool withContinuousRTS)
@@ -167,25 +169,23 @@ void MacBase::onReceiveIR()
     startReceive();
 }
 
-void MacBase::logReceivedStatistics(const uint8_t *data, const size_t len, bool isMission)
+void MacBase::logReceivedBytes(const uint8_t *data, const size_t len)
 {
-    ReceivedBytes_data receivedByes = ReceivedBytes_data();
-    receivedByes.bytes = len;
-    loggerManager->log(Metric::ReceivedBytes_V, receivedByes);
+    loggerManager->increment(Metric::ReceivedBytes_S, len);
     DEBUG_PRINTF("[Mac Base] Log received bytes: %d\n", len);
+}
 
-    ReceivedEffectiveBytes_data receivedEffectiveBytes = ReceivedEffectiveBytes_data();
+void MacBase::logReceivedEffectiveBytes(const uint8_t *data, const size_t len)
+{
     if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_FRAGMENT)
     {
-        receivedEffectiveBytes.bytes = len - BROADCAST_FRAGMENT_METADATA_SIZE;
-        loggerManager->log(Metric::ReceivedEffectiveBytes_V, receivedEffectiveBytes);
+        loggerManager->increment(Metric::ReceivedEffectiveBytes_S, len - BROADCAST_FRAGMENT_METADATA_SIZE);
         DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_FRAGMENT_METADATA_SIZE);
     }
 
     if ((data[0] & 0x7F) == MESSAGE_TYPE_BROADCAST_LEADER_FRAGMENT)
     {
-        receivedEffectiveBytes.bytes = len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE;
-        loggerManager->log(Metric::ReceivedEffectiveBytes_V, receivedEffectiveBytes);
+        loggerManager->increment(Metric::ReceivedEffectiveBytes_S, len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
         DEBUG_PRINTF("[Mac Base] Log received effective bytes: %d\n", len - BROADCAST_LEADER_FRAGMENT_METADATA_SIZE);
     }
 }

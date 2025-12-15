@@ -63,21 +63,21 @@ void commonSetup()
     rsmitranr.init(macCtx, nodeId);
     rsmitranav.init(macCtx, nodeId);
 
-    xTaskCreatePinnedToCore(
-        buttonTask,
-        "Button",
-        4096,
-        NULL,
-        3,
-        NULL,
-        1);
+    // xTaskCreatePinnedToCore(
+    //     buttonTask,
+    //     "Button",
+    //     4096,
+    //     NULL,
+    //     3,
+    //     NULL,
+    //     1);
 
     xTaskCreatePinnedToCore(
         macTask,
         "MAC",
         4096,
         NULL,
-        6,
+        10,
         NULL,
         1);
 
@@ -86,7 +86,7 @@ void commonSetup()
         "RadioIRQ",
         4096,
         &radio,
-        10,
+        11,
         NULL,
         1);
 }

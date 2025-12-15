@@ -12,8 +12,8 @@ private:
     uint32_t nextMission = -1;
     uint32_t nextNeighbour = -1;
 
-    uint16_t timeToNextMission = 5000;
-    uint16_t timeToNextNeighbour = 8000;
+    uint16_t timeToNextMission = -1;
+    uint16_t timeToNextNeighbour = 5000;
 
     bool initRun = true;
 
@@ -25,9 +25,9 @@ public:
     void finish();
 
     void simulateMessages();
-    void setTimeToNextMission(int _timeToNextMission);
+    void setTimeToNextMission(uint16_t _timeToNextMission);
     void cleanUp();
 
     bool packetReady = false;
-    MessageToSend *messageToSend;
+    MessageToSend *messageToSend = nullptr;
 };

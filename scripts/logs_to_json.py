@@ -2,26 +2,35 @@ import struct
 import json
 from pathlib import Path
 
-# --- Input and output roots ---
-input_root = Path("./data")  # Where dumped .bin files are stored
-output_root = Path("./data_json")  # Where parsed .json files will be saved
+input_root = Path("./data")
+output_root = Path("./data_json")
 output_root.mkdir(parents=True, exist_ok=True)
 
-# --- Define struct formats (Little Endian) ---
-STRUCT_MAP = {
-    "sent_effective_bytes": "<H",
-    "sent_bytes": "<H",
-    "received_effective_bytes": "<H",
-    "received_bytes": "<H",
-    "received_complete_mission": "<IBH",
-    "sent_mission_rts": "<IBH",
-    "sent_mission_fragment": "<IBH",
-    "time_of_last_trajectory": "<H",
+# These mirror lib/DataLogger/Metrics.h
+METRIC_DEFS = {
+    "sent_mission_rts": ("<IBH", ["time", "source", "missionId"]),
+    "received_complete_mission": ("<IBH", ["time", "source", "missionId"]),
+    "received_mission_id_fragment": ("<HBB", ["missionId", "hopId", "sourceId"]),
+    "received_neighbour_id_fragment": ("<HB", ["missionId", "sourceId"]),
+    "received_effective_bytes": ("<H", ["bytes"]),
+    "received_bytes": ("<H", ["bytes"]),
+    "sent_effective_bytes": ("<H", ["bytes"]),
+    "sent_bytes": ("<H", ["bytes"]),
 }
 
-FIELDS = {
-    "<H": ["value"],
-    "<IBH": ["time", "source", "missionId"],
+# Header metric enum mapping (see lib/DataLogger/Metrics.h)
+METRIC_ENUM_TO_NAME = {
+    0: "sent_mission_rts",
+    1: "received_complete_mission",
+    2: "received_mission_id_fragment",
+    3: "received_neighbour_id_fragment",
+    4: "received_effective_bytes",
+    5: "received_bytes",
+    6: "sent_effective_bytes",
+    7: "sent_bytes",
+    8: "collisions",
+    9: "time_on_air",
+    10: "single_values",
 }
 
 
@@ -50,8 +59,10 @@ def parse_header(data: bytes):
         "version": version,
         "entrySize": entry_size,
         "metric": metric,
-        "networkName": networkName.decode("ascii", errors="ignore").rstrip("\x00"),
-        "currentMac": currentMac.decode("ascii", errors="ignore").rstrip("\x00"),
+        "networkName": networkName.split(b"\x00", 1)[0].decode(
+            "ascii", errors="ignore"
+        ),
+        "currentMac": currentMac.split(b"\x00", 1)[0].decode("ascii", errors="ignore"),
         "missionMessagesPerMin": missionMessagesPerMin,
         "numberOfNodes": numberOfNodes,
         "runNumber": runNumber,
@@ -60,9 +71,8 @@ def parse_header(data: bytes):
     }
 
 
-# --- Process every .bin file recursively ---
 for file in input_root.rglob("*.bin"):
-    rel_path = file.relative_to(input_root)  # keep same relative path
+    rel_path = file.relative_to(input_root)
     json_path = output_root / rel_path.with_suffix(".json")
     json_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -75,31 +85,57 @@ for file in input_root.rglob("*.bin"):
     entry_size = header["entrySize"]
     payload = data[HEADER_SIZE:]
 
-    # --- Detect struct type based on filename ---
     name = file.stem.lower()
-    struct_key = next((k for k in STRUCT_MAP if k in name), None)
+    struct_key = next((k for k in METRIC_DEFS if k in name), None)
     if not struct_key:
-        print(f"⚠️ Unknown struct type for {file}, skipping.")
+        struct_key = METRIC_ENUM_TO_NAME.get(header["metric"])
+    if not struct_key:
+        print(
+            f"⚠️ Unknown struct type for {file} (metric={header['metric']}), skipping."
+        )
         continue
 
-    fmt = STRUCT_MAP[struct_key]
-    fields = FIELDS[fmt]
-    vectors = {f: [] for f in fields}
+    if struct_key == "single_values":
+        text = payload.decode("ascii", errors="ignore")
+        counters = {}
+        for line in text.splitlines():
+            if "=" not in line:
+                continue
+            name, value = line.split("=", 1)
+            try:
+                counters[name.strip()] = float(value.strip())
+            except ValueError:
+                continue
+        json_data = {"metadata": header, "counters": counters}
+    else:
+        metric_def = METRIC_DEFS.get(struct_key)
+        if metric_def is None:
+            print(
+                f"⚠️ No struct definition for {struct_key} in {file} (metric={header['metric']}), skipping."
+            )
+            continue
 
-    # --- Parse all entries ---
-    for i in range(0, len(payload), entry_size):
-        chunk = payload[i : i + entry_size]
-        if len(chunk) < entry_size:
-            break
-        values = struct.unpack(fmt, chunk)
-        for f, v in zip(fields, values):
-            vectors[f].append(v)
+        fmt, fields = metric_def
+        fmt_size = struct.calcsize(fmt)
+        if entry_size != fmt_size:
+            print(
+                f"Entry size mismatch for {file}: header={entry_size}, expected={fmt_size} for {struct_key}"
+            )
 
-    # --- Save parsed file ---
-    json_data = {"metadata": header, "vectors": vectors}
+        vectors = {f: [] for f in fields}
+
+        for i in range(0, len(payload), entry_size):
+            chunk = payload[i : i + entry_size]
+            if len(chunk) < entry_size:
+                break
+            values = struct.unpack(fmt, chunk)
+            for f, v in zip(fields, values):
+                vectors[f].append(v)
+
+        json_data = {"metadata": header, "vectors": vectors}
     with open(json_path, "w") as f:
         json.dump(json_data, f, indent=2)
 
     print(f"✅ Parsed {file} → {json_path}")
 
-print("🎉 All files parsed and saved to", output_root)
+print("All files parsed and saved to", output_root)

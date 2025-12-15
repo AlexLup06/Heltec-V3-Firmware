@@ -35,7 +35,8 @@ protected:
     uint32_t nodeAnnounceTime = 0;
     bool isReceivedPacketReady = false;
 
-    void logReceivedStatistics(const uint8_t *data, const size_t len, bool isMission);
+    void logReceivedEffectiveBytes(const uint8_t *data, const size_t len);
+    void logReceivedBytes(const uint8_t *data, const size_t len);
 
 public:
     MacBase() {}
@@ -58,6 +59,8 @@ public:
     void handlePacketResult(Result result, bool withRTS, bool withContinuousRTS);
     void handleLowerPacket(const uint8_t messageType, uint8_t *packet, const size_t packetSize, float rssi);
     void onReceiveIR() override;
+
+    bool shouldHandlePacket();
 
     virtual const char *getProtocolName() = 0;
 };

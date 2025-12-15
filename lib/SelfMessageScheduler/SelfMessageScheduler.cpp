@@ -1,8 +1,8 @@
 #include "SelfMessageScheduler.h"
 
-void SelfMessageScheduler::schedule(SelfMessage *msg, unsigned long delayMs)
+void SelfMessageScheduler::schedule(SelfMessage *msg, double delayMs)
 {
-    unsigned long t = millis() + delayMs;
+    double t = millis() + delayMs;
 
     for (auto it = messages.begin(); it != messages.end(); ++it)
     {
@@ -30,10 +30,10 @@ void SelfMessageScheduler::schedule(SelfMessage *msg, unsigned long delayMs)
     messages.insert(insertPos, msg);
 }
 
-void SelfMessageScheduler::scheduleOrExtend(SelfMessage *msg, unsigned long delayMs)
+void SelfMessageScheduler::scheduleOrExtend(SelfMessage *msg, double delayMs)
 {
-    unsigned long now = millis();
-    unsigned long newTrigger = now + delayMs;
+    double now = millis();
+    double newTrigger = now + delayMs;
 
     if (!msg->scheduled)
     {
@@ -41,7 +41,7 @@ void SelfMessageScheduler::scheduleOrExtend(SelfMessage *msg, unsigned long dela
         return;
     }
 
-    if ((long)(newTrigger - msg->triggerTime) <= 0) {
+    if (newTrigger - msg->triggerTime <= 0) {
         return;
     }
 
@@ -83,10 +83,10 @@ void SelfMessageScheduler::cancel(SelfMessage *msg)
 
 bool SelfMessageScheduler::isScheduled(SelfMessage *msg) const
 {
-    unsigned long now = millis();
+    double now = millis();
     for (auto *m : messages)
     {
-        if (m == msg && m->scheduled && (long)(now - m->triggerTime) < 0)
+        if (m == msg && m->scheduled && now - m->triggerTime < 0)
             return true;
     }
     return false;
@@ -97,10 +97,10 @@ SelfMessage *SelfMessageScheduler::popNextReady()
     if (messages.empty())
         return nullptr;
 
-    unsigned long now = millis();
+    double now = millis();
     SelfMessage *m = messages.front();
 
-    if (m->scheduled && (long)(now - m->triggerTime) >= 0)
+    if (m->scheduled && now - m->triggerTime >= 0)
     {
         m->scheduled = false;
         messages.erase(messages.begin());

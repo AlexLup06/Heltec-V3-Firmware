@@ -62,12 +62,12 @@ void MacController::markFinished()
     Serial.printf("\n\nFinished MAC %s — cooling down for 2 minutes\n\n", macIdToString(currentMac));
 
     waitingForNext = true;
-    switchTime = millis() + SWITCH_DELAY_MS;
     waitMode = true;
+    switchTime = millis() + SWITCH_DELAY_MS;
 
     if ((currentMac + 1) % MAC_COUNT == 0)
     {
-        int nextMission = 60 / missionMessagesPerMin[runCount];
+        uint16_t nextMission = missionMessagesPerMin[runCount];
         messageSimulator->setTimeToNextMission(nextMission);
     }
 
@@ -79,13 +79,13 @@ void MacController::init()
 {
     Serial.println("[MacController] First MACController update");
 
-    missionMessagesPerMin[0] = 2;
-    missionMessagesPerMin[1] = 10;
-    missionMessagesPerMin[2] = 15;
-    missionMessagesPerMin[3] = 30;
-    missionMessagesPerMin[4] = 60;
-    missionMessagesPerMin[5] = 120;
-    missionMessagesPerMin[6] = 240;
+    missionMessagesPerMin[0] = 30'000;
+    missionMessagesPerMin[1] = 6'000;
+    missionMessagesPerMin[2] = 4'000;
+    missionMessagesPerMin[3] = 2'000;
+    missionMessagesPerMin[4] = 1'000;
+    missionMessagesPerMin[5] = 500;
+    missionMessagesPerMin[6] = 250;
 
     unsigned long now = millis();
     macStartTime = now - 10;
@@ -94,8 +94,8 @@ void MacController::init()
     mac->initRun();
 
     delay(1000);
-    loggerManager->setMetadata(runCount, mac->getProtocolName(), missionMessagesPerMin[0]);
-    messageSimulator->setTimeToNextMission(missionMessagesPerMin[0]);
+    loggerManager->setMetadata(runCount, mac->getProtocolName(), missionMessagesPerMin[runCount]);
+    messageSimulator->setTimeToNextMission(missionMessagesPerMin[runCount]);
     loggerManager->init(nodeId);
 }
 
