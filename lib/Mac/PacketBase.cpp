@@ -23,7 +23,7 @@ void PacketBase::logReceivedFragmentsIdStatistics(uint16_t id, bool isMission, u
     {
         ReceivedNeighbourIdFragment_data receivedNeighbourIdFragment = ReceivedNeighbourIdFragment_data();
         receivedNeighbourIdFragment.missionId = id;
-        receivedNeighbourIdFragment.missionId = sourceId;
+        receivedNeighbourIdFragment.sourceId = sourceId;
         loggerManager->log(Metric::ReceivedNeighbourIdFragment_V, receivedNeighbourIdFragment);
     }
     if (isMission)

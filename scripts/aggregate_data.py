@@ -139,14 +139,14 @@ def compute_jain(values: List[float]) -> float:
 # Node reachability: number of receivers relative to expected neighbours
 # For non-fully-meshed topologies, fill these maps with nodeId -> neighbours-in-range
 COMPLEX_NEIGHBOUR_MAP = {
-    32: None,
-    92: None,
-    4: None,
-    100: None,
-    52: None,
-    104: None,
+    32: 4,
+    92: 2,
+    4: 3,
+    100: 2,
+    52: 3,
+    104: 2,
     248: None,
-    16: None,
+    16: 2,
 }
 
 
@@ -211,9 +211,9 @@ def aggregate_node_reachability(sent_files: List[Path], received_files: List[Pat
 
 
 def aggregate_reception_success(files: List[Path], topology: str, num_nodes: int, is_mission: bool) -> Dict[str, float]:
-    """Compute reception success ratio for mission/neighbor fragments."""
-    # pairs: (missionId, sourceId)
-    pair_to_nodes: Dict[Tuple[int, int], set] = defaultdict(set)
+    """Compute reception success ratio for fragments keyed by (missionId, sourceId, hopId)."""
+    # triplets: (missionId, sourceId, hopId)
+    triplet_to_nodes: Dict[Tuple[int, int, int], set] = defaultdict(set)
     for path in files:
         data = load_json(path)
         for node_entry in data.get("vectors", []):
@@ -222,11 +222,11 @@ def aggregate_reception_success(files: List[Path], topology: str, num_nodes: int
             missions = vec.get("missionId", []) or []
             sources = vec.get("sourceId", []) or []
             hops = vec.get("hopId", []) or []
-            for idx, (m, s) in enumerate(zip(missions, sources)):
-                key = (int(m), int(s))
-                pair_to_nodes[key].add(node_id)
+            for idx, (m, s, h) in enumerate(zip(missions, sources, hops)):
+                key = (int(m), int(s), int(h) if h is not None else 0)
+                triplet_to_nodes[key].add(node_id)
     ratios: List[float] = []
-    for (mid, src), nodes_set in pair_to_nodes.items():
+    for (mid, src, hop), nodes_set in triplet_to_nodes.items():
         denom = expected_neighbours(topology, src, num_nodes)
         ratios.append(len(nodes_set) / denom if denom > 0 else 0.0)
     return ratios
@@ -355,7 +355,7 @@ def main():
             node_reach_groups[(protocol, topology)].append(
                 (mission, nodes, metrics)
             )
-        if "received_mission_id_fragment" in metrics or "received_neighbour_id_fragment" in metrics:
+        if "received_mission_id_fragment" in metrics:
             reception_success_groups[(protocol, topology)].append((mission, nodes, metrics))
 
     for (protocol, topology, metric_name), entries in per_metric.items():
@@ -460,7 +460,7 @@ def main():
                 {
                     "timeToNextMission": int(mission) / 1000.0,
                     "numberNodes": int(nodes),
-                    "data": {"ratio": data_obj.get("ratio", {})},
+                    "data": data_obj.get("ratio", {}),
                 }
             )
             combined_prop.append(
@@ -481,11 +481,8 @@ def main():
         for mission, nodes, metrics in entries:
             ratios: List[float] = []
             mission_files = metrics.get("received_mission_id_fragment", [])
-            neighbour_files = metrics.get("received_neighbour_id_fragment", [])
             if mission_files:
                 ratios.extend(aggregate_reception_success(mission_files, topology, int(nodes), True))
-            if neighbour_files:
-                ratios.extend(aggregate_reception_success(neighbour_files, topology, int(nodes), False))
             if ratios:
                 combined_success.append(
                     {
