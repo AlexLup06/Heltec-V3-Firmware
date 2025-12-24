@@ -6,9 +6,8 @@ from typing import Dict, List, Tuple
 
 INPUT_ROOT = Path("./data_json")
 
-# Example filename produced by LoggerManager:
 # /<topology>/nodes-<n>/<metric>-<mac>-<topology>-<missionPerMin>-<n>-<nodeId>-vec-run<run>.bin
-# We aggregate the JSON-converted files that follow the same naming convention.
+# aggregate the JSON-converted files that follow the same naming convention.
 FILENAME_RE = re.compile(
     r"(?P<metric>[^-]+)-(?P<mac>[^-]+)-(?P<topo>[^-]+)-(?P<mission>\d+)-(?P<nodes>\d+)-(?P<nodeId>\d+)-vec-run(?P<run>\d+)\.json",
     re.IGNORECASE,
@@ -58,10 +57,8 @@ def main():
         groups[key].append(path)
 
     for (metric, mac, topo, mission, nodes, run), files in groups.items():
-        # Aggregate
         metadata, per_node_results = aggregate_group(files)
 
-        # Collect nodeIds included
         node_ids = sorted({int(FILENAME_RE.match(p.name).group("nodeId")) for p in files})
         metadata = metadata or {}
         metadata["nodeId"] = "all"
@@ -69,7 +66,6 @@ def main():
 
         aggregated = {"metadata": metadata, "vectors": per_node_results}
 
-        # Build output path, mirroring topology/nodes-N structure (stays in data_json)
         out_dir = INPUT_ROOT / topo / f"nodes-{nodes}"
         out_dir.mkdir(parents=True, exist_ok=True)
         out_name = f"{metric}-{mac}-{topo}-{mission}-{nodes}-all-vec-run{run}.json"
@@ -78,9 +74,8 @@ def main():
         with out_path.open("w") as f:
             json.dump(aggregated, f, indent=2)
 
-        print(f"✅ Aggregated {len(files)} files → {out_path}")
+        print(f"Aggregated {len(files)} files → {out_path}")
 
-        # Remove original per-node files to keep only the aggregated output
         for p in files:
             try:
                 p.unlink()

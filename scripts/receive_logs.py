@@ -14,7 +14,7 @@ output_root = Path("./data")
 output_root.mkdir(exist_ok=True)
 
 ser = serial.Serial(SERIAL_PORT, BAUD, timeout=2)
-print(f"📡 Listening on {SERIAL_PORT} at {BAUD} baud...")
+print(f"Listening on {SERIAL_PORT} at {BAUD} baud...")
 
 current_file = None
 expected_size = 0
@@ -32,7 +32,7 @@ try:
                 _, path_str, size_str = line.split(":", 2)
                 expected_size = int(size_str)
             except ValueError:
-                print(f"⚠️  Invalid BEGIN_FILE line: {line}")
+                print(f"Invalid BEGIN_FILE line: {line}")
                 continue
 
             rel_path = Path(path_str.lstrip("/"))
@@ -43,7 +43,7 @@ try:
             current_file = open(local_path, "wb")
             received_bytes = 0
 
-            print(f"⬇️  Receiving {rel_path} ({expected_size} bytes)")
+            print(f"Receiving {rel_path} ({expected_size} bytes)")
 
             while received_bytes < expected_size:
                 chunk = ser.read(expected_size - received_bytes)
@@ -54,7 +54,7 @@ try:
 
             current_file.close()
             current_file = None
-            print(f"✅ Saved {rel_path} ({received_bytes}/{expected_size} bytes)\n")
+            print(f"Saved {rel_path} ({received_bytes}/{expected_size} bytes)\n")
             continue
 
         if line.startswith("END_FILE:"):

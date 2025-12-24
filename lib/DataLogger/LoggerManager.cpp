@@ -55,10 +55,6 @@ void LoggerManager::init(uint8_t _nodeId)
         createDirChecked(path);
     }
 
-    // registerLogger<SentEffectiveBytes_data>(Metric::SentEffectiveBytes_V);
-    // registerLogger<SentBytes_data>(Metric::SentBytes_V);
-    // registerLogger<ReceivedEffectiveBytes_data>(Metric::ReceivedEffectiveBytes_V);
-    // registerLogger<ReceivedBytes_data>(Metric::ReceivedBytes_V);
     registerLogger<ReceivedCompleteMission_data>(Metric::ReceivedCompleteMission_V);
     registerLogger<SentMissionRTS_data>(Metric::SentMissionRTS_V);
     registerLogger<ReceivedMissionIdFragment_data>(Metric::ReceivedMissionIdFragment_V);

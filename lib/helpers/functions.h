@@ -119,14 +119,14 @@ inline T *tryCastMessage(const uint8_t *buffer, size_t bufferSize = sizeof(T))
     if (!buffer)
         return nullptr;
     if (bufferSize < sizeof(T))
-        return nullptr; // safety check
+        return nullptr;
 
-    const uint8_t *typePtr = buffer; // first byte in your structs
+    const uint8_t *typePtr = buffer; 
     const uint8_t expectedType = T{}.messageType;
 
     if (*typePtr != expectedType)
-        return nullptr; // not the same message type
-
+        return nullptr;
+        
     return reinterpret_cast<const T *>(buffer);
 }
 

@@ -107,7 +107,7 @@ SelfMessage *SelfMessageScheduler::popNextReady()
         return m;
     }
 
-    return nullptr; // nothing ready yet
+    return nullptr;
 }
 
 void SelfMessageScheduler::clear()

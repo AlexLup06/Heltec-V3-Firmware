@@ -6,7 +6,6 @@ input_root = Path("./data")
 output_root = Path("./data_json")
 output_root.mkdir(parents=True, exist_ok=True)
 
-# These mirror lib/DataLogger/Metrics.h
 METRIC_DEFS = {
     "sent_mission_rts": ("<IBH", ["time", "source", "missionId"]),
     "received_complete_mission": ("<IBH", ["time", "source", "missionId"]),
@@ -18,7 +17,6 @@ METRIC_DEFS = {
     "sent_bytes": ("<H", ["bytes"]),
 }
 
-# Header metric enum mapping (see lib/DataLogger/Metrics.h)
 METRIC_ENUM_TO_NAME = {
     0: "sent_mission_rts",
     1: "received_complete_mission",
@@ -37,8 +35,6 @@ METRIC_ENUM_TO_NAME = {
 HEADER_FORMAT = "<IHHB32s32sHBHIB"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-
-# --- Helper to parse header ---
 def parse_header(data: bytes):
     (
         magic,

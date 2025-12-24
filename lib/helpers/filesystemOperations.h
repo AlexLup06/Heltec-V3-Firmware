@@ -6,13 +6,13 @@ inline void createDirChecked(const char *path)
 {
     if (!path || path[0] != '/')
     {
-        Serial.printf("[ERR] Invalid path '%s' (must start with '/')\n", path ? path : "NULL");
+        Serial.printf("Invalid path '%s' (must start with '/')\n", path ? path : "NULL");
         return;
     }
 
     if (strlen(path) >= 63)
     {
-        Serial.printf("[ERR] Path too long: '%s'\n", path);
+        Serial.printf("Path too long: '%s'\n", path);
         return;
     }
 
@@ -22,16 +22,16 @@ inline void createDirChecked(const char *path)
     {
         if (LittleFS.exists(path))
         {
-            Serial.printf("[OK] Directory already exists: %s\n", path);
+            Serial.printf("Directory already exists: %s\n", path);
         }
         else
         {
-            Serial.printf("[ERR] mkdir failed for: %s\n", path);
+            Serial.printf("mkdir failed for: %s\n", path);
         }
     }
     else
     {
-        Serial.printf("[OK] Created directory: %s\n", path);
+        Serial.printf("Created directory: %s\n", path);
     }
 }
 
@@ -103,7 +103,7 @@ inline bool deleteRecursive(const char *path)
     File dir = LittleFS.open(path);
     if (!dir)
     {
-        Serial.printf("[FS] Cannot open path: %s\n", path);
+        Serial.printf("Cannot open path: %s\n", path);
         return false;
     }
 
@@ -113,9 +113,9 @@ inline bool deleteRecursive(const char *path)
         {
             dir.close();
             if (LittleFS.remove(path))
-                Serial.printf("[FS] Deleted file: %s\n", path);
+                Serial.printf("Deleted file: %s\n", path);
             else
-                Serial.printf("[FS] Failed to delete file: %s\n", path);
+                Serial.printf("Failed to delete file: %s\n", path);
         }
         return true;
     }
@@ -141,9 +141,9 @@ inline bool deleteRecursive(const char *path)
     if (String(path) != "/")
     {
         if (LittleFS.rmdir(path))
-            Serial.printf("[FS] Removed directory: %s\n", path);
+            Serial.printf("Removed directory: %s\n", path);
         else
-            Serial.printf("[FS] Failed to remove directory: %s\n", path);
+            Serial.printf("Failed to remove directory: %s\n", path);
     }
 
     return true;
@@ -151,9 +151,9 @@ inline bool deleteRecursive(const char *path)
 
 inline void deleteAllBinFilesAndDirs()
 {
-    Serial.println("[FS] Recursively deleting .bin files and directories...");
+    Serial.println("Recursively deleting .bin files and directories...");
 
     deleteRecursive("/");
 
-    Serial.println("[FS] Complete wipe finished.");
+    Serial.println("Complete wipe finished.");
 }

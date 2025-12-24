@@ -28,7 +28,6 @@ public:
 
     bool enqueuePacket(QueuedPacket *pkt);
     void enqueuePacketAtPosition(QueuedPacket *pkt, int pos);
-    void enqueueNodeAnnounce(QueuedPacket *pkt);
 
     const QueuedPacket *getFirstPacket() const;
     QueuedPacket *dequeuePacket();

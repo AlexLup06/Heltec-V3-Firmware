@@ -10,7 +10,6 @@ SIMULATION_DURATION_S = 300
 INPUT_ROOT = Path("data_json")
 OUTPUT_ROOT = Path("data_aggregated")
 
-# Pattern for merged files: <metric>-<protocol>-<topology>-<mission>-<nodes>-all-vec-run<run>.json
 MERGED_RE = re.compile(
     r"(?P<metric>[^-]+)-(?P<protocol>[^-]+)-(?P<topology>[^-]+)-(?P<mission>\d+)-(?P<nodes>\d+)-all-vec-run(?P<run>\d+)\.json",
     re.IGNORECASE,
@@ -88,10 +87,8 @@ def compute_stats(values: List[float]) -> Dict[str, float]:
 
 
 def summarize_values(val) -> Dict:
-    # If already a stats dict with mean/std/ci95/count, clean Nones and drop count
     if isinstance(val, dict) and ("mean" in val or "ci95" in val or "std" in val or "count" in val):
         cleaned = {k: v for k, v in val.items() if v is not None}
-        # drop ci95 if None or incomplete
         if "ci95" in cleaned and (cleaned["ci95"] is None or any(v is None for v in cleaned["ci95"])):
             cleaned.pop("ci95", None)
         if cleaned.get("std") is None:
@@ -99,7 +96,6 @@ def summarize_values(val) -> Dict:
         cleaned.pop("count", None)
         return cleaned
 
-    # If it's a dict of sub-metrics (e.g., ratio/propagation_time), summarize each
     if isinstance(val, dict) and not ("values" in val):
         return {k: summarize_values(v) for k, v in val.items()}
 
@@ -136,8 +132,6 @@ def compute_jain(values: List[float]) -> float:
     return (s * s) / (n * s2)
 
 
-# Node reachability: number of receivers relative to expected neighbours
-# For non-fully-meshed topologies, fill these maps with nodeId -> neighbours-in-range
 COMPLEX_NEIGHBOUR_MAP = {
     32: 4,
     92: 2,
@@ -195,7 +189,6 @@ def aggregate_node_reachability(sent_files: List[Path], received_files: List[Pat
     ratios: List[float] = []
     propagation_times: List[float] = []
 
-    # Expected receivers = all other nodes that actually provided logs
     denom = max(len(present_nodes) - 1, 1)
     for key, recv_list in received_map.items():
         recv_nodes = {n for n, _t in recv_list if n is not None}
@@ -212,7 +205,6 @@ def aggregate_node_reachability(sent_files: List[Path], received_files: List[Pat
 
 def aggregate_reception_success(files: List[Path], topology: str, num_nodes: int, is_mission: bool) -> Dict[str, float]:
     """Compute reception success ratio for fragments keyed by (missionId, sourceId, hopId)."""
-    # triplets: (missionId, sourceId, hopId)
     triplet_to_nodes: Dict[Tuple[int, int, int], set] = defaultdict(set)
     for path in files:
         data = load_json(path)
@@ -251,7 +243,6 @@ def write_output(protocol: str, topology: str, metric_name: str, data_entries: L
         "data": [],
     }
 
-    # normalize each entry into metadata + summarized data stats
     normalized_entries = []
     for entry in data_entries:
         meta = {}
@@ -295,7 +286,6 @@ def write_time_on_air(protocol: str, topology: str, data_entries: List[Dict]):
             meta["timeToNextMission"] = entry["timeToNextMission"]
         if "numberNodes" in entry:
             meta["numberNodes"] = entry["numberNodes"]
-        # data already a scalar fairness value; wrap as mean only
         normalized_entries.append({"metadata": meta, "data": {"mean": entry.get("data")}})
 
     payload["data"] = normalized_entries
@@ -343,14 +333,12 @@ def write_output_propagation(protocol: str, topology: str, data_entries: List[Di
 def main():
     groups = collect_inputs()
 
-    # Re-group by (protocol, topology, metric) so all missions/times/node counts are combined
     per_metric: Dict[Tuple[str, str, str], List[Tuple[str, str, Dict[str, List[Path]]]]] = defaultdict(list)
     node_reach_groups: Dict[Tuple[str, str], List[Tuple[str, str, Dict[str, List[Path]]]]] = defaultdict(list)
     reception_success_groups: Dict[Tuple[str, str], List[Tuple[str, str, Dict[str, List[Path]]]]] = defaultdict(list)
     for (protocol, topology, mission, nodes), metrics in groups.items():
         for metric_name, paths in metrics.items():
             per_metric[(protocol, topology, metric_name)].append((mission, nodes, {metric_name: paths, **metrics}))
-        # collect combos that have both sent and received missions
         if "sent_mission_rts" in metrics and "received_complete_mission" in metrics:
             node_reach_groups[(protocol, topology)].append(
                 (mission, nodes, metrics)
@@ -364,7 +352,6 @@ def main():
         bytes_data = []
         for mission, nodes_val, metrics in entries:
             if metric_name == "counter":
-                # Counters now include bytes and time_on_air/collisions per node
                 counter_stats = aggregate_counters(metrics.get("counter", []))
                 toa_values = counter_stats["time_on_air_values"]
                 collisions_sum = counter_stats["collisions_total"]
@@ -407,7 +394,6 @@ def main():
                 write_time_on_air(protocol, topology, combined_data)
             if collisions_data:
                 write_output(protocol, topology, "collision-per-node", collisions_data)
-            # compute normalized throughputs from counter-provided bytes
             nd_throughput: List[Dict] = []
             ne_throughput: List[Dict] = []
             mac_efficiencies: List[Dict] = []
@@ -448,7 +434,6 @@ def main():
             if mac_efficiencies:
                 write_output(protocol, topology, "mac-efficiency", mac_efficiencies)
 
-    # Node reachability aggregation (requires both sent_mission_rts and received_complete_mission)
     for (protocol, topology), entries in node_reach_groups.items():
         combined_reach: List[Dict] = []
         combined_prop: List[Dict] = []
@@ -475,7 +460,6 @@ def main():
         if combined_prop:
             write_output_propagation(protocol, topology, combined_prop)
 
-    # Reception success ratio for mission/neighbor fragments (combined stats per mission/time setting)
     for (protocol, topology), entries in reception_success_groups.items():
         combined_success: List[Dict] = []
         for mission, nodes, metrics in entries:

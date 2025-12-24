@@ -37,7 +37,7 @@ public:
 
     void turnOnOperationMode();
     bool isInConfigMode();
-    void handleConfigMode(); // runs in main handle()
+    void handleConfigMode();
     void handleDioInterrupt();
     void sendBroadcastConfig();
     void setNetworkTopology(bool forward);

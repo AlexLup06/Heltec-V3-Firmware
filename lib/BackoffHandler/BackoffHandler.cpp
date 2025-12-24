@@ -14,7 +14,7 @@ bool BackoffHandler::isInvalidBackoffPeriod() const
 void BackoffHandler::generateBackoffPeriod()
 {
     int slot = random(0, cwBackoff);
-    backoffPeriod_MS = (double)(slot * backoffFS_MS) + (double)random(0, 3000) / 1000.0 + 6; // + 6 because tx->rx takes 6ms
+    backoffPeriod_MS = (double)(slot * backoffFS_MS) + (double)random(0, 3000) / 1000.0 + 6;
     remainderCW = cwBackoff - slot - 1;
     chosenSlot = slot;
 }
